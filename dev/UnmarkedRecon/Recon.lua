@@ -841,32 +841,32 @@ local function sectionOutline()
 		probeCVar(c)
 	end
 	add("")
-	add("   LIVE RESULTS:")
-	add("      Outline EXISTS and reads 0 -- it was ALREADY 0 before any test,")
-	add("      so \"trycvar Outline 0\" was a no-op. That is why nothing changed.")
-	add("      Setting it to 1/2/3 produced no visible outline either, so on this")
-	add("      client the CVar looks inert.")
-	add("      graphicsOutlineMode DOES NOT EXIST here, and should not: it was")
-	add("      added in Patch 7.0.3, long after 5.4.")
-	add("      Research found no bug reports about a broken outline option in")
-	add("      MoP Classic.")
+	add("   LIVE RESULTS -- CORRECTED:")
+	add("      Outline EXISTS and WRITES CORRECTLY. Values 0/1/2/3 all take.")
+	add("      Nothing renders at any value -- and Blizzard's OWN options window")
+	add("      does not change anything either. So this is a CLIENT RENDERING")
+	add("      FAULT, not a dead CVar and not something an addon can reach.")
+	add("      graphicsOutlineMode is absent, as expected: added in Patch 7.0.3,")
+	add("      long after 5.4.")
 	add("")
-	add("   Outline being off is what CAUSES the sparkles -- they are")
-	add("   alternatives -- and Outline is already off. That matches what was")
-	add("   seen: glimmer always present, outline never seen.")
+	add("   Because outline and sparkle are alternatives, an outline that never")
+	add("   renders means the sparkle is always shown. That is the whole cause.")
 	add("")
-	add("   THE DISCRIMINATING TEST -- is the CVar dead, or is our write wrong?")
-	add("      1. Toggle the Outline option in Blizzard's OWN options window.")
-	add("      2. Does anything change on a quest object or herb?")
-	add("      3. Then /unrecon set Outline 1 and see whether the value moved.")
-	add("   If Blizzard's own checkbox does nothing either, the feature is dead")
-	add("   on this client and no addon can reach it.")
+	add("   REJECTED, both tested live:")
+	add("      particleDensity 0  -- does remove the glimmer, but also removes")
+	add("                            the particles on lootable bodies, which")
+	add("                            Classic had. Not a fix.")
+	add("      ffxGlow 0          -- visible change elsewhere, does not touch")
+	add("                            the particle glow at all. Not a fix.")
 	add("")
-	add("   OTHER CANDIDATES that exist here, one test each:")
-	add("      particleDensity = 80  ->  /unrecon trycvar particleDensity 0")
-	add("      ffxGlow = 1           ->  /unrecon trycvar ffxGlow 0")
-	add("   Research says lowering particle density reduces the sparkle but hits")
-	add("   spell effects everywhere, so it is a poor default even if it works.")
+	add("   Target behaviour, for the record: sparkles OFF for quest objectives")
+	add("   and herb/mining nodes, but KEPT on lootable bodies. No lever found")
+	add("   so far separates those three, and the only CVar that would (Outline)")
+	add("   cannot render on this client.")
+	add("")
+	add("   Shipped as an EXPERIMENTAL opt-in anyway: turning Outline ON is a")
+	add("   semi-fix for anyone whose client CAN render outlines. 1 is enough;")
+	add("   2 and 3 also work. Never on by default, never part of /cq on.")
 end
 
 -- [G12] The quest progress tooltip that appears on mouseover.
@@ -911,8 +911,13 @@ local function sectionBlipAtlas()
 	add("   Restoring it needs no /reload, which makes an on/off toggle possible.")
 	add("")
 	add("   /unrecon blipreset          restore the default sheet (no argument needed)")
-	add("   /unrecon atlas              show the WHOLE sheet with every index labelled")
-	add("                               in place on it (/unrecon blipgrid does the same)")
+	add("   /unrecon atlas [w] [h]      the WHOLE sheet, every index boxed on it")
+	add("   /unrecon cell <index>       ONE index, big, at three aspects")
+	add("")
+	add("   KNOWN PROBLEM: at 256x256 and 512x512 the sheet renders correctly but")
+	add("   the red boxes do NOT line up with the art, so GetPOITextureCoords and")
+	add("   this texture disagree about the grid. Use /unrecon cell to settle what")
+	add("   a given index actually points at.")
 	add("")
 	add("   Note: the documented 8x2 / 256x64 layout describes the OLD ObjectIcons")
 	add("   sheet. GetPOITextureCoords on this client steps by 0.0703125 across and")
@@ -1173,6 +1178,86 @@ local function showBlipGrid(w, h)
 end
 
 ---------------------------------------------------------------------
+-- Single atlas cell (G10)
+---------------------------------------------------------------------
+
+local cellFrame
+
+-- The whole-sheet view's red boxes did not line up with the art, so the UV
+-- coords and this texture disagree about the grid. Rather than keep arguing
+-- with a screenshot, render ONE index on its own, big, at three different
+-- aspects. Whichever looks like a real icon tells us the true cell shape --
+-- and if none do, the coords simply do not index this sheet.
+local function showCell(index)
+	index = tonumber(index)
+	if not index then
+		DEFAULT_CHAT_FRAME:AddMessage("|cffff5555[Recon]|r usage: /unrecon cell 124")
+		return
+	end
+	local getCoords = C_Minimap and C_Minimap.GetPOITextureCoords
+	if type(getCoords) ~= "function" then
+		DEFAULT_CHAT_FRAME:AddMessage("|cffff5555[Recon]|r GetPOITextureCoords missing.")
+		return
+	end
+	local ok, l, r, t, b = pcall(getCoords, index)
+	if not ok or type(l) ~= "number" then
+		DEFAULT_CHAT_FRAME:AddMessage("|cffff5555[Recon]|r no coords for index " .. index)
+		return
+	end
+
+	if cellFrame then cellFrame:Hide() cellFrame = nil end
+
+	local f = CreateFrame("Frame", "UnmarkedReconCell", UIParent)
+	f:SetSize(420, 220)
+	f:SetPoint("CENTER")
+	f:SetFrameStrata("DIALOG")
+	f:EnableMouse(true)
+	f:SetMovable(true)
+	f:RegisterForDrag("LeftButton")
+	f:SetScript("OnDragStart", f.StartMoving)
+	f:SetScript("OnDragStop", f.StopMovingOrSizing)
+
+	local bg = f:CreateTexture(nil, "BACKGROUND")
+	bg:SetAllPoints()
+	bg:SetColorTexture(0, 0, 0, 0.95)
+
+	local title = f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+	title:SetPoint("TOP", 0, -8)
+	title:SetText("Index " .. index .. " drawn at three aspects")
+
+	local close = CreateFrame("Button", nil, f, "UIPanelCloseButton")
+	close:SetPoint("TOPRIGHT", -4, -4)
+
+	local shapes = {
+		{ w = 128, h = 64,  label = "2:1 wide" },
+		{ w = 96,  h = 96,  label = "square" },
+		{ w = 64,  h = 128, label = "1:2 tall" },
+	}
+	local x = 30
+	for i = 1, #shapes do
+		local sh = shapes[i]
+		local tex = f:CreateTexture(nil, "ARTWORK")
+		tex:SetSize(sh.w, sh.h)
+		tex:SetPoint("TOPLEFT", x, -50)
+		tex:SetTexture("Interface\\MINIMAP\\ObjectIconsAtlas")
+		pcall(tex.SetTexCoord, tex, l, r, t, b)
+
+		local cap = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+		cap:SetPoint("TOP", tex, "BOTTOM", 0, -4)
+		cap:SetText(sh.label)
+		x = x + sh.w + 24
+	end
+
+	local coords = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	coords:SetPoint("BOTTOM", 0, 8)
+	coords:SetText(string.format("uv %.5f %.5f %.5f %.5f", l, r, t, b))
+
+	cellFrame = f
+	DEFAULT_CHAT_FRAME:AddMessage("|cff66ccff[Recon]|r showing index " .. index ..
+		". Try neighbours too: /unrecon cell " .. (index + 1))
+end
+
+---------------------------------------------------------------------
 -- Tooltip capture (G12)
 ---------------------------------------------------------------------
 
@@ -1400,6 +1485,11 @@ SlashCmdList["UNRECON"] = function(msg)
 	if cmd == "blipgrid" or cmd == "atlas" then
 		local w, h = msg:match("^%s*%a+%s+(%d+)%s+(%d+)")
 		showBlipGrid(w, h)
+		return
+	end
+
+	if cmd == "cell" then
+		showCell(msg:match("^%s*%a+%s+(%-?%d+)"))
 		return
 	end
 
