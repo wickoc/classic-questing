@@ -40,19 +40,21 @@ Default **on**.
 - **Minimap quest area blobs.** `Minimap:SetQuestBlobRingAlpha(0)`,
   `SetQuestBlobInsideAlpha(0)`, `SetQuestBlobRingScalar(0)`. Undocumented widget methods,
   present since Cataclysm. Verify against recon output.
-  > ⚠ **Contradicted by recon — all six blob methods are absent on this client.** This bullet
-  > cannot be implemented as written. See "What the log contradicts", finding C1.
+  > ⚠ **Resolved against this bullet — DROP IT.** v0.3 read the full 205-method `Minimap`
+  > chain: no blob methods of any kind exist, there are no quest pin child frames, and
+  > `questPOI 0` changed nothing on the minimap. There is no layer here to hide. See G1.
 - **Minimap quest POI pins.** The numbered objective pins. Blizzard exposes a *Quest POIs*
   entry in the minimap tracking dropdown; the addon should set it off and re-assert it, rather
   than fight the frames. Re-assert on `PLAYER_ENTERING_WORLD` and `MINIMAP_UPDATE_TRACKING`.
-  > ⚠ **Unverified — the recon never probed the tracking API or the tracking frame.** See
-  > gap G2.
+  > ✅ **Confirmed available, with a caveat.** Use `C_Minimap.SetTracking`; the bare globals
+  > do not exist. `Track Quest POIs` is already off, so the module enforces rather than
+  > changes — and the index must be resolved **by name**, not hardcoded. See G2.
 - **World map quest pins** — the numbered markers.
 - **World map quest area highlights** — the shaded "objective is somewhere in here" regions.
 - **CVar enforcement.** `questPOI` and friends set once at login and re-asserted on
   `CVAR_UPDATE`, so the settings don't drift back after a patch or a UI reset.
-  > Recon narrows "and friends" to the CVars that actually exist here: `questPOI`,
-  > `questHelper`, `autoQuestWatch`, `trackQuestSorting`. The last two are Tier 2 concerns.
+  > Narrowed to **`questPOI` alone**. `questHelper` exists but cannot be written — the write
+  > is silently refused. `autoQuestWatch` and `trackQuestSorting` are Tier 2 concerns. See G5.
 
 ### Tier 2 — objective tracker
 
@@ -129,7 +131,7 @@ to trace back to their cause.
 
 ---
 
-## Recon results
+## Recon results — v0.2 probe
 
 Source: `UnmarkedRecon` v0.2, run on the live client, world map opened first (the pin-pool
 section is populated, so the `"No pin pools yet"` branch did not fire). Raw SavedVariables
@@ -216,119 +218,194 @@ Modern Settings API available - use Settings.RegisterCanvasLayoutCategory.
 
 ---
 
+## Recon results — v0.3 probe
+
+Run 2026-09-05 12:05, same client. Full output at `dev/recon-log-v3-2026-09-05.txt`;
+the `Minimap` method dump at `dev/recon-log-v3-minimap-methoddump-2026-09-05.txt`.
+Decisive excerpts only, below.
+
+**[G1] The minimap has no quest-blob surface, and no quest pin frames.**
+
+```
+   Minimap: 205 methods visible.
+      Minimap:SetBlipTexture          Minimap:SetCorpsePOIArrowTexture
+      Minimap:SetPOIArrowTexture      Minimap:SetStaticPOIArrowTexture
+      Minimap:UpdateBlips
+   Minimap: 3 child frame(s)
+       1  MiniMapMailFrame     2  MiniMapBattlefieldFrame     3  MinimapBackdrop
+   Minimap: 0 region(s)
+Is the minimap data-provider driven, like the world map?
+--   Minimap.dataProviders          --   Minimap:RemoveDataProvider
+--   MinimapCluster.dataProviders   --   Minimap:AddDataProvider
+```
+
+**[G2] Tracking is available through `C_Minimap`, and quest POIs are already off.**
+
+```
+--   SetTracking      --   GetNumTrackingTypes      --   GetTrackingInfo
+   C_Minimap members: 5
+      C_Minimap.ClearAllTracking      C_Minimap.GetNumTrackingTypes
+      C_Minimap.GetPOITextureCoords   C_Minimap.GetTrackingInfo
+      C_Minimap.SetTracking
+Tracking types on this client:
+   18 tracking type(s)
+       1  table: name=Find Herbs active=false
+      13  table: name=Low Level Quests active=false
+      14  table: name=Points of Interest active=false
+      17  table: name=Track Quest POIs active=false
+```
+
+**[G3] Provider identification failed — a fault in the probe, not the client.**
+
+```
+   WorldMapFrame: 192 methods visible.
+      (no method name matches dataprovider / pin)
+   Providers reachable: 15
+   provider 10  mixin=nil  GetPinTemplate=QuestPinTemplate
+      own keys (33): AddQuest, AssignMissingNumbersToPins, ClearFocusedQuestID, ...
+   provider 13  mixin=nil  GetPinTemplate=AreaPOIPinTemplate
+   provider  6  mixin=nil  own keys (24): GetMap, Init, IsCVarSet, ...
+   provider 12  mixin=nil  own keys (26): GetMap, Init, IsCVarSet, IsZoneMapType, ...
+   (providers 1-5, 7, 9, 11, 14, 15: mixin=nil, GetPinTemplate=nil)
+```
+
+**[G4] Settings surface, fully answered.**
+
+```
+OK   Settings:RegisterCanvasLayoutCategory   OK   Settings:RegisterAddOnCategory
+OK   Settings:RegisterVerticalLayoutCategory OK   Settings:OpenToCategory
+OK   Settings:RegisterAddOnSetting           OK   Settings:CreateCheckbox
+OK   Settings:CreateControlTextContainer     OK   Settings:SetValue
+OK   SettingsPanel  [Frame]                  --   InterfaceOptionsFrame
+```
+
+**[G5] Live CVar effect test, observed in game.**
+
+- `questPOI 0` — world map quest markers removed, and the *Track Quest* checkbox in the
+  world map's bottom-left corner removed with them. Minimap: no change.
+- `questHelper 0` — refused. The probe reported `questHelper: 1 -> 1`; the write did not take.
+
+---
+
 ## Conclusions
 
-Everything below is drawn from the log above and nothing else. Where a claim is an inference
-from a *name* in the log rather than something the log measured, it is labelled as such.
+Updated after the v0.3 run. The three headline verdicts are unchanged; what changed is
+the Tier 1 implementation plan, which is now considerably smaller.
 
-### The three open questions
+### The three open questions — unchanged
 
-**1. World map — Branch B: modern canvas, `WorldMapFrame:RemoveDataProvider()`.**
+Branch **B** (modern canvas), branch **A** (`WatchFrame`), branch **B**
+(`Settings.RegisterCanvasLayoutCategory`). The v0.3 run reconfirms all three and adds
+nothing that disturbs them. Evidence as recorded against the v0.2 run above.
 
-The probe prints `MODERN CANVAS` only inside `if WorldMapFrame and WorldMapFrame.RemoveDataProvider`,
-so that method is confirmed non-nil, not merely assumed. Corroborating: every Branch-A global is
-absent — `WorldMapBlobFrame`, `WorldMapPOIFrame`, and the MoP-era
-`WorldMapQuestShowObjectives` / `WorldMapShowDropDown` checkbox globals are all `--`. There is
-nothing of the old map left to hide. Fifteen data providers are registered and six pin pools have
-spawned.
+### G1 — resolved: there is no minimap quest-blob layer to hide
 
-*Branch A is dead. Do not write it. No shim.*
+The v0.2 result was inconclusive by construction — six probed names came back absent, but
+absent-or-misnamed could not be distinguished. v0.3 settles it: the `Minimap` method chain
+**is** readable, 205 methods deep, and the full dump contains no `SetQuestBlob*`,
+`SetArchBlob*`, or any blob-related method whatsoever. What it does contain is the blip
+family: `SetBlipTexture`, `UpdateBlips`, `SetPOIArrowTexture`, `SetCorpsePOIArrowTexture`,
+`SetStaticPOIArrowTexture`.
 
-**2. Objective tracker — Branch A: `WatchFrame`.**
+Corroborating, and all pointing the same way: `Minimap` has three named children and **zero**
+unnamed ones (v0.2 could not see unnamed children at all), zero regions, and no
+data-provider machinery. There are no quest POI pin frames parented to the minimap. And
+`questPOI 0` changed nothing on the minimap in the live test.
 
-`WatchFrame [Frame]`, `WatchFrame_Update`, and `WatchFrame_Collapse` all exist. Every
-Branch-B global is absent: `ObjectiveTrackerFrame`, `ObjectiveTracker_Update`,
-`ObjectiveTrackerBlocksFrame`. `QuestWatchFrame` (vanilla) and `AutoQuestPopUpTracker` are
-also absent. This is the MoP-era tracker, unmodified — the retail tracker was *not* backported.
+The reading: **this client's minimap draws quest markers as engine blips and has no quest
+area blob rendering at all.** SPEC's first Tier 1 bullet is therefore not merely
+unimplementable as written — it has nothing to act on. Subject to confirmation Q1 below.
 
-*Tier 2 only. Not built in the MVP.*
+### G2 — resolved: use `C_Minimap`, and resolve the index by name
 
-**3. Options panel — Branch B: `Settings.RegisterCanvasLayoutCategory`.**
+The tracking route the spec wanted does exist, but only namespaced. The bare
+`SetTracking` / `GetNumTrackingTypes` / `GetTrackingInfo` globals are absent; the working
+functions are `C_Minimap.SetTracking`, `.GetNumTrackingTypes`, `.GetTrackingInfo`,
+`.ClearAllTracking`. `GetTrackingInfo` returns a **table** (`.name`, `.active`), not a
+tuple — worth stating because the two shapes are not interchangeable and the probe had to
+handle both to find out.
 
-`Settings` exists as a table, and the probe's closing line is emitted only inside
-`if Settings and Settings.RegisterCanvasLayoutCategory`, so that function is confirmed present.
-Both legacy anchors are gone: `InterfaceOptions_AddCategory` and
-`InterfaceOptionsFramePanelContainer` are `--`. There is no legacy panel to fall back to.
+Entry 17 is `Track Quest POIs`, and it is **already `active=false`**, which explains the
+minimap's Classic-looking behaviour and the null result from `questPOI 0` there.
 
-*Branch A is dead. Caveat in gap G4 about the slash command.*
+**The trap:** these indices are not stable. Entry 1 on this run is `Find Herbs`, which only
+exists for a herbalist — so the list shifts by class and profession, and index 17 means
+something different on another character. The addon must resolve the entry **by name at
+runtime**, comparing against the `MINIMAP_TRACKING_QUEST_POIS` global (present, confirmed in
+the globals listing). Hardcoding 17 would appear to work on this character and silently
+toggle the wrong tracking type on the next one.
 
-### The shape this client actually has
+Since the entry is already off, the module's job is to **enforce** rather than to change.
 
-Worth stating plainly, because it drives everything else: this is **MoP-era quest logic running
-on a modern engine**, and the two halves disagree about which era they're from. The map is a
-retail-style canvas with data providers and pin pools, while the tracker is `WatchFrame` and
-supertracking is still the old `SetSuperTrackedQuestID` / `GetSuperTrackedQuestID` globals with
-no `C_SuperTrack` namespace. The quest-POI helpers are split down the middle:
-`QuestPOIGetIconInfo`, `QuestPOI_GetButton`, and `QuestPOIUpdateIcons` are present, while
-`QuestPOI_DisplayButton` and `GetQuestPOILeaderboardInfo` are gone.
+### G3 — partially resolved, and the gap was my probe's fault
 
-Practical consequence: **no era assumption transfers.** Every global this addon touches gets
-probed before it is used, and the fail-soft rule (safety rule 5) is load-bearing rather than
-defensive boilerplate.
+All 15 providers reported `mixin=nil`, and `WorldMapFrame` reported "no method name matches
+dataprovider / pin" despite `RemoveDataProvider` being confirmed present. Both are the same
+false negative: these objects are built with `CreateFromMixins`, which **copies** each
+method onto the object rather than linking a metatable. v0.3 walked the metatable chain
+only, so it was looking in the wrong place. The 12-key display cap compounded it — providers
+1-5, 7, 9 and 11 are identical across their first twelve alphabetical keys, so their
+distinguishing members were cut off.
 
-### What the log contradicts in this spec — the log wins
+Both are fixed in probe v0.4, which identifies providers by **function-reference
+fingerprint** against every global `*DataProviderMixin` table, lists the keys that are *not*
+common to all providers, and prints scalar fields — the last of these being how a CVar-gated
+provider reveals which CVar gates it.
 
-**C1 — the minimap blob API does not exist here.** Tier 1's first bullet asserts
-`Minimap:SetQuestBlobRingAlpha` / `SetQuestBlobInsideAlpha` / `SetQuestBlobRingScalar` are
-"present since Cataclysm". All three are absent, and so are `SetQuestBlobInsideTexture`,
-`SetArchBlobRingAlpha`, and `SetArchBlobInsideAlpha` — the whole family, not one renamed
-member. That bullet has no implementation on this client as written, and it is the single
-biggest hole in the Tier 1 plan. Blocked on gap G1.
+What v0.3 did establish, and which stands:
 
-**C2 — the minimap tracking-dropdown plan is unverified, and the one adjacent CVar is gone.**
-Tier 1 proposes setting a *Quest POIs* entry off via the tracking dropdown and re-asserting it.
-The log neither confirms nor denies that: it never probed the tracking API or the tracking frame.
-What it does show is that `minimapTrackingShowAll` does not exist, and that the only *named*
-children of `Minimap` are `MiniMapMailFrame`, `MiniMapBattlefieldFrame`, and `MinimapBackdrop` —
-no tracking frame among them. That is suggestive but not conclusive, since a tracking button is
-commonly parented to `MinimapCluster` rather than `Minimap`, which the probe never enumerated.
-Blocked on gap G2.
+- **Provider 10 is the quest pin provider** — `GetPinTemplate=QuestPinTemplate`, with
+  `AddQuest`, `AssignMissingNumbersToPins`, `ClearFocusedQuestID` among its keys.
+- Provider 13 is an area-POI provider (`GetPinTemplate=AreaPOIPinTemplate`).
+- **Providers 6 and 12 are CVar-gated** — both carry `Init` and `IsCVarSet`, the signature of
+  `CVarMapCanvasDataProviderMixin`. One of them is the likely owner of
+  `QuestBlobPinTemplate`, and `questPOI` is the likely gate. That is consistent with the
+  live test, where `questPOI 0` removed the world map markers.
 
-**C3 — "`questPOI` and friends" is a shorter list than assumed.** Of the nine CVars probed,
-four exist: `questPOI = 1`, `autoQuestWatch = 1`, `trackQuestSorting = top`, `questHelper = 1`.
-Five do not: `autoQuestProgress`, `mapQuestDifficulty`, `showQuestTrackingTooltips`,
-`minimapTrackingShowAll`, `worldMapFilterAccountCompletedQuests`. Tier 1's CVar module therefore
-has exactly two candidates — `questPOI` and `questHelper` — and the CVar enforcement loop must
-skip absent names rather than set them blindly.
+### G4 — resolved
 
-**C4 — project rename knock-ons.** Folder, `.toc`, and slash command all move off *Unmarked*.
-Recorded above; flagging it here so it isn't mistaken for drift.
+Everything the options panel needs is present, including `Settings.OpenToCategory` for the
+slash command. `InterfaceOptionsFrame` does not exist in any form, so there is no legacy
+path to fall back to and none will be written.
 
-### What the log does not settle
+### G5 — resolved, and it removes a CVar from the plan
 
-These are genuine gaps, not things I can reason around. Each needs probe v0.3.
+`questPOI` works and is the right lever for the world map. `questHelper` **cannot be set** —
+the write was silently refused, value unchanged at 1. It is locked or read-only on this
+client.
 
-**G1 — how to suppress minimap quest blobs and pins at all (blocks half of Tier 1).**
-With the blob methods gone, the log offers no route. Unprobed and needed: whether a `C_Minimap`
-namespace exists; what `MinimapCluster:GetChildren()` holds; how many *unnamed* children
-`Minimap` has (the probe only printed named ones, so anything anonymous is invisible in this
-log); and whether the minimap quest layer is itself data-provider-driven on this hybrid client.
+This is the clearest vindication of testing over assuming in the whole exercise. Shipping
+`SetCVar("questHelper", 0)` would have thrown no error, logged nothing, and done nothing,
+forever. It is dropped from the plan. Probe v0.4 now reports the lock/secure/read-only flags
+from `GetCVarInfo` so this class of thing is visible without a live test next time.
 
-**G2 — the minimap tracking API.** Unprobed: `C_Minimap.SetTracking` / `GetNumTrackingTypes` /
-`GetTrackingInfo`, the bare `SetTracking` global, `MiniMapTracking*` and `MinimapCluster.Tracking`
-globals, and whether any tracking entry is actually named for quest POIs. Until this is answered
-the "use Blizzard's own switch" approach (safety rule 4) can't be confirmed as available.
+### Consequence: Tier 1 is much smaller than the spec assumed
 
-**G3 — which of the 15 data providers to remove.** This is the one gap inside the branch we
-*did* resolve. `RemoveDataProvider` takes a provider *object*, and the log gives us pin-pool
-*template names* instead — a different thing. Only 6 pools appear because a pool is created
-lazily when a provider first spawns a pin, so 9 providers are entirely unrepresented. Nothing
-in the log lets me map a template name back to the provider that owns it. Unprobed and needed:
-whether providers expose an identifying method such as `GetPinTemplate`, and whether the
-provider mixins exist as globals (`QuestDataProviderMixin` and friends) so a provider can be
-identified by its metatable. Without one of those, the removal call has no argument.
+Both of the levers that survive are Blizzard's own switches, which is exactly what safety
+rule 4 asks for. Tier 1 as now understood needs **no frame surgery, no `Hide()` calls, and
+no `hooksecurefunc`** — the combat-safety and taint rules stay in force for later tiers, but
+Tier 1 does not currently reach for anything they constrain.
 
-Separately, my reading of the six template names — `QuestPinTemplate` as the numbered quest
-markers and `QuestBlobPinTemplate` as the shaded objective areas, i.e. exactly the two Tier 1
-world-map targets, with `MapHighlightPinTemplate` being the zone hover-highlight belonging to
-Tier 3 — is **inference from the names**, which is all the log contains. It gets confirmed in
-game against the Tier 1 checklist, not assumed.
+| Spec bullet | Status after recon |
+|---|---|
+| Minimap quest area blobs | **Drop.** No such layer on this client (G1). |
+| Minimap quest POI pins | Enforce `Track Quest POIs` off via `C_Minimap.SetTracking`, index resolved by name (G2). |
+| World map quest pins | `questPOI 0` removes them (G5, observed). |
+| World map quest area highlights | **Open** — see Q2. Needs `RemoveDataProvider` only if the CVar doesn't cover it. |
+| CVar enforcement | `questPOI` only. `questHelper` is unsettable (G5). |
 
-**G4 — how the options panel is opened by slash command.** `RegisterCanvasLayoutCategory` is
-confirmed; `Settings.OpenToCategory` was never probed, and `/cq` needs it. Low urgency — the
-panel is built last — but it should ride along on the next probe run.
+So: `Core.lua` + `CVars.lua` + `Minimap.lua`, and `WorldMap.lua` only if Q2 says it is
+needed. Tiers 2 and 3 unchanged and out of scope.
 
-**G5 — what `questPOI` and `questHelper` actually do here.** The log proves the CVars exist and
-reports their values. It says nothing about their effect. Worth testing first in game: if
-`questPOI 0` alone suppresses the pins, most of the Tier 1 frame work is unnecessary and safety
-rule 4 says take the CVar.
+### Open questions before Tier 1 is written
+
+**Q1 — Does a blue shaded quest area ever appear on the *minimap* on this client?**
+If never, the minimap blob bullet is closed as a no-op. If it does appear somewhere, G1 says
+there is no documented lever for it and we would need another probe pass.
+
+**Q2 — With `questPOI 0`, does the shaded quest objective *area* also disappear from the
+world map, or only the numbered markers?** This decides whether `WorldMap.lua` exists at
+all. If the CVar covers both, Tier 1 is two modules and no data-provider code.
+
+**Q3 — With `questPOI 0`, do quest markers reappear on a fresh map open or a zone change?**
+Determines whether the CVar needs re-asserting on map events or only on `CVAR_UPDATE`.

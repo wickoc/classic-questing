@@ -1,0 +1,431 @@
+Unmarked Recon v0.3 - 2026-09-05 11:56
+Client 5.5.4 build 69585, interface number 50504
+
+== Objective tracker (on-screen) ==
+OK   WatchFrame  [Frame]
+OK   WatchFrame_Update  [function]
+OK   WatchFrame_Collapse  [function]
+--   ObjectiveTrackerFrame
+--   ObjectiveTracker_Update
+--   QuestWatchFrame
+--   AutoQuestPopUpTracker
+--   ObjectiveTrackerBlocksFrame
+
+== World map ==
+OK   WorldMapFrame  [Frame]
+--   WorldMapBlobFrame
+--   WorldMapPOIFrame
+--   WorldMapQuestShowObjectives
+--   WorldMapShowDropDown
+OK   QuestMapFrame  [Frame]
+OK   QuestScrollFrame  [ScrollFrame]
+OK   QuestMapFrame_UpdateAll  [function]
+OK   QuestMapFrame_ShowQuestDetails  [function]
+OK   WorldMapTooltip  [GameTooltip]
+
+== Map style: old frame or modern canvas? ==
+MODERN CANVAS - WorldMapFrame:RemoveDataProvider exists.
+Registered data providers: 15
+
+== Quest POI system ==
+OK   QuestPOIGetIconInfo  [function]
+--   QuestPOI_DisplayButton
+OK   QuestPOI_GetButton  [function]
+OK   QuestPOIUpdateIcons  [function]
+--   GetQuestPOILeaderboardInfo
+OK   SetSuperTrackedQuestID  [function]
+OK   GetSuperTrackedQuestID  [function]
+--   C_SuperTrack
+
+== Minimap blob methods ==
+--   Minimap:SetQuestBlobRingAlpha
+--   Minimap:SetQuestBlobInsideAlpha
+--   Minimap:SetQuestBlobRingScalar
+--   Minimap:SetQuestBlobInsideTexture
+--   Minimap:SetArchBlobRingAlpha
+--   Minimap:SetArchBlobInsideAlpha
+
+== Relevant CVars ==
+OK   cvar questPOI = 1
+OK   cvar autoQuestWatch = 1
+--   cvar autoQuestProgress
+--   cvar mapQuestDifficulty
+--   cvar showQuestTrackingTooltips
+OK   cvar trackQuestSorting = top
+--   cvar minimapTrackingShowAll
+OK   cvar questHelper = 1
+--   cvar worldMapFilterAccountCompletedQuests
+
+== Options panel API ==
+OK   Settings  [table]
+--   InterfaceOptions_AddCategory
+--   InterfaceOptionsFramePanelContainer
+Modern Settings API available - use Settings.RegisterCanvasLayoutCategory.
+
+== [G1] Minimap: what is actually on it ==
+Method names on Minimap matching quest/blob/arch/poi/blip/track:
+   Minimap: 205 methods visible.
+      Minimap:AdjustPointsOffset
+      Minimap:ClearAllPoints
+      Minimap:ClearPoint
+      Minimap:ClearPointsOffset
+      Minimap:DesaturateHierarchy
+      Minimap:GetNumPoints
+      Minimap:GetPoint
+      Minimap:GetPointByName
+      Minimap:SetAllPoints
+      Minimap:SetBlipTexture
+      Minimap:SetCorpsePOIArrowTexture
+      Minimap:SetPOIArrowTexture
+      Minimap:SetPoint
+      Minimap:SetPointsOffset
+      Minimap:SetStaticPOIArrowTexture
+      Minimap:UpdateBlips
+
+   Minimap: 3 child frame(s)
+       1  MiniMapMailFrame                 Frame          hidden
+       2  MiniMapBattlefieldFrame          Button         hidden
+       3  MinimapBackdrop                  Frame          shown
+
+   Minimap: 0 region(s)
+
+   MinimapCluster: 5 child frame(s)
+       1  <unnamed>                        Frame          hidden
+       2  MinimapZoneTextButton            Button         shown
+       3  MinimapToggleButton              Button         shown
+       4  <unnamed>                        Frame          shown
+       5  GameTimeFrame                    Button         shown
+
+Is the minimap data-provider driven, like the world map?
+--   Minimap.dataProviders
+--   MinimapCluster.dataProviders
+--   Minimap:RemoveDataProvider
+--   Minimap:AddDataProvider
+
+   Globals containing 'minimap': 133 global name(s)
+      BATTLEFIELDMINIMAP_OPACITY_LABEL
+      BATTLEFIELDMINIMAP_OPTIONS_LABEL
+      BATTLEFIELD_MINIMAP
+      BATTLEFIELD_MINIMAP_SHOW_ALWAYS
+      BATTLEFIELD_MINIMAP_SHOW_BATTLEGROUNDS
+      BATTLEFIELD_MINIMAP_SHOW_NEVER
+      BINDING_NAME_MINIMAPZOOMIN
+      BINDING_NAME_MINIMAPZOOMOUT
+      BINDING_NAME_TOGGLEBATTLEFIELDMINIMAP
+      BINDING_NAME_TOGGLEMINIMAP
+      BINDING_NAME_TOGGLEMINIMAPROTATION
+      C_Minimap
+      EditModeMinimapSystemMixin
+      GetMinimapZoneText
+      HUD_EDIT_MODE_MINIMAP_LABEL
+      HUD_EDIT_MODE_SETTING_MINIMAP_HEADER_UNDERNEATH
+      HUD_EDIT_MODE_SETTING_MINIMAP_ROTATE_MINIMAP
+      HUD_EDIT_MODE_SETTING_MINIMAP_SIZE
+      LFGMinimapFrame
+      LFGMinimapFrameBorder
+      LFGMinimapFrameIcon
+      LFGMinimapFrameIconTexture
+      LFGMinimapMixin
+      LOCK_BATTLEFIELDMINIMAP
+      MINIMAPPING_FADE_TIMER
+      MINIMAPPING_TIMER
+      MINIMAP_BOTTOM_EDGE_EXTENT
+      MINIMAP_EXPANDER_MAXSIZE
+      MINIMAP_GARRISON_LANDING_PAGE_TOOLTIP
+      MINIMAP_LABEL
+      MINIMAP_ORDER_HALL_LANDING_PAGE_TOOLTIP
+      MINIMAP_RECORDING_INDICATOR_ON
+      MINIMAP_TRACKING_AUCTIONEER
+      MINIMAP_TRACKING_BANKER
+      MINIMAP_TRACKING_BATTLEMASTER
+      MINIMAP_TRACKING_DIGSITES
+      MINIMAP_TRACKING_FLIGHTMASTER
+      MINIMAP_TRACKING_FOCUS
+      MINIMAP_TRACKING_HIDDEN_QUESTS
+      MINIMAP_TRACKING_INNKEEPER
+      MINIMAP_TRACKING_MAILBOX
+      MINIMAP_TRACKING_NONE
+      MINIMAP_TRACKING_POI
+      MINIMAP_TRACKING_QUEST_POIS
+      MINIMAP_TRACKING_REPAIR
+      MINIMAP_TRACKING_STABLEMASTER
+      MINIMAP_TRACKING_TARGET
+      MINIMAP_TRACKING_TOOLTIP_NONE
+      MINIMAP_TRACKING_TRAINER_CLASS
+      MINIMAP_TRACKING_TRAINER_PROFESSION
+      MINIMAP_TRACKING_TRANSMOGRIFIER
+      MINIMAP_TRACKING_TRIVIAL_QUESTS
+      MINIMAP_TRACKING_VENDOR_AMMO
+      MINIMAP_TRACKING_VENDOR_FOOD
+      MINIMAP_TRACKING_VENDOR_POISON
+      MINIMAP_TRACKING_VENDOR_REAGENT
+      MINIMAP_TRACKING_WILD_BATTLE_PET
+      MiniMapBattlefieldBorder
+      MiniMapBattlefieldFrame
+      MiniMapBattlefieldFrame_OnClick
+      MiniMapBattlefieldFrame_ShowContextMenu
+      MiniMapBattlefieldFrame_UpdateArena
+      MiniMapBattlefieldIcon
+      MiniMapChallengeMode
+      MiniMapInstanceDifficulty
+      MiniMapInstanceDifficultyText
+      MiniMapInstanceDifficultyTexture
+      MiniMapInstanceDifficulty_OnEvent
+      MiniMapInstanceDifficulty_Update
+      MiniMapMailBorder
+      MiniMapMailFrame
+      MiniMapMailIcon
+      MiniMapTracking
+      MiniMapTrackingBackground
+      MiniMapTrackingButton
+      MiniMapTrackingButtonBorder
+      MiniMapTrackingButtonShine
+      MiniMapTrackingIcon
+      MiniMapTrackingIconOverlay
+      MiniMapWorldBorder
+      MiniMapWorldMapButton
+      MiniMap_BattleGroundQueueSeparateButton
+      MiniMap_ShouldShowDifficulty
+      MiniMap_ShouldShowGuildDifficulty
+      MiniMap_ShouldShowWorldMapButton
+      Minimap
+      MinimapBackdrop
+      MinimapBorder
+      MinimapButton_OnMouseDown
+      MinimapButton_OnMouseUp
+      ... and 43 more
+
+== [G2] Minimap tracking API ==
+OK   C_Minimap  [table]
+--   SetTracking
+--   GetNumTrackingTypes
+--   GetTrackingInfo
+OK   MiniMapTracking  [Frame]
+--   MiniMapTrackingFrame
+OK   MiniMapTrackingButton  [Button]
+--   MiniMapTrackingDropDown
+OK   MiniMapTrackingIcon  [Texture]
+
+   C_Minimap members: 5
+      C_Minimap.ClearAllTracking  [function]
+      C_Minimap.GetNumTrackingTypes  [function]
+      C_Minimap.GetPOITextureCoords  [function]
+      C_Minimap.GetTrackingInfo  [function]
+      C_Minimap.SetTracking  [function]
+
+   Globals containing 'tracking': 61 global name(s)
+      CancelTrackingBuff
+      EditModeStatusTrackingBar1SystemMixin
+      EditModeStatusTrackingBarContainerMixin
+      EditModeStatusTrackingBarSystemMixin
+      GetTrackingTexture
+      HUD_EDIT_MODE_STATUS_TRACKING_BAR_LABEL
+      HUNTER_TRACKING
+      HUNTER_TRACKING_TEXT
+      MINIMAP_TRACKING_AUCTIONEER
+      MINIMAP_TRACKING_BANKER
+      MINIMAP_TRACKING_BATTLEMASTER
+      MINIMAP_TRACKING_DIGSITES
+      MINIMAP_TRACKING_FLIGHTMASTER
+      MINIMAP_TRACKING_FOCUS
+      MINIMAP_TRACKING_HIDDEN_QUESTS
+      MINIMAP_TRACKING_INNKEEPER
+      MINIMAP_TRACKING_MAILBOX
+      MINIMAP_TRACKING_NONE
+      MINIMAP_TRACKING_POI
+      MINIMAP_TRACKING_QUEST_POIS
+      MINIMAP_TRACKING_REPAIR
+      MINIMAP_TRACKING_STABLEMASTER
+      MINIMAP_TRACKING_TARGET
+      MINIMAP_TRACKING_TOOLTIP_NONE
+      MINIMAP_TRACKING_TRAINER_CLASS
+      MINIMAP_TRACKING_TRAINER_PROFESSION
+      MINIMAP_TRACKING_TRANSMOGRIFIER
+      MINIMAP_TRACKING_TRIVIAL_QUESTS
+      MINIMAP_TRACKING_VENDOR_AMMO
+      MINIMAP_TRACKING_VENDOR_FOOD
+      MINIMAP_TRACKING_VENDOR_POISON
+      MINIMAP_TRACKING_VENDOR_REAGENT
+      MINIMAP_TRACKING_WILD_BATTLE_PET
+      MainMenuTrackingBar_Configure
+      MainStatusTrackingBarContainer
+      MiniMapTracking
+      MiniMapTrackingBackground
+      MiniMapTrackingButton
+      MiniMapTrackingButtonBorder
+      MiniMapTrackingButtonShine
+      ... and 21 more
+
+Tracking types on this client:
+   18 tracking type(s)
+       1  table: name=Find Herbs active=false
+       2  table: name=Repair active=false
+       3  table: name=Food & Drink active=false
+       4  table: name=Reagents active=false
+       5  table: name=Innkeeper active=false
+       6  table: name=Flight Master active=false
+       7  table: name=Battlemaster active=false
+       8  table: name=Class Trainer active=false
+       9  table: name=Profession Trainers active=false
+      10  table: name=Auctioneer active=false
+      11  table: name=Banker active=false
+      12  table: name=Mailbox active=false
+      13  table: name=Low Level Quests active=false
+      14  table: name=Points of Interest active=false
+      15  table: name=Target active=false
+      16  table: name=Focus Target active=false
+      17  table: name=Track Quest POIs active=false
+      18  table: name=Track Digsites active=false
+
+== [G3] World map data providers - identifying them ==
+   WorldMapFrame: 192 methods visible.
+      (no method name matches dataprovider / pin)
+
+   Global *DataProvider* tables found: 44
+      AreaLabelDataProviderMixin
+      AreaPOIDataProviderMixin
+      BannerDataProvider
+      BattlefieldFlagDataProviderMixin
+      BonusObjectiveDataProviderMixin
+      CVarMapCanvasDataProviderMixin
+      ClickToZoomDataProviderMixin
+      ContributionCollectorDataProviderMixin
+      DataProviderMixin
+      DeathMapDataProviderMixin
+      DigSiteDataProviderMixin
+      DungeonEntranceDataProviderMixin
+      EncounterJournalDataProviderMixin
+      FlightPointDataProviderMixin
+      FogOfWarDataProviderMixin
+      GarrisonPlotDataProviderMixin
+      GossipDataProviderMixin
+      GroupMembersDataProviderMixin
+      IconDataProviderExtraType
+      IconDataProviderIconType
+      IconDataProviderMixin
+      IndexRangeDataProviderMixin
+      InvasionDataProviderMixin
+      LinearizedTreeDataProviderMixin
+      MapCanvasDataProviderMixin
+      MapExplorationDataProviderMixin
+      MapHighlightDataProviderMixin
+      MapLinkDataProviderMixin
+      PetTamerDataProviderMixin
+      QuestBlobDataProviderMixin
+      QuestDataProviderMixin
+      ScenarioDataProviderMixin
+      SelectableGraveyardDataProviderMixin
+      SpectatorDataProviderMixin
+      StorylineQuestDataProviderMixin
+      TreeDataProviderConstants
+      TreeDataProviderMixin
+      VehicleDataProviderMixin
+      VignetteDataProviderMixin
+      WardrobeSetsDataProviderMixin
+      WorldMap_InvasionDataProviderMixin
+      WorldMap_WorldQuestDataProviderMixin
+      WorldQuestDataProviderMixin
+      ZoneLabelDataProviderMixin
+
+   Providers reachable: 15
+   provider  1  mixin=nil  GetPinTemplate=nil
+      own keys (22): GetMap, OnAdded, OnCanvasPanChanged, OnCanvasScaleChanged, OnCanvasSizeChanged, OnEvent, OnGlobalAlphaChanged, OnHide, OnMapChanged, OnMapInsetMouseEnter, OnMapInsetMouseLeave, OnMapInsetSizeChanged
+      methods: not enumerable - UNIDENTIFIABLE from this probe.
+   provider  2  mixin=nil  GetPinTemplate=nil
+      own keys (21): GetMap, OnAdded, OnCanvasPanChanged, OnCanvasScaleChanged, OnCanvasSizeChanged, OnEvent, OnGlobalAlphaChanged, OnHide, OnMapChanged, OnMapInsetMouseEnter, OnMapInsetMouseLeave, OnMapInsetSizeChanged
+      methods: not enumerable - UNIDENTIFIABLE from this probe.
+   provider  3  mixin=nil  GetPinTemplate=nil
+      own keys (21): GetMap, OnAdded, OnCanvasPanChanged, OnCanvasScaleChanged, OnCanvasSizeChanged, OnEvent, OnGlobalAlphaChanged, OnHide, OnMapChanged, OnMapInsetMouseEnter, OnMapInsetMouseLeave, OnMapInsetSizeChanged
+      methods: not enumerable - UNIDENTIFIABLE from this probe.
+   provider  4  mixin=nil  GetPinTemplate=nil
+      own keys (20): GetMap, OnAdded, OnCanvasPanChanged, OnCanvasScaleChanged, OnCanvasSizeChanged, OnEvent, OnGlobalAlphaChanged, OnHide, OnMapChanged, OnMapInsetMouseEnter, OnMapInsetMouseLeave, OnMapInsetSizeChanged
+      methods: not enumerable - UNIDENTIFIABLE from this probe.
+   provider  5  mixin=nil  GetPinTemplate=nil
+      own keys (21): GetMap, OnAdded, OnCanvasPanChanged, OnCanvasScaleChanged, OnCanvasSizeChanged, OnEvent, OnGlobalAlphaChanged, OnHide, OnMapChanged, OnMapInsetMouseEnter, OnMapInsetMouseLeave, OnMapInsetSizeChanged
+      methods: not enumerable - UNIDENTIFIABLE from this probe.
+   provider  6  mixin=nil  GetPinTemplate=nil
+      own keys (24): GetMap, Init, IsCVarSet, OnAdded, OnCanvasPanChanged, OnCanvasScaleChanged, OnCanvasSizeChanged, OnEvent, OnGlobalAlphaChanged, OnHide, OnMapChanged, OnMapInsetMouseEnter
+      methods: not enumerable - UNIDENTIFIABLE from this probe.
+   provider  7  mixin=nil  GetPinTemplate=nil
+      own keys (21): GetMap, OnAdded, OnCanvasPanChanged, OnCanvasScaleChanged, OnCanvasSizeChanged, OnEvent, OnGlobalAlphaChanged, OnHide, OnMapChanged, OnMapInsetMouseEnter, OnMapInsetMouseLeave, OnMapInsetSizeChanged
+      methods: not enumerable - UNIDENTIFIABLE from this probe.
+   provider  8  mixin=nil  GetPinTemplate=nil
+      own keys (28): GetMap, IsShowingWorldQuests, OnAdded, OnCanvasPanChanged, OnCanvasScaleChanged, OnCanvasSizeChanged, OnClearFocusedQuestID, OnClearHighlightedQuestID, OnEvent, OnGlobalAlphaChanged, OnHide, OnHighlightedQuestPOIChange
+      methods: not enumerable - UNIDENTIFIABLE from this probe.
+   provider  9  mixin=nil  GetPinTemplate=nil
+      own keys (22): GetMap, OnAdded, OnCanvasPanChanged, OnCanvasScaleChanged, OnCanvasSizeChanged, OnEvent, OnGlobalAlphaChanged, OnHide, OnMapChanged, OnMapInsetMouseEnter, OnMapInsetMouseLeave, OnMapInsetSizeChanged
+      methods: not enumerable - UNIDENTIFIABLE from this probe.
+   provider 10  mixin=nil  GetPinTemplate=QuestPinTemplate
+      own keys (33): AddQuest, AssignMissingNumbersToPins, ClearFocusedQuestID, GetMap, GetPinTemplate, OnAdded, OnCanvasPanChanged, OnCanvasScaleChanged, OnCanvasSizeChanged, OnEvent, OnGlobalAlphaChanged, OnHide
+   provider 11  mixin=nil  GetPinTemplate=nil
+      own keys (21): GetMap, OnAdded, OnCanvasPanChanged, OnCanvasScaleChanged, OnCanvasSizeChanged, OnEvent, OnGlobalAlphaChanged, OnHide, OnMapChanged, OnMapInsetMouseEnter, OnMapInsetMouseLeave, OnMapInsetSizeChanged
+      methods: not enumerable - UNIDENTIFIABLE from this probe.
+   provider 12  mixin=nil  GetPinTemplate=nil
+      own keys (26): GetMap, Init, IsCVarSet, IsZoneMapType, OnAdded, OnCanvasPanChanged, OnCanvasScaleChanged, OnCanvasSizeChanged, OnEvent, OnGlobalAlphaChanged, OnHide, OnMapChanged
+      methods: not enumerable - UNIDENTIFIABLE from this probe.
+   provider 13  mixin=nil  GetPinTemplate=AreaPOIPinTemplate
+      own keys (22): GetMap, GetPinTemplate, OnAdded, OnCanvasPanChanged, OnCanvasScaleChanged, OnCanvasSizeChanged, OnEvent, OnGlobalAlphaChanged, OnHide, OnMapChanged, OnMapInsetMouseEnter, OnMapInsetMouseLeave
+   provider 14  mixin=nil  GetPinTemplate=nil
+      own keys (26): GetMap, GetOffsetY, Label, OnAdded, OnCanvasPanChanged, OnCanvasScaleChanged, OnCanvasSizeChanged, OnEvent, OnGlobalAlphaChanged, OnHide, OnMapChanged, OnMapInsetMouseEnter
+      methods: not enumerable - UNIDENTIFIABLE from this probe.
+   provider 15  mixin=nil  GetPinTemplate=nil
+      own keys (27): EnumerateUnitPinSizes, GetMap, GetUnitPinSizesTable, OnAdded, OnCanvasPanChanged, OnCanvasScaleChanged, OnCanvasSizeChanged, OnEvent, OnGlobalAlphaChanged, OnHide, OnMapChanged, OnMapInsetMouseEnter
+      methods: not enumerable - UNIDENTIFIABLE from this probe.
+
+   Pin pool templates currently spawned:
+      GroupMembersPinTemplate
+      MapExplorationPinTemplate
+      MapHighlightPinTemplate
+      QuestBlobPinTemplate
+      QuestPinTemplate
+      ScenarioBlobPinTemplate
+
+== [G4] Settings API surface ==
+OK   Settings  [table]
+OK   SettingsPanel  [Frame]
+--   InterfaceOptionsFrame
+OK   Settings:RegisterCanvasLayoutCategory
+OK   Settings:RegisterVerticalLayoutCategory
+OK   Settings:RegisterAddOnCategory
+OK   Settings:OpenToCategory
+OK   Settings:RegisterAddOnSetting
+OK   Settings:CreateCheckbox
+--   Settings:CreateCheckBox
+OK   Settings:CreateControlTextContainer
+OK   Settings:SetValue
+
+   Settings members matching register/open/category: 25
+      Settings.ACTION_BAR_CATEGORY_ID  [number]
+      Settings.AUDIO_CATEGORY_ID  [number]
+      Settings.AssignLayoutToCategory  [function]
+      Settings.AssignTutorialToCategory  [function]
+      Settings.CallWhenRegistered  [function]
+      Settings.CategorySet  [table]
+      Settings.CreateCategory  [function]
+      Settings.GetCategory  [function]
+      Settings.INTERFACE_CATEGORY_ID  [number]
+      Settings.KEYBINDINGS_CATEGORY_ID  [number]
+      Settings.NAMEPLATE_OPTIONS_CATEGORY_ID  [number]
+      Settings.OpenToCategory  [function]
+      Settings.RegisterAddOnCategory  [function]
+      Settings.RegisterAddOnSetting  [function]
+      Settings.RegisterCVarSetting  [function]
+      Settings.RegisterCanvasLayoutCategory  [function]
+      Settings.RegisterCanvasLayoutSubcategory  [function]
+      Settings.RegisterCategory  [function]
+      Settings.RegisterInitializer  [function]
+      Settings.RegisterModifiedClickSetting  [function]
+      Settings.RegisterProxySetting  [function]
+      Settings.RegisterVerticalLayoutCategory  [function]
+      Settings.RegisterVerticalLayoutSubcategory  [function]
+      Settings.SOCIAL_CATEGORY_ID  [number]
+      Settings.SetKeybindingsCategory  [function]
+
+== [G5] Quest CVar detail ==
+OK   cvar questPOI = 1
+OK   cvar questHelper = 1
+OK   cvar autoQuestWatch = 1
+OK   cvar trackQuestSorting = top
+
+   Effect is NOT tested here. Run: /unrecon set questPOI 0
+   then look at the minimap and the world map, and set it back to 1.

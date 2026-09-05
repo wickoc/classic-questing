@@ -18,7 +18,7 @@
 -- objects, tracking types, globals -- so a negative result means "not present" rather
 -- than "I guessed the wrong name".
 
-local RECON_VERSION = "0.3"
+local RECON_VERSION = "0.4"
 
 UnmarkedReconDB = UnmarkedReconDB or {}
 
@@ -57,9 +57,15 @@ local function probeCVar(name)
 	local ok, value = pcall(GetCVar, name)
 	if ok and value ~= nil then
 		local line = "cvar " .. name .. " = " .. tostring(value)
-		local ok2, _, default = pcall(GetCVarInfo, name)
+		local ok2, _, default, _, _, locked, secure, readonly = pcall(GetCVarInfo, name)
 		if ok2 and default ~= nil then
 			line = line .. "  (default " .. tostring(default) .. ")"
+		end
+		if ok2 and (locked or secure or readonly) then
+			line = line .. "  [" ..
+				(locked and "LOCKED " or "") ..
+				(secure and "SECURE " or "") ..
+				(readonly and "READONLY" or "") .. "]"
 		end
 		mark(true, line)
 	else
@@ -78,6 +84,14 @@ end
 local function collectMethodNames(obj)
 	local names, seen = {}, {}
 	local ok = pcall(function()
+		-- Own keys first: objects built with CreateFromMixins carry their
+		-- methods directly, not via a metatable. v0.3 missed all of these.
+		for k, v in pairs(obj) do
+			if type(k) == "string" and type(v) == "function" and not seen[k] then
+				seen[k] = true
+				names[#names + 1] = k
+			end
+		end
 		local mt = getmetatable(obj)
 		local depth = 0
 		while mt and depth < 10 do
@@ -297,6 +311,12 @@ end
 
 -- [G3] RemoveDataProvider takes a provider OBJECT. v0.2 gave us pin-pool
 -- template NAMES, which is a different thing. Identify the providers.
+--
+-- v0.4: these providers are built with CreateFromMixins, which COPIES each
+-- mixin method onto the object rather than linking a metatable. That is why
+-- v0.3 reported mixin=nil for all 15. Identify them instead by fingerprint:
+-- for each candidate mixin, count how many of its functions the provider
+-- holds by reference identity. An exact copy scores 1.00.
 local function sectionDataProviders()
 	head("[G3] World map data providers - identifying them")
 
@@ -308,105 +328,117 @@ local function sectionDataProviders()
 	dumpMethods(WorldMapFrame, "WorldMapFrame", { "dataprovider", "pin" })
 
 	add("")
-	-- Build a table -> global-name map so a provider can be identified by the
-	-- mixin it was built from.
-	local mixinName = {}
+	local mixins = {}
 	local mixinCount = 0
 	for k, v in pairs(_G) do
 		if type(k) == "string" and type(v) == "table" and k:find("DataProvider") then
-			mixinName[v] = k
+			mixins[k] = v
 			mixinCount = mixinCount + 1
 		end
 	end
 	add("   Global *DataProvider* tables found: " .. mixinCount)
-	do
-		local names = {}
-		for _, n in pairs(mixinName) do names[#names + 1] = n end
-		table.sort(names)
-		for i = 1, #names do add("      " .. names[i]) end
-	end
 
 	add("")
 	local providers = {}
 	for k, v in pairs(WorldMapFrame.dataProviders or {}) do
-		-- Handle both [provider]=true and [i]=provider shapes.
 		local p = (type(k) == "table" and k) or (type(v) == "table" and v) or nil
 		if p then providers[#providers + 1] = p end
 	end
 	add("   Providers reachable: " .. #providers)
 
+	-- Keys every provider has are the shared base; the rest is what identifies one.
+	local keyCount = {}
+	for i = 1, #providers do
+		pcall(function()
+			for k in pairs(providers[i]) do
+				if type(k) == "string" then keyCount[k] = (keyCount[k] or 0) + 1 end
+			end
+		end)
+	end
+
 	local rows = {}
 	for i = 1, #providers do
 		local p = providers[i]
 
-		-- Identify by mixin, walking the metatable chain.
-		local ident
-		local okid = pcall(function()
-			if mixinName[p] then ident = mixinName[p] return end
-			local mt = getmetatable(p)
-			local depth = 0
-			while mt and depth < 8 do
-				local idx = rawget(mt, "__index")
-				if type(idx) ~= "table" then break end
-				if mixinName[idx] then ident = mixinName[idx] return end
-				mt = getmetatable(idx)
-				depth = depth + 1
+		-- Fingerprint against every candidate mixin by function identity.
+		-- A small mixin scores 1.00 as easily as a specific one, so report
+		-- every exact match (largest first) rather than one "winner".
+		local exact, best, bestScore, bestHits, bestTotal = {}, nil, 0, 0, 0
+		for name, mixin in pairs(mixins) do
+			local total, hits = 0, 0
+			pcall(function()
+				for k, v in pairs(mixin) do
+					if type(k) == "string" and type(v) == "function" then
+						total = total + 1
+						if rawequal(rawget(p, k), v) then hits = hits + 1 end
+					end
+				end
+			end)
+			if total > 0 then
+				local score = hits / total
+				if score >= 0.999 then
+					exact[#exact + 1] = { name = name, total = total }
+				end
+				if score > bestScore then
+					best, bestScore, bestHits, bestTotal = name, score, hits, total
+				end
 			end
-		end)
-		if not okid then ident = nil end
+		end
+		table.sort(exact, function(a, b) return a.total > b.total end)
 
-		-- Ask the provider directly, if it will say.
 		local template
 		if type(p.GetPinTemplate) == "function" then
 			local okt, t = pcall(p.GetPinTemplate, p)
 			if okt then template = tostring(t) end
 		end
 
-		-- Own keys are often the most identifying thing a mixin-built table has.
-		local keys = {}
+		-- Distinctive keys: those this provider has that not every provider has.
+		local distinct, scalars = {}, {}
 		pcall(function()
-			for k in pairs(p) do
-				if type(k) == "string" then keys[#keys + 1] = k end
-			end
-		end)
-		table.sort(keys)
-		local shown = {}
-		for j = 1, math.min(#keys, 12) do shown[j] = keys[j] end
-
-		local text = {
-			string.format("   provider @@  mixin=%s  GetPinTemplate=%s",
-				tostring(ident), tostring(template)),
-			"      own keys (" .. #keys .. "): " .. (next(shown) and table.concat(shown, ", ") or "none"),
-		}
-
-		-- If neither the mixin nor GetPinTemplate named it, fall back to its
-		-- method names -- distinctive enough to tell providers apart by hand.
-		if not ident and not template then
-			local m = collectMethodNames(p)
-			if m and #m > 0 then
-				local pick = {}
-				for j = 1, #m do
-					local lm = m[j]:lower()
-					if lm:find("pin") or lm:find("quest") or lm:find("blob") or lm:find("highlight")
-					   or lm:find("map") or lm:find("refresh") then
-						pick[#pick + 1] = m[j]
-						if #pick >= 10 then break end
+			for k, v in pairs(p) do
+				if type(k) == "string" then
+					if type(v) == "function" then
+						if (keyCount[k] or 0) < #providers then distinct[#distinct + 1] = k end
+					elseif type(v) == "string" or type(v) == "number" or type(v) == "boolean" then
+						-- A CVar-gated provider parks the CVar name in a field
+						-- like this; that is exactly what we want to see.
+						scalars[#scalars + 1] = k .. "=" .. tostring(v)
 					end
 				end
-				if #pick == 0 then
-					for j = 1, math.min(#m, 10) do pick[j] = m[j] end
-				end
-				text[#text + 1] = "      methods (" .. #m .. "): " .. table.concat(pick, ", ")
-			else
-				text[#text + 1] = "      methods: not enumerable - UNIDENTIFIABLE from this probe."
 			end
+		end)
+		table.sort(distinct)
+		table.sort(scalars)
+
+		local shown = {}
+		for j = 1, math.min(#distinct, 22) do shown[j] = distinct[j] end
+
+		local idLine
+		if #exact > 0 then
+			local parts = {}
+			for j = 1, #exact do
+				parts[j] = exact[j].name .. "(" .. exact[j].total .. ")"
+			end
+			idLine = "EXACT: " .. table.concat(parts, " + ")
+		elseif bestScore > 0 then
+			idLine = string.format("partial best=%s %.2f (%d/%d fns)",
+				tostring(best), bestScore, bestHits, bestTotal)
+		else
+			idLine = "NO MIXIN MATCH"
 		end
 
-		rows[#rows + 1] = { sort = (ident or "zzz-unidentified") .. tostring(p), text = text }
+		rows[#rows + 1] = {
+			sort = string.format("%s%.3f", (#exact > 0 and "0" or "1"), 1 - bestScore) .. tostring(best),
+			text = {
+				string.format("   provider @@  %s", idLine),
+				"      GetPinTemplate=" .. tostring(template),
+				"      distinctive fns (" .. #distinct .. "): " ..
+					(next(shown) and table.concat(shown, ", ") or "none"),
+				"      fields: " .. (next(scalars) and table.concat(scalars, ", ") or "none"),
+			},
+		}
 	end
 
-	-- Sort so two runs of the probe produce comparable output; pairs() order
-	-- over dataProviders is not stable.
 	table.sort(rows, function(a, b) return a.sort < b.sort end)
 	for i = 1, #rows do
 		for j = 1, #rows[i].text do
