@@ -1,13 +1,14 @@
-# Classic Questing in MoP — build spec
+# Classic Questing (MoP) — build spec
 
 **Target:** World of Warcraft — Mists of Pandaria Classic, 5.5.4 (build 69585), interface `50504`.
-Install path: `World of Warcraft\_classic_\Interface\AddOns\ClassicQuestingInMoP\`
+Install path: `World of Warcraft\_classic_\Interface\AddOns\ClassicQuestingMoP\`
+(Folder without parentheses; the parenthesised form is the `## Title` shown in the addon list.)
 
 **Goal:** restore the Classic questing experience by hiding the quest-helper layer MoP added
 on top of it. Everything the addon does is *subtractive* — hiding or unregistering Blizzard UI.
 It never adds quest data of its own.
 
-> Named *Unmarked* while in recon, then *Classic Questing*, now **Classic Questing in MoP**.
+> Named *Unmarked* while in recon, then *Classic Questing*, now **Classic Questing (MoP)**.
 > The old name survives only in `dev/UnmarkedRecon/`, the throwaway probe addon, which stays a
 > separate dev-only addon and is never shipped or folded into this one.
 
@@ -69,7 +70,13 @@ Options, each independently toggleable:
 - Hide the tracker entirely
 - Strip it to Classic form: quest name and objective counts only — no click-to-track,
   no quest item use buttons, no auto-sort by distance to objective
-- Disable auto-tracking of newly accepted quests (`autoQuestWatch`)
+- **Disable auto-tracking of newly accepted quests (`autoQuestWatch`).** ✅ Shipped in
+  v0.2.0 as an **opt-in** setting, default off: this is genuine quality of life rather than
+  clutter, so the player chooses it instead of having it chosen for them.
+- **Instant Quest Text.** The Blizzard option. Classic-correct is *off*, so quest text types
+  out rather than appearing at once. **Blocked:** the CVar behind it is unknown, and
+  `C_Console.GetAllCommands` does not exist on this client, so the console cannot be
+  enumerated. Probe v0.6 walks the Settings registry instead — see G8.
 - Suppress the "click to turn in" pop-up bubbles
 
 ### Tier 3 — full Classic feel
@@ -84,13 +91,13 @@ Default **off**. Individually toggleable, all on one options page.
   for it. Mechanism unknown — the only plausible lever seen in recon is `Minimap:SetBlipTexture`
   (present in the 205-method dump), which is untested and may affect more than quest blips.
   Needs its own probe pass before it is designed.
-- **World map creature portraits.** MoP shows portrait pins for bosses and notable
-  creatures, at least in Pandaria zones. Classic never did, and being pointed straight at the
-  target is exactly what this addon exists to undo. **The lever is already known:** recon v0.4
-  identified provider 7 as `EncounterJournalDataProviderMixin` carrying `cvar=showBosses`, so
-  this should fall to a CVar rather than provider removal. Test with
-  `/unrecon set showBosses 0`. (`DigSiteDataProviderMixin` / `digSites` is the same shape if
-  archaeology clutter is ever worth an option.)
+- **World map creature portraits.** ✅ Shipped in v0.2.0 as an **opt-in** setting
+  (`showBosses`), default off. Recon v0.4 named the lever — provider 7 is
+  `EncounterJournalDataProviderMixin` carrying `cvar=showBosses` — and setting it to 0 was
+  confirmed working in game. Note it appears to have **no checkbox in the Blizzard options
+  window**; it is a console variable only, which is why it could not be found there.
+  (`DigSiteDataProviderMixin` / `digSites` is the same shape if archaeology clutter is ever
+  worth an option; not shipped, not requested.)
 - **Turn-in markers: `?` versus the gold bullet.** The minimap shows a `?` plus a gold bullet
   for nearby turn-ins. That is close enough to Classic to leave alone by default, but offer a
   toggle for the purist option: gold bullet only, no `?`.
@@ -115,8 +122,8 @@ Ship it as a plain on/off toggle.
 ## Architecture
 
 ```
-ClassicQuestingInMoP/
-  ClassicQuestingInMoP.toc
+ClassicQuestingMoP/
+  ClassicQuestingMoP.toc
   Core.lua        -- addon table, event dispatch, saved variables, defaults, slash command
   CVars.lua       -- set + re-assert console variables
   Minimap.lua     -- Tier 1 minimap
@@ -132,6 +139,11 @@ Every module exposes `Enable()` / `Disable()` and is driven from `Core.lua` off 
 settings table. Toggling any option in the panel takes effect immediately — no `/reload`
 required. If some specific thing genuinely can't be undone live, the panel says so on that
 row rather than forcing a global reload prompt.
+
+**Options panel requirement.** Every setting the addon creates must be individually
+toggleable in the panel. Turning everything on gives the ultimate Classic experience; leaving
+some off lets a player tune their own. Nothing the addon does may be all-or-nothing at the
+panel level, even where the underlying lever is (see the `questPOI` bundling note in G5).
 
 **SavedVariables:** account-wide, not per character. Someone who wants this wants it everywhere.
 
@@ -472,11 +484,70 @@ no `hooksecurefunc`.** Safety rules 1 and 2 are not reached by any Tier 1 code p
 in force for Tiers 2 and 3, which will reach them. Rule 5 still applies throughout — every
 global is probed before use.
 
-### Still open — Tier 3 only, not blocking Tier 1
+## Recon results — v0.5 probe
 
-**Questgiver `!` blips — promoted to Tier 1, not yet implemented.** No mechanism is known, so
-no code can honestly be written for it; probe v0.5 exists to find one. Everything else in
-Tier 1 shipped rather than waiting on it. Confirmed as a real requirement by live testing: Classic never showed
-these, MoP does, and there is no obvious switch. The mechanism is unknown. The only candidate
-lever seen anywhere in recon is `Minimap:SetBlipTexture`, which is untested and may well affect
-more than quest blips. This needs a dedicated probe pass before any design work.
+Run 2026-09-05 14:41. Full output at `dev/recon-log-v5-2026-09-05.txt`. Three results,
+two of them negative and therefore decisive.
+
+**The console cannot be enumerated.**
+
+```
+== [G6] CVar discovery - full console command list ==
+   C_Console.GetAllCommands missing - cannot enumerate the CVar space.
+```
+
+**Tracking entries, every field — and no questgiver entry among them.**
+
+```
+    1  active=false, name=Find Herbs, spellID=2383, subType=-1, texture=133939, type=spell
+   13  active=false, name=Low Level Quests, subType=-1, texture=237607, type=other
+   14  active=false, name=Points of Interest, subType=-1, texture=457292, type=other
+   17  active=false, name=Track Quest POIs, subType=-1, texture=535616, type=other
+   18  active=false, name=Track Digsites, subType=-1, texture=535615, type=other
+   (2-12 are the NPC trackers: Repair, Innkeeper, Flight Master, ... all type=other subType=2)
+
+   Globals containing 'blip': 0 global name(s)
+```
+
+`C_Minimap.GetPOITextureCoords` works, returning four coordinates per index in a 13-per-row
+grid — an atlas lookup into the POI icon sheet.
+
+**Live tests.** `/unrecon set showBosses 0` works. `/cq` works: it removes what the probe
+removed, and holds the minimap POI toggle off.
+
+---
+
+## Conclusions (continued)
+
+### Still open
+
+**Questgiver `!` blips — Tier 1, blocked, route nearly exhausted.** Three independent
+negatives from v0.5: no tracking entry covers questgivers (all 18 enumerated with every
+field), there are **zero** globals containing "blip", and `C_Console.GetAllCommands` does not
+exist so the CVar space cannot be searched. The only lever still standing in evidence is
+`Minimap:SetBlipTexture`, which swaps the entire POI icon sheet rather than one icon — and the
+205-method dump confirms there is a setter but **no getter**, so a change cannot be read back
+or restored except by `/reload`.
+
+Probe v0.6 adds `/unrecon blip <fileID>` to settle whether that lever moves questgiver icons
+at all. If it does, suppressing the `!` would mean shipping a transparent icon sheet with the
+addon and would blank other blips too — a real design decision, not a free win. If it does
+not, the `!` blips are not addon-reachable on this client and the Tier 1 promotion cannot be
+honoured; that would be an honest dead end rather than a missing feature.
+
+**Instant Quest Text — Tier 2, blocked on the same enumeration problem.** The CVar behind the
+Blizzard option is unknown. With the console unenumerable, probe v0.6 walks Blizzard's own
+Settings registry instead (G8): anything with a checkbox in the options window is registered
+somewhere reachable, so the variable name should fall out of that walk.
+
+### G8 — the Settings registry is the remaining discovery route
+
+With `C_Console.GetAllCommands` gone, guessing CVar names is the only alternative to walking
+Blizzard's own options registry, and guessing is what this client punishes. v0.6 dumps the
+full `Settings` table, `SettingsPanel`'s methods and keys, and `Settings.CategorySet`, then
+tries five ways to reach a category list and reports which one works — an unreachable list
+being a real answer that tells the next probe to find another angle. Where a list is reached
+it walks it and prints every setting variable with its current value.
+
+This should answer, in one run: the Instant Quest Text CVar, whether `showBosses` is exposed
+in the options UI at all, and whatever else Blizzard registers that this addon might want.

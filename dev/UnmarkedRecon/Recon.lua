@@ -508,6 +508,130 @@ local function sectionCVarDetail()
 	add("   then look at the minimap and the world map, and set it back to 1.")
 end
 
+local function dumpTable(t, name, cap)
+	cap = cap or 200
+	if type(t) ~= "table" then
+		add("   " .. name .. " is not a table (" .. type(t) .. ").")
+		return
+	end
+	local keys = {}
+	local ok = pcall(function()
+		for k, v in pairs(t) do
+			if type(k) == "string" then keys[#keys + 1] = k .. "  [" .. type(v) .. "]" end
+		end
+	end)
+	if not ok then add("   " .. name .. ": not enumerable."); return end
+	table.sort(keys)
+	add("   " .. name .. ": " .. #keys .. " string keys")
+	for i = 1, math.min(#keys, cap) do add("      " .. name .. "." .. keys[i]) end
+	if #keys > cap then add("      ... and " .. (#keys - cap) .. " more") end
+end
+
+-- [G8] C_Console.GetAllCommands turned out to be missing on this client, so
+-- the console cannot be enumerated and an unknown CVar name cannot be found
+-- that way. Blizzard's own options registry is the remaining principled
+-- route: anything with a checkbox in the options window is registered
+-- somewhere reachable, including "Instant Quest Text".
+local function sectionSettingsRegistry()
+	head("[G8] Settings registry - finding option-backed CVars")
+
+	add("   Reminder: C_Console.GetAllCommands is absent here (see G6).")
+	add("")
+	dumpTable(Settings, "Settings", 300)
+
+	add("")
+	dumpMethods(SettingsPanel, "SettingsPanel", { "categor", "setting", "list", "variable" })
+
+	add("")
+	dumpTable(SettingsPanel, "SettingsPanel", 120)
+
+	add("")
+	dumpTable(Settings and Settings.CategorySet, "Settings.CategorySet", 80)
+
+	-- Try every plausible way to reach the category list and report which,
+	-- if any, actually returns something. Absence here is a real answer.
+	add("")
+	add("   Attempting to reach a category list:")
+	local attempts = {
+		{ "SettingsPanel:GetCategoryList()", function() return SettingsPanel:GetCategoryList() end },
+		{ "SettingsPanel:GetAllCategories()", function() return SettingsPanel:GetAllCategories() end },
+		{ "Settings.GetCategoryList()", function() return Settings.GetCategoryList() end },
+		{ "SettingsPanel.categoryList", function() return SettingsPanel.categoryList end },
+		{ "SettingsPanel.categories", function() return SettingsPanel.categories end },
+	}
+	local list
+	for i = 1, #attempts do
+		local okc, res = pcall(attempts[i][2])
+		if okc and type(res) == "table" then
+			local n = 0
+			for _ in pairs(res) do n = n + 1 end
+			add("      OK   " .. attempts[i][1] .. "  -> table with " .. n .. " entries")
+			list = list or res
+		else
+			add("      --   " .. attempts[i][1])
+		end
+	end
+
+	if not list then
+		add("      No category list reachable; the next probe needs another angle.")
+		return
+	end
+
+	add("")
+	add("   Walking the category list for setting variables:")
+	local shown = 0
+	for _, cat in pairs(list) do
+		if type(cat) == "table" and shown < 400 then
+			local cname
+			pcall(function() cname = cat.GetName and cat:GetName() or cat.name end)
+			add("      category: " .. tostring(cname))
+			shown = shown + 1
+			-- Settings hang off the category in a few shapes; print whichever exists.
+			for _, field in ipairs({ "settings", "subcategories", "layout" }) do
+				local sub = rawget(cat, field)
+				if type(sub) == "table" then
+					for k, v in pairs(sub) do
+						if shown >= 400 then break end
+						local vname
+						pcall(function()
+							vname = (type(v) == "table" and (v.variable or (v.GetVariable and v:GetVariable()))) or nil
+						end)
+						if vname then
+							local val = select(2, pcall(GetCVar, vname))
+							add(string.format("         %-40s = %s", tostring(vname), tostring(val)))
+							shown = shown + 1
+						end
+					end
+				end
+			end
+		end
+	end
+end
+
+-- [G9] The questgiver "!" blips. Everything else came back negative: no
+-- tracking entry covers questgivers, there are zero globals containing
+-- "blip", and the console cannot be enumerated. The only lever left in
+-- evidence is Minimap:SetBlipTexture, which swaps the whole POI icon sheet.
+local function sectionBlips()
+	head("[G9] Questgiver blips - what is left to try")
+
+	probeMethod(Minimap, "Minimap", "SetBlipTexture")
+	probeMethod(Minimap, "Minimap", "GetBlipTexture")
+	probeMethod(Minimap, "Minimap", "UpdateBlips")
+	probeMethod(Minimap, "Minimap", "SetIconTexture")
+	probeMethod(Minimap, "Minimap", "SetPOIArrowTexture")
+
+	add("")
+	add("   NOTE: there is a setter but NO getter for the blip texture, so a")
+	add("   change cannot be read back or restored from Lua. /reload restores it.")
+	add("")
+	add("   Test with:  /unrecon blip 136458")
+	add("   That swaps the POI icon sheet for an unrelated texture. If the minimap")
+	add("   questgiver icons change or vanish, the lever works and the addon would")
+	add("   need its own transparent sheet. If nothing changes, this route is dead")
+	add("   and the ! blips are not addon-reachable on this client.")
+end
+
 -- [G6] The questgiver "!" blips. Classic never showed these; MoP does, and no
 -- switch for them turned up in v0.2-v0.4. Rather than guess at CVar names,
 -- enumerate the whole console command list and filter it -- a name that is
@@ -689,6 +813,8 @@ local function collect()
 	sectionCVarDiscovery()
 	sectionTrackingDetail()
 	sectionMapClutter()
+	sectionSettingsRegistry()
+	sectionBlips()
 
 	-- Any full method dumps collected via "/unrecon methods <global>" get
 	-- folded in here so they travel inside the readable report rather than
@@ -887,6 +1013,28 @@ SlashCmdList["UNRECON"] = function(msg)
 		DEFAULT_CHAT_FRAME:AddMessage(string.format(
 			"|cff66ccff[Recon]|r %s: %s -> %s   restore with: /unrecon trycvar %s %s",
 			name, tostring(old), tostring(new), name, tostring(old)))
+		return
+	end
+
+	if cmd == "blip" then
+		local _, value = msg:match("^%s*(%a*)%s+(%S+)")
+		if not value then
+			DEFAULT_CHAT_FRAME:AddMessage("|cffff5555[Recon]|r usage: /unrecon blip <fileID or texture path>")
+			return
+		end
+		if not (Minimap and type(Minimap.SetBlipTexture) == "function") then
+			DEFAULT_CHAT_FRAME:AddMessage("|cffff5555[Recon]|r Minimap:SetBlipTexture missing.")
+			return
+		end
+		local asNumber = tonumber(value)
+		local ok, err = pcall(Minimap.SetBlipTexture, Minimap, asNumber or value)
+		if not ok then
+			DEFAULT_CHAT_FRAME:AddMessage("|cffff5555[Recon]|r SetBlipTexture failed: " .. tostring(err))
+			return
+		end
+		pcall(Minimap.UpdateBlips, Minimap)
+		DEFAULT_CHAT_FRAME:AddMessage("|cff66ccff[Recon]|r blip texture set to " .. tostring(value) ..
+			". There is no getter, so |cffffd100/reload|r to put it back.")
 		return
 	end
 
