@@ -836,12 +836,21 @@ local function sectionOutline()
 	add("   Neither has been checked on THIS client until now.")
 	add("")
 	for _, c in ipairs({ "Outline", "outline", "graphicsOutlineMode", "ffxGlow",
-	                     "particleDensity", "ffxDeath" }) do
+	                     "particleDensity", "particleMTDensity", "ffxDeath",
+	                     "shadowMode", "SkyCloudLOD", "highlightOutlineQuality" }) do
 		probeCVar(c)
 	end
 	add("")
-	add("   Test with: /unrecon trycvar Outline 0     (then look at a quest NPC/object)")
-	add("              /unrecon trycvar graphicsOutlineMode 0")
+	add("   LIVE RESULTS so far:")
+	add("      Outline              EXISTS and is settable (0,1,2,3 all took).")
+	add("      graphicsOutlineMode  DOES NOT EXIST on this client.")
+	add("      Outline 0 removed the outline but NOT the glimmer.")
+	add("")
+	add("   Research says outline and sparkle are ALTERNATIVES: turning the")
+	add("   outline off is exactly what produces the sparkles. So the open")
+	add("   question is whether any value gives NEITHER.")
+	add("   Sweep it: /unrecon trycvar Outline 0 / 1 / 2 / 3, and for each note")
+	add("   the outline AND the glimmer separately, on a quest object and a herb.")
 end
 
 -- [G12] The quest progress tooltip that appears on mouseover.
@@ -861,6 +870,18 @@ local function sectionQuestTooltip()
 	local n = 0
 	while _G["GameTooltipTextLeft" .. (n + 1)] do n = n + 1 if n > 60 then break end end
 	add("   GameTooltipTextLeft<N> font strings that exist right now: " .. n)
+
+	add("")
+	add("   Observed shape (from live testing): the quest NAME is its own line,")
+	add("   followed by one line per objective, e.g. \" - Riverpaw Gnoll Clue: 0/1\".")
+	add("   The line NUMBER varies, so a matcher must key off text and colour.")
+	add("   Quest log APIs, needed to match a line against real quest titles:")
+	for _, n2 in ipairs({
+		"GetNumQuestLogEntries", "GetQuestLogTitle", "GetQuestLogLeaderBoard",
+		"C_QuestLog", "GetQuestObjectiveInfo",
+	}) do probe(n2) end
+	add("")
+	add("   Capture a real tooltip with: /unrecon tipwatch, hover, /unrecon tipdump")
 end
 
 -- [G10] Which atlas cell is the questgiver "!"?
@@ -874,7 +895,8 @@ local function sectionBlipAtlas()
 	add("   Restoring it needs no /reload, which makes an on/off toggle possible.")
 	add("")
 	add("   /unrecon blipreset          restore the default sheet (no argument needed)")
-	add("   /unrecon blipgrid           show every atlas cell with its index number")
+	add("   /unrecon atlas              show the WHOLE sheet with every index labelled")
+	add("                               in place on it (/unrecon blipgrid does the same)")
 	add("")
 	add("   Note: the documented 8x2 / 256x64 layout describes the OLD ObjectIcons")
 	add("   sheet. GetPOITextureCoords on this client steps by 0.0703125 across and")
@@ -1041,14 +1063,19 @@ end
 
 local gridFrame
 
--- Draw every cell of the blip atlas with its index, so the questgiver "!" can
--- be identified by looking rather than by guessing.
+-- v0.9 drew each cell into a fixed square, which stretched them and made the
+-- icons unreadable. Draw the WHOLE sheet instead and label each POI index in
+-- place on top of it, positioned from the same UV coords. That needs no
+-- assumption about the texture's real pixel size and cannot distort anything.
 local function showBlipGrid()
 	if gridFrame then gridFrame:Show() return end
 
-	local COLS, SIZE, PAD = 8, 34, 30
-	local f = CreateFrame("Frame", "UnmarkedReconBlipGrid", UIParent)
-	f:SetSize(COLS * (SIZE + PAD) + 30, 420)
+	-- Displayed size only sets the zoom; labels are placed by UV fraction, so
+	-- any values here stay correct.
+	local SHEET_W, SHEET_H = 512, 1024
+
+	local f = CreateFrame("Frame", "UnmarkedReconAtlas", UIParent)
+	f:SetSize(SHEET_W + 60, 700)
 	f:SetPoint("CENTER")
 	f:SetFrameStrata("DIALOG")
 	f:EnableMouse(true)
@@ -1059,52 +1086,111 @@ local function showBlipGrid()
 
 	local bg = f:CreateTexture(nil, "BACKGROUND")
 	bg:SetAllPoints()
-	bg:SetColorTexture(0, 0, 0, 0.9)
+	bg:SetColorTexture(0, 0, 0, 0.95)
 
 	local title = f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
 	title:SetPoint("TOP", 0, -10)
-	title:SetText("Blip atlas cells - find the ! and ? and note their numbers")
+	title:SetText("Blip atlas - scroll to find the ! and ?, then read the number on it")
 
 	local close = CreateFrame("Button", nil, f, "UIPanelCloseButton")
 	close:SetPoint("TOPRIGHT", -4, -4)
 
+	-- Scrollable: the sheet is far taller than the screen.
+	local scroll = CreateFrame("ScrollFrame", "UnmarkedReconAtlasScroll", f, "UIPanelScrollFrameTemplate")
+	scroll:SetPoint("TOPLEFT", 14, -34)
+	scroll:SetPoint("BOTTOMRIGHT", -34, 14)
+
+	local canvas = CreateFrame("Frame", nil, scroll)
+	canvas:SetSize(SHEET_W, SHEET_H)
+	scroll:SetScrollChild(canvas)
+
+	local sheet = canvas:CreateTexture(nil, "ARTWORK")
+	sheet:SetAllPoints()
+	sheet:SetTexture("Interface\\MINIMAP\\ObjectIconsAtlas")
+
 	local getCoords = C_Minimap and C_Minimap.GetPOITextureCoords
 	if type(getCoords) ~= "function" then
-		local err = f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+		local err = canvas:CreateFontString(nil, "OVERLAY", "GameFontNormal")
 		err:SetPoint("CENTER")
 		err:SetText("C_Minimap.GetPOITextureCoords missing")
 		gridFrame = f
 		return
 	end
 
-	local shown = 0
-	for i = 1, 64 do
+	-- Label every index at its own UV position, on top of the real art.
+	local labelled = 0
+	for i = 1, 400 do
 		local ok, l, r, t, b = pcall(getCoords, i)
-		if not ok or l == nil then break end
-		local col = shown % COLS
-		local row = math.floor(shown / COLS)
-
-		local tex = f:CreateTexture(nil, "ARTWORK")
-		tex:SetSize(SIZE, SIZE)
-		tex:SetPoint("TOPLEFT", 20 + col * (SIZE + PAD), -40 - row * (SIZE + PAD))
-		tex:SetTexture("Interface\\MINIMAP\\ObjectIconsAtlas")
-		pcall(tex.SetTexCoord, tex, l, r, t, b)
-
-		local num = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-		num:SetPoint("TOP", tex, "BOTTOM", 0, -2)
+		if not ok or type(l) ~= "number" then break end
+		local num = canvas:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+		num:SetPoint("CENTER", canvas, "TOPLEFT",
+			((l + r) / 2) * SHEET_W, -((t + b) / 2) * SHEET_H)
 		num:SetText(tostring(i))
-
-		shown = shown + 1
+		num:SetTextColor(1, 0.2, 0.2)
+		labelled = labelled + 1
 	end
 
 	local foot = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-	foot:SetPoint("BOTTOM", 0, 10)
-	foot:SetText(shown .. " cells. Tell Claude which numbers are the ! and the ?")
+	foot:SetPoint("BOTTOM", 0, 2)
+	foot:SetText(labelled .. " indices labelled in red. Screenshot this and send it over.")
 
 	gridFrame = f
 end
 
 ---------------------------------------------------------------------
+-- Tooltip capture (G12)
+---------------------------------------------------------------------
+
+-- The quest lines are not at a fixed line number, so a matcher has to key off
+-- text and colour instead. This snapshots whatever GameTooltip is showing so
+-- those can be read exactly rather than guessed.
+local tipWatcher
+
+local function captureTooltip()
+	if not (GameTooltip and GameTooltip.IsShown and GameTooltip:IsShown()) then return end
+	local n = 0
+	pcall(function() n = GameTooltip:NumLines() or 0 end)
+	if n == 0 then return end
+
+	local snap = {}
+	for i = 1, n do
+		local fs = _G["GameTooltipTextLeft" .. i]
+		if fs then
+			local text, cr, cg, cb = nil, nil, nil, nil
+            pcall(function() text = fs:GetText() end)
+			pcall(function() cr, cg, cb = fs:GetTextColor() end)
+			snap[#snap + 1] = string.format("%2d  [%s,%s,%s]  %s", i,
+				cr and string.format("%.2f", cr) or "?",
+				cg and string.format("%.2f", cg) or "?",
+				cb and string.format("%.2f", cb) or "?",
+				tostring(text))
+		end
+	end
+	UnmarkedReconDB.tooltip = table.concat(snap, "\n")
+	UnmarkedReconDB.tooltipAt = date("%Y-%m-%d %H:%M:%S")
+end
+
+local function toggleTipWatch()
+	if tipWatcher then
+		tipWatcher:SetScript("OnUpdate", nil)
+		tipWatcher = nil
+		DEFAULT_CHAT_FRAME:AddMessage("|cff66ccff[Recon]|r tooltip watch OFF.")
+		return
+	end
+	tipWatcher = CreateFrame("Frame")
+	local elapsed = 0
+	tipWatcher:SetScript("OnUpdate", function(_, dt)
+		elapsed = elapsed + (dt or 0)
+		if elapsed < 0.1 then return end
+		elapsed = 0
+		captureTooltip()
+	end)
+	DEFAULT_CHAT_FRAME:AddMessage("|cff66ccff[Recon]|r tooltip watch ON. Mouse over a quest NPC or object,")
+	DEFAULT_CHAT_FRAME:AddMessage("|cff66ccff[Recon]|r then move away and type |cffffd100/unrecon tipdump|r.")
+end
+
+---------------------------------------------------------------------
+-- CVar effect test (G5)---------------------------------------------------------------------
 -- CVar effect test (G5)
 ---------------------------------------------------------------------
 
@@ -1274,8 +1360,25 @@ SlashCmdList["UNRECON"] = function(msg)
 		return
 	end
 
-	if cmd == "blipgrid" then
+	if cmd == "blipgrid" or cmd == "atlas" then
 		showBlipGrid()
+		return
+	end
+
+	if cmd == "tipwatch" then
+		toggleTipWatch()
+		return
+	end
+
+	if cmd == "tipdump" then
+		local t = UnmarkedReconDB.tooltip
+		if not t then
+			DEFAULT_CHAT_FRAME:AddMessage("|cffff5555[Recon]|r nothing captured. Run /unrecon tipwatch first.")
+			return
+		end
+		DEFAULT_CHAT_FRAME:AddMessage("|cff66ccff[Recon]|r last tooltip (" .. tostring(UnmarkedReconDB.tooltipAt) .. "):")
+		for line in t:gmatch("[^\n]+") do DEFAULT_CHAT_FRAME:AddMessage("   " .. line) end
+		DEFAULT_CHAT_FRAME:AddMessage("|cffffd100Saved to SavedVariables too - /reload writes it out.|r")
 		return
 	end
 
