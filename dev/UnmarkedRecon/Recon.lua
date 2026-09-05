@@ -595,6 +595,42 @@ local function sectionSettingsRegistry()
 		end
 	end
 
+	-- v0.8 result: SettingsPanel.settings holds CATEGORY objects (CreateSubcategory,
+	-- subcategories, name, order), not settings -- hence 0 quest matches. The real
+	-- settings must hang off the layouts, so walk those too.
+	local layouts = reached["SettingsPanel.categoryLayouts"]
+	if layouts then
+		add("")
+		add("   Shape of two categoryLayouts entries:")
+		local ln = 0
+		for k, v in pairs(layouts) do
+			if ln >= 2 then break end
+			ln = ln + 1
+			add("      --- layout " .. ln .. " (key type " .. type(k) .. ", value type " .. type(v) .. ")")
+			if type(v) == "table" then
+				dumpTable(v, "         layout", 40)
+				local mt = getmetatable(v)
+				local idx = mt and rawget(mt, "__index")
+				if type(idx) == "table" then dumpTable(idx, "         layout.__index", 40) end
+				-- initializers are the usual home of the actual settings
+				for _, field in ipairs({ "initializers", "elements", "settings" }) do
+					local sub = rawget(v, field)
+					if type(sub) == "table" then
+						local n = 0
+						for _ in pairs(sub) do n = n + 1 end
+						add("         layout." .. field .. ": " .. n .. " entries")
+						local sn = 0
+						for _, e in pairs(sub) do
+							if sn >= 2 then break end
+							sn = sn + 1
+							if type(e) == "table" then dumpTable(e, "            " .. field .. sn, 30) end
+						end
+					end
+				end
+			end
+		end
+	end
+
 	-- The settings registry is the real prize, but v0.7 guessed that a setting
 	-- carried .variable or .name and got the CATEGORY name back for all 295.
 	-- Don't guess the shape: dump a few entries whole, then search every
@@ -790,6 +826,62 @@ local function sectionMapClutter()
 	add("   Test with: /unrecon set showBosses 0   (then look at a Pandaria zone map)")
 end
 
+-- [G11] The "Outline" option and the sparkle/glimmer on quest objects.
+-- Research points at two CVars; neither has ever been probed on this client.
+local function sectionOutline()
+	head("[G11] Quest object outline and sparkles")
+	add("   Research (No Questgiver Sparkles addon; Blizzard forum threads) names")
+	add("   a CVar 'Outline' for the option in Blizzard's menu, and")
+	add("   'graphicsOutlineMode' (0 disabled / 1 good / 2 high) for outline density.")
+	add("   Neither has been checked on THIS client until now.")
+	add("")
+	for _, c in ipairs({ "Outline", "outline", "graphicsOutlineMode", "ffxGlow",
+	                     "particleDensity", "ffxDeath" }) do
+		probeCVar(c)
+	end
+	add("")
+	add("   Test with: /unrecon trycvar Outline 0     (then look at a quest NPC/object)")
+	add("              /unrecon trycvar graphicsOutlineMode 0")
+end
+
+-- [G12] The quest progress tooltip that appears on mouseover.
+local function sectionQuestTooltip()
+	head("[G12] Quest progress tooltip on mouseover")
+	add("   showQuestTrackingTooltips is the documented CVar, but it is ABSENT on")
+	add("   this client (see the CVar section above). So the fallback is to strip")
+	add("   the quest lines from GameTooltip, which IS Lua-reachable.")
+	add("")
+	for _, n in ipairs({ "GameTooltip", "GameTooltipTextLeft1", "GameTooltipTextLeft2" }) do probe(n) end
+	for _, m in ipairs({ "NumLines", "GetUnit", "SetOwner", "ClearLines", "Show", "HookScript" }) do
+		probeMethod(GameTooltip, "GameTooltip", m)
+	end
+	add("")
+	add("   Line-object naming lets an addon blank individual lines in place,")
+	add("   which is how the quest progress rows would be removed.")
+	local n = 0
+	while _G["GameTooltipTextLeft" .. (n + 1)] do n = n + 1 if n > 60 then break end end
+	add("   GameTooltipTextLeft<N> font strings that exist right now: " .. n)
+end
+
+-- [G10] Which atlas cell is the questgiver "!"?
+-- Research settled the default sheet path; GetPOITextureCoords gives the UV
+-- rect per index. Drawing each cell with its index number turns "which one is
+-- the ! ?" from a guess into something that can simply be read off screen.
+local function sectionBlipAtlas()
+	head("[G10] Blip atlas")
+	add("   Default sheet (from a Mists-targeted addon that restores it on logout):")
+	add("      Interface\\MINIMAP\\ObjectIconsAtlas")
+	add("   Restoring it needs no /reload, which makes an on/off toggle possible.")
+	add("")
+	add("   /unrecon blipreset          restore the default sheet (no argument needed)")
+	add("   /unrecon blipgrid           show every atlas cell with its index number")
+	add("")
+	add("   Note: the documented 8x2 / 256x64 layout describes the OLD ObjectIcons")
+	add("   sheet. GetPOITextureCoords on this client steps by 0.0703125 across and")
+	add("   0.03515625 down, so this atlas is far larger. Any replacement art must")
+	add("   match THIS grid, not the documented one.")
+end
+
 ---------------------------------------------------------------------
 
 local function collect()
@@ -868,6 +960,9 @@ local function collect()
 	sectionMapClutter()
 	sectionSettingsRegistry()
 	sectionBlips()
+	sectionBlipAtlas()
+	sectionOutline()
+	sectionQuestTooltip()
 
 	-- Any full method dumps collected via "/unrecon methods <global>" get
 	-- folded in here so they travel inside the readable report rather than
@@ -941,6 +1036,75 @@ local function showCopy(text)
 end
 
 ---------------------------------------------------------------------
+-- Blip atlas viewer (G10)
+---------------------------------------------------------------------
+
+local gridFrame
+
+-- Draw every cell of the blip atlas with its index, so the questgiver "!" can
+-- be identified by looking rather than by guessing.
+local function showBlipGrid()
+	if gridFrame then gridFrame:Show() return end
+
+	local COLS, SIZE, PAD = 8, 34, 30
+	local f = CreateFrame("Frame", "UnmarkedReconBlipGrid", UIParent)
+	f:SetSize(COLS * (SIZE + PAD) + 30, 420)
+	f:SetPoint("CENTER")
+	f:SetFrameStrata("DIALOG")
+	f:EnableMouse(true)
+	f:SetMovable(true)
+	f:RegisterForDrag("LeftButton")
+	f:SetScript("OnDragStart", f.StartMoving)
+	f:SetScript("OnDragStop", f.StopMovingOrSizing)
+
+	local bg = f:CreateTexture(nil, "BACKGROUND")
+	bg:SetAllPoints()
+	bg:SetColorTexture(0, 0, 0, 0.9)
+
+	local title = f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+	title:SetPoint("TOP", 0, -10)
+	title:SetText("Blip atlas cells - find the ! and ? and note their numbers")
+
+	local close = CreateFrame("Button", nil, f, "UIPanelCloseButton")
+	close:SetPoint("TOPRIGHT", -4, -4)
+
+	local getCoords = C_Minimap and C_Minimap.GetPOITextureCoords
+	if type(getCoords) ~= "function" then
+		local err = f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+		err:SetPoint("CENTER")
+		err:SetText("C_Minimap.GetPOITextureCoords missing")
+		gridFrame = f
+		return
+	end
+
+	local shown = 0
+	for i = 1, 64 do
+		local ok, l, r, t, b = pcall(getCoords, i)
+		if not ok or l == nil then break end
+		local col = shown % COLS
+		local row = math.floor(shown / COLS)
+
+		local tex = f:CreateTexture(nil, "ARTWORK")
+		tex:SetSize(SIZE, SIZE)
+		tex:SetPoint("TOPLEFT", 20 + col * (SIZE + PAD), -40 - row * (SIZE + PAD))
+		tex:SetTexture("Interface\\MINIMAP\\ObjectIconsAtlas")
+		pcall(tex.SetTexCoord, tex, l, r, t, b)
+
+		local num = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+		num:SetPoint("TOP", tex, "BOTTOM", 0, -2)
+		num:SetText(tostring(i))
+
+		shown = shown + 1
+	end
+
+	local foot = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	foot:SetPoint("BOTTOM", 0, 10)
+	foot:SetText(shown .. " cells. Tell Claude which numbers are the ! and the ?")
+
+	gridFrame = f
+end
+
+---------------------------------------------------------------------
 -- CVar effect test (G5)
 ---------------------------------------------------------------------
 
@@ -952,6 +1116,8 @@ local SETTABLE = {
 	trackquestsorting = "trackQuestSorting",
 	showbosses = "showBosses",
 	digsites = "digSites",
+	outline = "Outline",
+	graphicsoutlinemode = "graphicsOutlineMode",
 }
 
 local function setCVar(name, value)
@@ -1092,23 +1258,24 @@ SlashCmdList["UNRECON"] = function(msg)
 	end
 
 	if cmd == "blipreset" then
-		-- Minimap:SetToDefaults() removed the whole minimap frame when this was
-		-- tried in game. It is deliberately NOT called here any more.
+		-- Minimap:SetToDefaults() removed the whole minimap frame when tried in
+		-- game. It is deliberately NOT called here. Restoring means naming the
+		-- Blizzard sheet explicitly, since there is no getter.
 		if not (Minimap and type(Minimap.SetBlipTexture) == "function") then
 			DEFAULT_CHAT_FRAME:AddMessage("|cffff5555[Recon]|r Minimap:SetBlipTexture missing.")
 			return
 		end
-		local path = msg:match("^%s*%a+%s+(%S+)")
-		if not path then
-			DEFAULT_CHAT_FRAME:AddMessage("|cffff5555[Recon]|r usage: /unrecon blipreset <texture path>")
-			DEFAULT_CHAT_FRAME:AddMessage("|cffff5555[Recon]|r there is no getter, so the original path must be supplied.")
-			DEFAULT_CHAT_FRAME:AddMessage("|cffff5555[Recon]|r if you do not have it, restart the client.")
-			return
-		end
+		local path = msg:match("^%s*%a+%s+(%S+)") or "Interface\\MINIMAP\\ObjectIconsAtlas"
 		local ok, err = pcall(Minimap.SetBlipTexture, Minimap, path)
 		pcall(Minimap.UpdateBlips, Minimap)
-		DEFAULT_CHAT_FRAME:AddMessage("|cff66ccff[Recon]|r tried " .. path .. ": " .. tostring(ok) ..
-			(ok and "" or (" " .. tostring(err))))
+		DEFAULT_CHAT_FRAME:AddMessage("|cff66ccff[Recon]|r set blip texture to " .. path ..
+			": " .. tostring(ok) .. (ok and "" or (" " .. tostring(err))))
+		DEFAULT_CHAT_FRAME:AddMessage("|cffffd100Look at the minimap. Did the real icons come back?|r")
+		return
+	end
+
+	if cmd == "blipgrid" then
+		showBlipGrid()
 		return
 	end
 

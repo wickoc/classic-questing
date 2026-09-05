@@ -541,36 +541,59 @@ removed, and holds the minimap POI toggle off.
 
 ### Still open
 
-**Questgiver `!` blips — resolved as a trade, not a feature.**
+**Questgiver `!` blips — research changed the answer. It may be shippable after all.**
 
-Live testing settled every part of this:
+Two things were wrong in the previous assessment, both because the restore path was unknown:
 
-- `Minimap:SetBlipTexture(<any texture>)` reaches the questgiver `!` and `?`. Confirmed.
-- `Minimap:SetBlipTexture(nil)` or `("")` removes **every** blip outright. So suppression needs
-  no shipped art at all — an empty texture is enough.
-- **`Minimap:SetToDefaults()` removed the entire minimap frame.** It must never be called. It
-  has been removed from the probe.
-- Nothing restores the icons in session. The blank blip state survived `/reload`; only a full
-  client restart brought them back.
+1. **There is a documented default sheet: `Interface\MINIMAP\ObjectIconsAtlas`.** A
+   Mists-targeted addon (KeyboardsMinimapIcons) restores exactly that path on `PLAYER_LOGOUT`,
+   with no reload. If that works here, "cannot be undone in session" is simply false, and the
+   feature becomes a normal live toggle. `/unrecon blipreset` now restores it.
+2. **Selective suppression is possible.** The sheet can be replaced with a copy that blanks
+   only the questgiver cells, leaving herbs, vendors and trainers intact — which removes the
+   collateral that made this a bad trade. Several established addons ship blip sheets this way
+   (Chinchilla, KeyboardsMinimapIcons, DragonUI, including a DragonUI fork targeting MoP).
 
-So the capability exists, at a fixed price: **all** minimap blips go, including tracked herbs,
-vendors and trainers, and the only way back is restarting the client. That breaks the
-architecture rule that toggling takes effect immediately, and it cannot be narrowed to the `!`
-alone, because the blip texture is one sheet with no per-icon setter.
+Two caveats stand:
 
-**Recommendation: do not ship it, and document the limitation.** A player who wants questgiver
-`!` gone would lose herb nodes — the recon character has *Find Herbs* and *Low Level Quests*
-tracking on — and would have to restart the game to change their mind. If it ships anyway it
-must be opt-in, off by default, labelled as restart-to-undo, and never part of "turn everything
-on for the ultimate Classic experience". This is the author's call; the addon is ready to take
-either decision.
+- **The documented 8x2 / 256x64 `ObjectIcons` layout is the OLD sheet, not this one.**
+  `GetPOITextureCoords` on this client steps 0.0703125 across and 0.03515625 down, so the atlas
+  is far larger. Replacement art must match the real grid. `/unrecon blipgrid` draws every cell
+  with its index so the `!` and `?` can be identified by looking rather than guessing.
+- **A modified sheet means shipping altered Blizzard art.** That is what the existing addons do,
+  but it is a judgement call for the author, and it is the first thing this addon would ship
+  that is not purely subtractive.
 
-**On breaking the safety rules to get this done.** They are not what is blocking it, so
-breaking them buys nothing. Rules 1 and 2 guard against taint and protected-frame errors, which
-are about Lua reaching into Blizzard's *code*. These blips are not drawn by Lua at all:
-`Minimap` reports zero regions and zero unnamed children, there are zero globals containing
-"blip", and no function in the 205-method dump renders one. There is no Lua call site to hook,
-overwrite or subvert. The constraint is architectural, not a permission being declined.
+**On breaking the safety rules.** Still not the blocker, and still buys nothing. These blips are
+not drawn by Lua: `Minimap` has zero regions and zero unnamed children, zero globals contain
+"blip", and nothing in the 205-method dump renders one. There is no call site to hook or
+overwrite. The one thing research turned up that *does* overwrite `Minimap.SetBlipTexture` (the
+DragonUI fork) does so only to stop other addons fighting over the sheet, not to gain access.
+
+**`Minimap:SetToDefaults()` must never be called.** It removed the entire minimap frame in game.
+
+### New Tier 3 candidates — researched, not yet verified on this client
+
+**Quest object outline and sparkles.** Research names a CVar `Outline` behind the option in
+Blizzard's menu (the No Questgiver Sparkles addon sets it to 0 and re-asserts it), and
+`graphicsOutlineMode` (0 disabled / 1 good / 2 high) for outline density. A recurring report is
+that disabling the outline *replaces* it with sparkles, so both may need handling together.
+Neither name has ever been probed here — v0.9 does, and `/unrecon trycvar Outline 0` tests the
+effect. Note the reference addon re-asserts on every frame via `OnUpdate`; if that proves
+necessary, this addon would re-assert on events instead, never per frame.
+
+**Quest progress tooltip on mouseover.** The documented CVar `showQuestTrackingTooltips` is
+**absent on this client** — already probed, negative. So the CVar route does not exist here and
+the fallback is to strip the quest lines from `GameTooltip`, which unlike the blips *is*
+Lua-reachable: the tooltip's line font strings are individually named (`GameTooltipTextLeft<N>`)
+and can be blanked in place from a script hook. v0.9 confirms which of those exist.
+
+### Addon-list version alignment — parked
+
+`0.3` sits on the border rather than outside, so the version format did affect it. But the
+recon addon's `0.8` has always been slightly misaligned too, which points at the AddonList's own
+layout rather than anything this addon controls. No addon-side fix turned up in research. Parked
+as cosmetic unless a screenshot shows something actionable.
 
 **Instant Quest Text — Tier 2, one probe away.** v0.6 reached the registry:
 `SettingsPanel:GetCategoryList()` returns 42 entries, `GetAllCategories()` 16, and
