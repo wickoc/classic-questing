@@ -555,56 +555,74 @@ local function sectionSettingsRegistry()
 	local attempts = {
 		{ "SettingsPanel:GetCategoryList()", function() return SettingsPanel:GetCategoryList() end },
 		{ "SettingsPanel:GetAllCategories()", function() return SettingsPanel:GetAllCategories() end },
-		{ "Settings.GetCategoryList()", function() return Settings.GetCategoryList() end },
-		{ "SettingsPanel.categoryList", function() return SettingsPanel.categoryList end },
-		{ "SettingsPanel.categories", function() return SettingsPanel.categories end },
+		{ "SettingsPanel:GetSettingsList()", function() return SettingsPanel:GetSettingsList() end },
+		{ "SettingsPanel.settings", function() return rawget(SettingsPanel, "settings") end },
+		{ "SettingsPanel.categoryLayouts", function() return rawget(SettingsPanel, "categoryLayouts") end },
 	}
-	local list
+	local reached = {}
 	for i = 1, #attempts do
 		local okc, res = pcall(attempts[i][2])
 		if okc and type(res) == "table" then
 			local n = 0
 			for _ in pairs(res) do n = n + 1 end
 			add("      OK   " .. attempts[i][1] .. "  -> table with " .. n .. " entries")
-			list = list or res
+			reached[attempts[i][1]] = res
 		else
 			add("      --   " .. attempts[i][1])
 		end
 	end
 
-	if not list then
-		add("      No category list reachable; the next probe needs another angle.")
-		return
-	end
-
-	add("")
-	add("   Walking the category list for setting variables:")
-	local shown = 0
-	for _, cat in pairs(list) do
-		if type(cat) == "table" and shown < 400 then
-			local cname
-			pcall(function() cname = cat.GetName and cat:GetName() or cat.name end)
-			add("      category: " .. tostring(cname))
+	-- v0.6 guessed at the shape of a category (name / settings / layout) and
+	-- printed "category: nil" for all 42. Don't guess: dump the actual keys of
+	-- a few entries and let the next pass use what is really there.
+	local sample = reached["SettingsPanel:GetCategoryList()"] or reached["SettingsPanel:GetAllCategories()"]
+	if sample then
+		add("")
+		add("   Shape of the first few category entries:")
+		local shown = 0
+		for k, v in pairs(sample) do
+			if shown >= 3 then break end
 			shown = shown + 1
-			-- Settings hang off the category in a few shapes; print whichever exists.
-			for _, field in ipairs({ "settings", "subcategories", "layout" }) do
-				local sub = rawget(cat, field)
-				if type(sub) == "table" then
-					for k, v in pairs(sub) do
-						if shown >= 400 then break end
-						local vname
-						pcall(function()
-							vname = (type(v) == "table" and (v.variable or (v.GetVariable and v:GetVariable()))) or nil
-						end)
-						if vname then
-							local val = select(2, pcall(GetCVar, vname))
-							add(string.format("         %-40s = %s", tostring(vname), tostring(val)))
-							shown = shown + 1
-						end
-					end
+			add("      entry key: " .. tostring(k) .. "  value type: " .. type(v))
+			if type(v) == "table" then
+				dumpTable(v, "      entry" .. shown, 40)
+				local mt = getmetatable(v)
+				local idx = mt and rawget(mt, "__index")
+				if type(idx) == "table" then
+					dumpTable(idx, "      entry" .. shown .. ".__index", 40)
 				end
 			end
 		end
+	end
+
+	-- The settings registry is the real prize: if variables are keyed or
+	-- stored here, "Instant Quest Text" falls straight out of it.
+	local reg = reached["SettingsPanel.settings"] or reached["SettingsPanel:GetSettingsList()"]
+	if reg then
+		add("")
+		add("   Settings registry contents (variable = current value):")
+		local rows = {}
+		for k, v in pairs(reg) do
+			local variable
+			if type(v) == "table" then
+				pcall(function()
+					variable = rawget(v, "variable")
+						or (type(v.GetVariable) == "function" and v:GetVariable())
+						or rawget(v, "name")
+				end)
+			end
+			local nameShown = variable or (type(k) == "string" and k) or nil
+			if nameShown then
+				local val = select(2, pcall(GetCVar, nameShown))
+				rows[#rows + 1] = string.format("      %-46s = %s", tostring(nameShown), tostring(val))
+			end
+		end
+		table.sort(rows)
+		add("      " .. #rows .. " entries")
+		for i = 1, math.min(#rows, 400) do add(rows[i]) end
+	else
+		add("")
+		add("   No settings registry reachable.")
 	end
 end
 
@@ -621,9 +639,19 @@ local function sectionBlips()
 	probeMethod(Minimap, "Minimap", "SetIconTexture")
 	probeMethod(Minimap, "Minimap", "SetPOIArrowTexture")
 
+	probeMethod(Minimap, "Minimap", "SetToDefaults")
+
 	add("")
-	add("   NOTE: there is a setter but NO getter for the blip texture, so a")
-	add("   change cannot be read back or restored from Lua. /reload restores it.")
+	add("   CONFIRMED in game: /unrecon blip 136458 turned every minimap POI icon")
+	add("   into a grey square, questgiver ! and ? included. So the lever reaches")
+	add("   them -- but it swaps the whole sheet, and /reload did NOT undo it;")
+	add("   only a full client restart did.")
+	add("")
+	add("   Restore candidates to try, in order:")
+	add("      /unrecon blipreset       -- Minimap:SetToDefaults(), then SetBlipTexture(nil), then \"\"")
+	add("   If any of those restores the icons without a restart, the feature is")
+	add("   shippable as a live toggle. If none do, it can only be applied at login")
+	add("   and undone by restarting the client.")
 	add("")
 	add("   Test with:  /unrecon blip 136458")
 	add("   That swaps the POI icon sheet for an unrelated texture. If the minimap")
@@ -1035,6 +1063,25 @@ SlashCmdList["UNRECON"] = function(msg)
 		pcall(Minimap.UpdateBlips, Minimap)
 		DEFAULT_CHAT_FRAME:AddMessage("|cff66ccff[Recon]|r blip texture set to " .. tostring(value) ..
 			". There is no getter, so |cffffd100/reload|r to put it back.")
+		return
+	end
+
+	if cmd == "blipreset" then
+		if not Minimap then
+			DEFAULT_CHAT_FRAME:AddMessage("|cffff5555[Recon]|r no Minimap.")
+			return
+		end
+		local tried = {}
+		if type(Minimap.SetToDefaults) == "function" then
+			tried[#tried + 1] = "SetToDefaults: " .. tostring((pcall(Minimap.SetToDefaults, Minimap)))
+		end
+		if type(Minimap.SetBlipTexture) == "function" then
+			tried[#tried + 1] = "SetBlipTexture(nil): " .. tostring((pcall(Minimap.SetBlipTexture, Minimap, nil)))
+			tried[#tried + 1] = "SetBlipTexture(\"\"): " .. tostring((pcall(Minimap.SetBlipTexture, Minimap, "")))
+		end
+		pcall(Minimap.UpdateBlips, Minimap)
+		DEFAULT_CHAT_FRAME:AddMessage("|cff66ccff[Recon]|r tried: " .. table.concat(tried, ", "))
+		DEFAULT_CHAT_FRAME:AddMessage("|cffffd100Look at the minimap now. Report whether the real icons came back.|r")
 		return
 	end
 

@@ -199,7 +199,7 @@ local function status()
 		local m = ns.modules[i]
 		local on = ns.db and ns.db.settings[m.setting]
 		local line = "  " .. (on and "|cff55ff55on |r" or "|cffff5555off|r") ..
-			"  " .. tostring(m.key)
+			"  |cffffd100" .. tostring(m.key) .. "|r"
 		if type(m.Status) == "function" then
 			local ok, extra = pcall(m.Status, m)
 			if ok and extra then line = line .. "  -- " .. extra end
@@ -211,12 +211,20 @@ end
 SLASH_CLASSICQUESTINGMOP1 = "/cq"
 SLASH_CLASSICQUESTINGMOP2 = "/classicquesting"
 
--- Setting keys are camelCase, so resolve the argument case-insensitively
--- rather than lowercasing it and never matching.
+-- Accept whatever /cq actually printed. Modules have a display key
+-- ("mapCreaturePortraits") and a saved-setting name ("showBosses"), and the
+-- status list shows the key -- so the key must be a valid handle for
+-- /cq on|off. Taking only the setting name made every name on screen an
+-- "Unknown setting". Both work now, case-insensitively.
 local function resolveSetting(arg)
 	if not arg or arg == "" or not ns.db then return nil end
 	if ns.db.settings[arg] ~= nil then return arg end
+
 	local lower = arg:lower()
+	for i = 1, #ns.modules do
+		local m = ns.modules[i]
+		if m.key and m.key:lower() == lower then return m.setting end
+	end
 	for k in pairs(ns.db.settings) do
 		if k:lower() == lower then return k end
 	end
@@ -250,7 +258,9 @@ SlashCmdList["CLASSICQUESTINGMOP"] = function(msg)
 
 	else
 		status()
-		ns:Print("|cffffd100/cq on|off [setting]|r toggles, |cffffd100/cq reset|r restores defaults.")
+		local example = ns.modules[1] and ns.modules[1].key or "worldMapMarkers"
+		ns:Print("Toggle one with |cffffd100/cq off " .. example ..
+			"|r, or all with |cffffd100/cq on|off|r. |cffffd100/cq reset|r restores defaults.")
 		ns:Print("The options panel arrives with the Options module.")
 	end
 end
