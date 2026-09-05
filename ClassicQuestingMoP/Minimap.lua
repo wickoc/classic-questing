@@ -14,6 +14,7 @@ local M = ns:RegisterModule("minimapMarkers", {})
 M.onText = "minimap quest pins and the blue quest area hidden"
 M.offText = "minimap quest pins and the blue quest area shown again"
 M.group = "Map and minimap"
+M.title = "Hide minimap quest markers"
 M.order = 20
 M.desc = "Keeps the Track Quest POIs tracking entry switched off, which removes both the numbered pins and the blue objective area from the minimap."
 

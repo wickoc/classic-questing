@@ -191,8 +191,28 @@ the version lived in two places and only one got bumped.
 
 ## Options panel — built
 
-`Options.lua`, shipped in v0.5.0. One row per registered module, grouped, each with a
-description and a live status readout; toggling applies immediately.
+`Options.lua`. One row per registered module, grouped, toggling applies immediately.
+
+**Styled to sit alongside Blizzard's own panels:** white headings and page title with a hairline
+rule, yellow option labels, a `Defaults` button top-right, and descriptions in **hover tooltips**
+(white title, yellow wrapped body) rather than printed under each row.
+
+**Preset selector** at the top, in the arrow-stepper style Blizzard uses for Loot Key:
+
+- *Disabled* — every option off, the game as Blizzard ships it.
+- *Full Classic experience* — every option on **except** experimental ones.
+- *Custom* — **derived, never stored.** Shown whenever the settings match neither preset, which
+  gives the "selects itself automatically" behaviour with no stored flag that could drift out of
+  step with the real settings. The arrows step between the two presets that *mean* something;
+  Custom is a readout, not a destination, because a control that does nothing when chosen is
+  worse than one that reports.
+
+**`Defaults` restores the shipped state** — map and minimap markers hidden, everything else off —
+not "all off". That is what a fresh install gives, and *Disabled* already exists in the preset
+for anyone who wants everything off. The button's tooltip says so explicitly.
+
+**TODO(v1.0):** remove the live status readout from each row. It is useful while developing and
+meaningless to a player.
 
 Built as a **canvas layout with hand-made checkboxes**, not through
 `Settings.RegisterAddOnSetting` / `Settings.CreateCheckbox`. Recon confirmed those functions
@@ -211,6 +231,14 @@ Three fallbacks, each tested:
   so a refused CVar or missing frame shows the truth.
 
 `/cq` opens the panel; `/cq status` keeps the text list.
+
+### Applying changes while a frame is open
+
+`questPOI` only takes effect when the world map redraws, so toggling it while the map was open
+appeared to do nothing. Rules can now set `refreshMap`, which calls
+`WorldMapFrame:RefreshAllDataProviders()` after the write — a method confirmed present in the
+352-method dump. Preferred over prompting for a reload: try the cheap, non-destructive thing
+first and only add an Apply/reload prompt if it proves insufficient.
 
 ## Release notes — CurseForge listing
 

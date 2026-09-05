@@ -1,9 +1,9 @@
 -- Classic Questing (MoP) -- Options
 --
--- The settings panel. Every feature the addon has is a row here, and toggling
--- a row applies immediately -- no /reload.
+-- The settings panel, styled to sit alongside Blizzard's own: white headings,
+-- yellow option labels, descriptions in hover tooltips rather than on the page.
 --
--- Deliberately built as a CANVAS layout with hand-made checkboxes rather than
+-- Deliberately built as a CANVAS layout with hand-made controls rather than
 -- through Settings.RegisterAddOnSetting / Settings.CreateCheckbox. Recon
 -- confirmed those functions exist, but not their signatures, and this client
 -- has already punished several confident guesses. RegisterCanvasLayoutCategory
@@ -14,7 +14,33 @@ local ADDON_NAME, ns = ...
 
 local panel
 local rows = {}
+local preset = {}
 local standalone = false
+
+---------------------------------------------------------------------
+-- Tooltips
+---------------------------------------------------------------------
+
+-- Blizzard's shape: white title, yellow wrapped body.
+local function attachTooltip(widget, getTitle, getBody)
+	widget:SetScript("OnEnter", function(self)
+		if not GameTooltip or type(GameTooltip.SetOwner) ~= "function" then return end
+		pcall(function()
+			GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+			GameTooltip:AddLine(getTitle(), 1, 1, 1)
+			local body = getBody()
+			if body and body ~= "" then
+				GameTooltip:AddLine(body, 1, 0.82, 0, true)
+			end
+			GameTooltip:Show()
+		end)
+	end)
+	widget:SetScript("OnLeave", function()
+		if GameTooltip and type(GameTooltip.Hide) == "function" then
+			pcall(GameTooltip.Hide, GameTooltip)
+		end
+	end)
+end
 
 ---------------------------------------------------------------------
 -- Widgets
@@ -41,11 +67,11 @@ local function makeCheckbox(parent)
 	cb:SetSize(26, 26)
 	local bg = cb:CreateTexture(nil, "ARTWORK")
 	bg:SetAllPoints()
-	bg:SetColorTexture(0.3, 0.3, 0.3, 1)
+	bg:SetColorTexture(0.25, 0.25, 0.25, 1)
 	local mark = cb:CreateTexture(nil, "OVERLAY")
 	mark:SetPoint("CENTER")
-	mark:SetSize(16, 16)
-	mark:SetColorTexture(0.2, 1, 0.2, 1)
+	mark:SetSize(14, 14)
+	mark:SetColorTexture(1, 0.82, 0, 1)
 	cb.__mark = mark
 	cb.__checked = false
 	cb.GetChecked = function(self) return self.__checked end
@@ -57,10 +83,84 @@ local function makeCheckbox(parent)
 	return cb
 end
 
+local function makeButton(parent, w, h, text)
+	local ok, b = pcall(CreateFrame, "Button", nil, parent, "UIPanelButtonTemplate")
+	if not ok or not b then
+		ok, b = pcall(CreateFrame, "Button", nil, parent)
+		if not ok or not b then return nil end
+		local bg = b:CreateTexture(nil, "ARTWORK")
+		bg:SetAllPoints()
+		bg:SetColorTexture(0.2, 0.2, 0.2, 1)
+		local t = b:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+		t:SetPoint("CENTER")
+		b.__label = t
+		b.SetText = function(self, v) self.__label:SetText(v) end
+	end
+	b:SetSize(w, h)
+	b:SetText(text)
+	return b
+end
+
 local function fs(parent, font, r, g, b)
-	local t = parent:CreateFontString(nil, "ARTWORK", font or "GameFontHighlight")
+	local t = parent:CreateFontString(nil, "ARTWORK", font or "GameFontNormal")
 	if r then t:SetTextColor(r, g, b) end
 	return t
+end
+
+---------------------------------------------------------------------
+-- Presets
+---------------------------------------------------------------------
+
+-- Derived, never stored. "Custom" is what the panel shows when the settings
+-- match neither preset, which is exactly the "selects itself automatically"
+-- behaviour without a stored flag that could drift out of step with reality.
+local PRESET_LABEL = {
+	disabled = "Disabled",
+	classic  = "Full Classic experience",
+	custom   = "Custom",
+}
+
+local function nonExperimental()
+	local list = {}
+	for i = 1, #ns.modules do
+		local m = ns.modules[i]
+		if not m.experimental then list[#list + 1] = m end
+	end
+	return list
+end
+
+local function currentPreset()
+	if not ns.db then return "custom" end
+	local allOff, allOn = true, true
+	for i = 1, #ns.modules do
+		local m = ns.modules[i]
+		local on = ns.db.settings[m.key] and true or false
+		if on then allOff = false end
+		if not m.experimental and not on then allOn = false end
+		-- An experimental option being on is never "Full Classic".
+		if m.experimental and on then allOn = false end
+	end
+	if allOff then return "disabled" end
+	if allOn then return "classic" end
+	return "custom"
+end
+
+local function applyPreset(which)
+	if not ns.db then return end
+	if which == "disabled" then
+		for i = 1, #ns.modules do
+			ns.db.settings[ns.modules[i].key] = false
+		end
+	elseif which == "classic" then
+		for i = 1, #ns.modules do
+			local m = ns.modules[i]
+			ns.db.settings[m.key] = not m.experimental
+		end
+	else
+		return -- "custom" applies nothing by definition
+	end
+	ns:ApplyAll()
+	ns.RefreshOptions()
 end
 
 ---------------------------------------------------------------------
@@ -70,9 +170,7 @@ end
 local function sortedModules()
 	local list = {}
 	for i = 1, #ns.modules do list[#list + 1] = ns.modules[i] end
-	table.sort(list, function(a, b)
-		return (a.order or 999) < (b.order or 999)
-	end)
+	table.sort(list, function(a, b) return (a.order or 999) < (b.order or 999) end)
 	return list
 end
 
@@ -80,88 +178,140 @@ local function build()
 	if panel then return panel end
 
 	panel = CreateFrame("Frame", "ClassicQuestingMoPOptions", UIParent)
-	panel:SetSize(620, 520)
+	panel:SetSize(620, 560)
 	panel:Hide()
 	panel.name = ns.title
 
-	local title = fs(panel, "GameFontNormalLarge")
+	-- Header: white title, small grey version, hairline rule. Blizzard's shape.
+	local title = fs(panel, "GameFontNormalLarge", 1, 1, 1)
 	title:SetPoint("TOPLEFT", 16, -16)
 	title:SetText(ns.title)
 
-	local version = fs(panel, "GameFontDisableSmall")
-	version:SetPoint("LEFT", title, "RIGHT", 8, 0)
+	local version = fs(panel, "GameFontDisableSmall", 0.5, 0.5, 0.5)
+	version:SetPoint("LEFT", title, "RIGHT", 8, -1)
 	version:SetText("v" .. tostring(ns.version))
 
-	local blurb = fs(panel, "GameFontHighlightSmall", 0.8, 0.8, 0.8)
-	blurb:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -6)
-	blurb:SetWidth(560)
-	blurb:SetJustifyH("LEFT")
-	blurb:SetText("Everything here takes effect at once. Nothing needs a reload.")
+	local rule = panel:CreateTexture(nil, "ARTWORK")
+	rule:SetColorTexture(0.4, 0.4, 0.4, 0.8)
+	rule:SetPoint("TOPLEFT", 16, -44)
+	rule:SetPoint("TOPRIGHT", -16, -44)
+	rule:SetHeight(1)
 
-	local y = -70
+	local defaults = makeButton(panel, 110, 22, "Defaults")
+	if defaults then
+		defaults:SetPoint("TOPRIGHT", -16, -14)
+		defaults:SetScript("OnClick", function()
+			ns:ResetDefaults(true)
+			ns.RefreshOptions()
+		end)
+		attachTooltip(defaults,
+			function() return "Defaults" end,
+			function()
+				return "Returns every option to the state a fresh install has: "
+					.. "map and minimap markers hidden, everything else off."
+			end)
+	end
+
+	---------------------------------------------------------------
+	-- Preset selector
+	---------------------------------------------------------------
+
+	local presetLabel = fs(panel, "GameFontNormal")
+	presetLabel:SetPoint("TOPLEFT", 24, -62)
+	presetLabel:SetText("Preset")
+
+	local left = makeButton(panel, 24, 22, "<")
+	local value = CreateFrame("Frame", nil, panel)
+	value:SetSize(220, 22)
+	value:SetPoint("TOPLEFT", 150, -58)
+	local valueBg = value:CreateTexture(nil, "BACKGROUND")
+	valueBg:SetAllPoints()
+	valueBg:SetColorTexture(0.1, 0.1, 0.1, 0.8)
+	local valueText = fs(value, "GameFontHighlight", 1, 1, 1)
+	valueText:SetPoint("CENTER")
+
+	local right = makeButton(panel, 24, 22, ">")
+	if left then left:SetPoint("RIGHT", value, "LEFT", -4, 0) end
+	if right then right:SetPoint("LEFT", value, "RIGHT", 4, 0) end
+
+	-- Arrows step between the two presets that mean something. "Custom" is a
+	-- readout, not a destination: selecting it would have to do nothing, and a
+	-- control that does nothing when chosen is worse than one that reports.
+	local function step(dir)
+		local now = currentPreset()
+		if now == "disabled" then applyPreset("classic")
+		elseif now == "classic" then applyPreset("disabled")
+		else applyPreset(dir > 0 and "classic" or "disabled") end
+	end
+	if left then left:SetScript("OnClick", function() step(-1) end) end
+	if right then right:SetScript("OnClick", function() step(1) end) end
+
+	local function presetBody()
+		return "Disabled: every option off, the game as Blizzard ships it.\n\n"
+			.. "Full Classic experience: every option on, except experimental ones.\n\n"
+			.. "Custom: shown automatically whenever your settings match neither of "
+			.. "the above. Change any option below and this becomes Custom by itself."
+	end
+	attachTooltip(value, function() return "Preset" end, presetBody)
+	if left then attachTooltip(left, function() return "Preset" end, presetBody) end
+	if right then attachTooltip(right, function() return "Preset" end, presetBody) end
+
+	preset.text = valueText
+
+	---------------------------------------------------------------
+	-- Option rows
+	---------------------------------------------------------------
+
+	local y = -100
 	local lastGroup
 
 	for _, m in ipairs(sortedModules()) do
 		if m.group and m.group ~= lastGroup then
 			lastGroup = m.group
-			local head = fs(panel, "GameFontNormal", 1, 0.82, 0)
+			local head = fs(panel, "GameFontNormalLarge", 1, 1, 1)
 			head:SetPoint("TOPLEFT", 16, y)
 			head:SetText(m.group)
-			y = y - 22
+			y = y - 26
 		end
 
 		local cb = makeCheckbox(panel)
 		if cb then
-			cb:SetPoint("TOPLEFT", 20, y + 2)
+			cb:SetPoint("TOPLEFT", 24, y)
 
-			local label = fs(panel, "GameFontHighlight")
+			-- Yellow label, as Blizzard's own option rows use.
+			local label = fs(panel, "GameFontNormal")
 			label:SetPoint("LEFT", cb, "RIGHT", 4, 0)
-			label:SetText(m.key .. (m.experimental and "  |cffff8800(experimental)|r" or ""))
+			label:SetText((m.title or m.key)
+				.. (m.experimental and "  |cffff8800(experimental)|r" or ""))
 
-			local status = fs(panel, "GameFontDisableSmall", 0.6, 0.6, 0.6)
-			status:SetPoint("TOPRIGHT", panel, "TOPLEFT", 600, y)
+			-- TODO(v1.0): remove the live status readout. It is useful while
+			-- developing and meaningless to a player.
+			local status = fs(panel, "GameFontDisableSmall", 0.5, 0.5, 0.5)
+			status:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -20, y - 4)
 			status:SetJustifyH("RIGHT")
 
-			local desc = fs(panel, "GameFontDisableSmall", 0.65, 0.65, 0.65)
-			desc:SetPoint("TOPLEFT", 48, y - 20)
-			desc:SetWidth(540)
-			desc:SetJustifyH("LEFT")
-			desc:SetText(m.desc or "")
-
 			cb:SetScript("OnClick", function(self)
-				local want = self:GetChecked() and true or false
-				ns:Set(m.key, want)
-				-- Read back rather than trusting the click: a module can
-				-- refuse (a locked CVar, a missing frame) and the panel must
-				-- show what is actually true.
+				ns:Set(m.key, self:GetChecked() and true or false)
+				-- Read back rather than trusting the click: a module can refuse
+				-- (a locked CVar, a missing frame) and the panel must show what
+				-- is actually true.
 				ns.RefreshOptions()
 			end)
 
-			rows[#rows + 1] = { module = m, check = cb, status = status }
+			attachTooltip(cb,
+				function() return m.title or m.key end,
+				function()
+					local body = m.desc or ""
+					if m.experimental then
+						body = body .. "\n\nExperimental: not enabled by the Full Classic preset."
+					end
+					return body .. "\n\nSlash name: " .. m.key
+				end)
 
-			-- Two lines per row: the control, then its description.
-			local descH = 14
-			pcall(function() descH = desc:GetStringHeight() or 14 end)
-			y = y - 24 - math.max(descH, 12) - 8
+			rows[#rows + 1] = { module = m, check = cb, status = status }
+			y = y - 30
 		end
 	end
-
-	local reset = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
-	if reset then
-		reset:SetSize(140, 22)
-		reset:SetPoint("TOPLEFT", 20, y - 6)
-		reset:SetText("Restore defaults")
-		reset:SetScript("OnClick", function()
-			ns:ResetDefaults()
-			ns.RefreshOptions()
-		end)
-	end
-
-	local footer = fs(panel, "GameFontDisableSmall", 0.55, 0.55, 0.55)
-	footer:SetPoint("BOTTOMLEFT", 16, 14)
-	footer:SetWidth(580)
-	footer:SetJustifyH("LEFT")
-	footer:SetText("Experimental options are never enabled by /cq on. Turn them on by name.")
 
 	panel:SetScript("OnShow", function() ns.RefreshOptions() end)
 	return panel
@@ -184,6 +334,9 @@ function ns.RefreshOptions()
 		end
 		row.status:SetText(text)
 	end
+	if preset.text then
+		preset.text:SetText(PRESET_LABEL[currentPreset()] or "Custom")
+	end
 end
 
 ---------------------------------------------------------------------
@@ -203,8 +356,7 @@ local function register()
 	-- Some builds want an explicit ID before the category can be opened.
 	if category.ID == nil then category.ID = ns.title end
 
-	local ok2 = pcall(Settings.RegisterAddOnCategory, category)
-	if not ok2 then return false end
+	if not pcall(Settings.RegisterAddOnCategory, category) then return false end
 
 	ns.optionsCategory = category
 	return true
@@ -238,8 +390,9 @@ function ns:OpenOptions()
 	build()
 
 	if ns.optionsCategory and type(Settings) == "table" and type(Settings.OpenToCategory) == "function" then
-		local ok = pcall(Settings.OpenToCategory, ns.optionsCategory.ID or ns.optionsCategory)
-		if ok then return true end
+		if pcall(Settings.OpenToCategory, ns.optionsCategory.ID or ns.optionsCategory) then
+			return true
+		end
 	end
 
 	makeStandalone()

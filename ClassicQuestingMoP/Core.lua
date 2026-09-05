@@ -188,14 +188,18 @@ function ns:Set(key, value)
 	ns:ApplyAll()
 end
 
-function ns:ResetDefaults()
+-- silent: the options panel resets in place and the player can see the result,
+-- so it does not need a chat line.
+function ns:ResetDefaults(silent)
 	if not ns.db then return end
 	wipe(ns.db.settings)
 	for k, v in pairs(ns.defaults) do
 		ns.db.settings[k] = v
 	end
 	ns:ApplyAll()
-	ns:Print("Settings restored to defaults.")
+	if not silent then
+		ns:Print("Settings restored to defaults.")
+	end
 end
 
 ---------------------------------------------------------------------
