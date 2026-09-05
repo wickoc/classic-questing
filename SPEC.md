@@ -150,13 +150,25 @@ panel level, even where the underlying lever is (see the `questPOI` bundling not
 **Slash command:** `/cq` opens the panel, with `/classicquesting` as a long-form alias.
 `/cq reset` restores defaults. (Renamed from `/unmarked` along with the project.)
 
-**Keep `## Notes` short.** A long Notes line widens the addon-list tooltip until the version
-is pushed outside the box. One short sentence.
+**Addon-list tooltip: version renders outside the box.** Unresolved. Shortening `## Notes`
+did not fix it, so the cause is not Notes length. The remaining differences from the recon
+addon, which renders correctly, are the title length ("Classic Questing (MoP)" at 22 characters
+versus "Unmarked Recon" at 14) and the version format ("0.2.1", two dots, versus "0.7", one).
+v0.3 tests the version format by changing only that. If it still overflows, shorten the Title
+next. Do not keep guessing past that without a screenshot.
 
-**The name `/cq` prints is the name `/cq` accepts.** Modules carry both a display key
-(`mapCreaturePortraits`) and a saved-setting name (`showBosses`); the status list shows the
-key, so the key must be a valid handle for `/cq on|off`. Accepting only the setting name made
-every name on screen report "Unknown setting".
+**One name per feature — no second name anywhere.** v1 gave each feature a display key
+(`mapCreaturePortraits`) *and* a saved-setting name mirroring the CVar (`showBosses`). That
+duplication was not good practice and it caused two separate bugs: `/cq on|off` rejected every
+name `/cq` itself printed, and `"showBosses turned on"` read as though the portraits were being
+*shown* when they were being hidden. As of v2 the module key, the saved-settings key and the
+typed handle are the same string, and it names what the addon does rather than what Blizzard
+calls the switch underneath. The CVar name is an implementation detail inside the rule table.
+A `dbVersion` migration carries v1 saved settings across, and the old names still resolve as
+handles.
+
+**Report the effect, not the switch.** `/cq on X` prints what actually changed
+("world map creature portraits hidden"), never the raw CVar transition.
 
 **Version numbers have one source of truth: the `.toc`.** Never hardcode a version string in
 Lua. Read it at runtime with `C_AddOns.GetAddOnMetadata(addonName, "Version")` (fall back to
@@ -529,40 +541,36 @@ removed, and holds the minimap POI toggle off.
 
 ### Still open
 
-**Questgiver `!` blips — Tier 1, and the honest position.**
+**Questgiver `!` blips — resolved as a trade, not a feature.**
 
-The v0.6 live test settles the mechanism: `/unrecon blip 136458` turned **every** minimap POI
-icon into a grey square, questgiver `!` and `?` among them. So `Minimap:SetBlipTexture` does
-reach them. Three costs come with it, all confirmed rather than predicted:
+Live testing settled every part of this:
 
-1. **It swaps the whole sheet, not one icon.** Every POI blip changed, each sampling a
-   different region of the replacement texture. Suppressing the `!` this way also blanks
-   tracked herbs, vendors, trainers and flight masters. The recon character has *Find Herbs*
-   active, so this is a real loss, not a hypothetical one.
-2. **`/reload` did not undo it.** Only a full client restart restored the real icons. The
-   blip texture survives a UI reload, and there is no getter to read the original path back.
-   That breaks the architecture rule that toggling takes effect immediately.
-3. **It needs an asset.** The addon would have to ship its own transparent sheet. Still
-   subtractive in effect, but no longer subtractive in the sense of touching nothing but
-   Blizzard's own switches.
+- `Minimap:SetBlipTexture(<any texture>)` reaches the questgiver `!` and `?`. Confirmed.
+- `Minimap:SetBlipTexture(nil)` or `("")` removes **every** blip outright. So suppression needs
+  no shipped art at all — an empty texture is enough.
+- **`Minimap:SetToDefaults()` removed the entire minimap frame.** It must never be called. It
+  has been removed from the probe.
+- Nothing restores the icons in session. The blank blip state survived `/reload`; only a full
+  client restart brought them back.
 
-Probe v0.7 adds `/unrecon blipreset`, which tries `Minimap:SetToDefaults()` (present in the
-205-method dump) and then `SetBlipTexture(nil)` / `("")`. If any restores the icons without a
-restart, cost 2 disappears and the feature becomes a normal opt-in toggle. If none do, it can
-only be applied at login and undone by restarting the client, and should ship — if at all — as
-a loudly-labelled opt-in rather than part of the default Classic experience.
+So the capability exists, at a fixed price: **all** minimap blips go, including tracked herbs,
+vendors and trainers, and the only way back is restarting the client. That breaks the
+architecture rule that toggling takes effect immediately, and it cannot be narrowed to the `!`
+alone, because the blip texture is one sheet with no per-icon setter.
+
+**Recommendation: do not ship it, and document the limitation.** A player who wants questgiver
+`!` gone would lose herb nodes — the recon character has *Find Herbs* and *Low Level Quests*
+tracking on — and would have to restart the game to change their mind. If it ships anyway it
+must be opt-in, off by default, labelled as restart-to-undo, and never part of "turn everything
+on for the ultimate Classic experience". This is the author's call; the addon is ready to take
+either decision.
 
 **On breaking the safety rules to get this done.** They are not what is blocking it, so
-breaking them buys nothing. Rules 1 and 2 guard against taint and protected-frame errors,
-which are about Lua reaching into Blizzard's *code*. These blips are not drawn by Lua at all:
+breaking them buys nothing. Rules 1 and 2 guard against taint and protected-frame errors, which
+are about Lua reaching into Blizzard's *code*. These blips are not drawn by Lua at all:
 `Minimap` reports zero regions and zero unnamed children, there are zero globals containing
 "blip", and no function in the 205-method dump renders one. There is no Lua call site to hook,
-overwrite, or subvert — the drawing happens below the API surface entirely. Overwriting
-Blizzard globals here would add taint risk while changing nothing on screen. The constraint is
-architectural, not a permission we are declining to take.
-
-So the realistic choice is the transparent-sheet trade above, or documenting this as a client
-limitation. Not a rule we can spend to buy our way out.
+overwrite or subvert. The constraint is architectural, not a permission being declined.
 
 **Instant Quest Text — Tier 2, one probe away.** v0.6 reached the registry:
 `SettingsPanel:GetCategoryList()` returns 42 entries, `GetAllCategories()` 16, and

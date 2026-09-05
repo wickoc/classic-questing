@@ -12,22 +12,24 @@ local RULES = {
 		-- highlights, the "Track Quest" checkbox and the quest log panel
 		-- inside the fullscreen map. Verified in game.
 		key     = "worldMapMarkers",
-		setting = "worldMapQuestPOI",
 		cvar    = "questPOI",
 		wanted  = "0",
 		default = true,
 		label   = "world map quest markers",
+		onText  = "world map quest markers, blue areas and map quest log hidden",
+		offText = "world map quest markers shown again",
 	},
 	{
 		-- Tier 2, opt-in. Newly accepted quests stop auto-tracking. This is
 		-- real quality of life, not clutter, so it ships off and the player
 		-- chooses it rather than having it chosen for them.
 		key     = "autoQuestTracking",
-		setting = "autoQuestWatch",
 		cvar    = "autoQuestWatch",
 		wanted  = "0",
 		default = false,
 		label   = "automatic tracking of new quests",
+		onText  = "newly accepted quests are no longer tracked automatically",
+		offText = "newly accepted quests are tracked automatically again",
 	},
 	{
 		-- Tier 3, opt-in. The boss and creature portrait pins MoP puts on
@@ -35,11 +37,12 @@ local RULES = {
 		-- Recon named the lever: provider 7 is EncounterJournalDataProvider
 		-- carrying cvar=showBosses.
 		key     = "mapCreaturePortraits",
-		setting = "showBosses",
 		cvar    = "showBosses",
 		wanted  = "0",
 		default = false,
 		label   = "world map creature portraits",
+		onText  = "world map creature portraits hidden",
+		offText = "world map creature portraits shown again",
 	},
 }
 
@@ -84,10 +87,13 @@ end
 
 local function makeModule(rule)
 	local M = ns:RegisterModule(rule.key, {})
-	M.setting = rule.setting
 	M.rule = rule
+	M.onText = rule.onText
+	M.offText = rule.offText
 
-	ns:RegisterDefaults({ [rule.setting] = rule.default })
+	-- One name: the module key is the saved-settings key is the handle the
+	-- player types. The CVar name stays an implementation detail in `rule`.
+	ns:RegisterDefaults({ [rule.key] = rule.default })
 
 	function M:Enable()
 		if type(GetCVar) ~= "function" or type(SetCVar) ~= "function" then
@@ -142,7 +148,7 @@ ns:RegisterEvent("CVAR_UPDATE", function()
 	if applying or not ns.db then return end
 	for i = 1, #RULES do
 		local rule = RULES[i]
-		if ns.db.settings[rule.setting] and not refused[rule.cvar] then
+		if ns.db.settings[rule.key] and not refused[rule.cvar] then
 			if readCVar(rule.cvar) ~= rule.wanted then
 				writeCVar(rule, rule.wanted)
 			end

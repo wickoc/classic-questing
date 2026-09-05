@@ -97,7 +97,20 @@ end
 ---------------------------------------------------------------------
 
 -- Account-wide (see the .toc): someone who wants this wants it everywhere.
-local DB_VERSION = 1
+local DB_VERSION = 2
+
+-- v1 gave every feature two names: a display key ("mapCreaturePortraits") and
+-- a saved-setting name mirroring the CVar ("showBosses"). That was a mistake.
+-- It made the name /cq printed different from the name /cq accepted, and it
+-- made "showBosses turned on" mean the portraits were hidden. v2 uses one
+-- name per feature, describing what the addon does rather than what Blizzard
+-- calls the underlying switch.
+local RENAMED_IN_V2 = {
+	worldMapQuestPOI = "worldMapMarkers",
+	minimapQuestPOI  = "minimapMarkers",
+	autoQuestWatch   = "autoQuestTracking",
+	showBosses       = "mapCreaturePortraits",
+}
 
 -- Modules add their own defaults at file scope, before ADDON_LOADED fires.
 ns.defaults = {}
@@ -120,8 +133,21 @@ local function initDB()
 	if db.dbVersion == nil then
 		db.dbVersion = DB_VERSION
 	elseif db.dbVersion < DB_VERSION then
-		-- No migrations exist yet. When the first one does, it goes here and
-		-- bumps db.dbVersion as it goes.
+		if db.dbVersion < 2 then
+			for old, new in pairs(RENAMED_IN_V2) do
+				if db.settings[old] ~= nil and db.settings[new] == nil then
+					db.settings[new] = db.settings[old]
+				end
+				db.settings[old] = nil
+			end
+			-- The remembered pre-addon tracking state moves with the rename;
+			-- losing it would leave Disable unable to restore what the player
+			-- actually had.
+			if db.state.minimapQuestPOITracking ~= nil and db.state.minimapMarkersTracking == nil then
+				db.state.minimapMarkersTracking = db.state.minimapQuestPOITracking
+			end
+			db.state.minimapQuestPOITracking = nil
+		end
 		db.dbVersion = DB_VERSION
 	end
 
@@ -142,7 +168,7 @@ function ns:ApplyAll()
 	if not ns.db then return end
 	for i = 1, #ns.modules do
 		local m = ns.modules[i]
-		local on = ns.db.settings[m.setting]
+		local on = ns.db.settings[m.key]
 		local fn = on and m.Enable or m.Disable
 		if type(fn) == "function" then
 			local ok, err = pcall(fn, m)
@@ -197,7 +223,7 @@ local function status()
 	ns:Print(ns.title .. " v" .. tostring(ns.version))
 	for i = 1, #ns.modules do
 		local m = ns.modules[i]
-		local on = ns.db and ns.db.settings[m.setting]
+		local on = ns.db and ns.db.settings[m.key]
 		local line = "  " .. (on and "|cff55ff55on |r" or "|cffff5555off|r") ..
 			"  |cffffd100" .. tostring(m.key) .. "|r"
 		if type(m.Status) == "function" then
@@ -221,12 +247,12 @@ local function resolveSetting(arg)
 	if ns.db.settings[arg] ~= nil then return arg end
 
 	local lower = arg:lower()
-	for i = 1, #ns.modules do
-		local m = ns.modules[i]
-		if m.key and m.key:lower() == lower then return m.setting end
-	end
 	for k in pairs(ns.db.settings) do
 		if k:lower() == lower then return k end
+	end
+	-- Old v1 names still work, so muscle memory and older notes keep working.
+	for old, new in pairs(RENAMED_IN_V2) do
+		if old:lower() == lower then return new end
 	end
 	return nil
 end
@@ -250,7 +276,12 @@ SlashCmdList["CLASSICQUESTINGMOP"] = function(msg)
 			local key = resolveSetting(arg)
 			if key then
 				ns:Set(key, want)
-				ns:Print(key .. " turned " .. cmd .. ".")
+				local m = ns.modules[key]
+				-- "showBosses turned on" read as though the portraits were
+				-- being shown. Say what actually happened instead.
+				local effect = m and (want and m.onText or m.offText)
+				ns:Print("|cffffd100" .. key .. "|r " .. cmd ..
+					(effect and (" -- " .. effect .. ".") or "."))
 			else
 				ns:Print("Unknown setting '" .. arg .. "'. Try /cq for the list.")
 			end

@@ -11,10 +11,12 @@
 local ADDON_NAME, ns = ...
 
 local M = ns:RegisterModule("minimapMarkers", {})
-M.setting = "minimapQuestPOI"
+M.onText = "minimap quest pins and the blue quest area hidden"
+M.offText = "minimap quest pins and the blue quest area shown again"
 
+-- One name: module key, saved-settings key and typed handle are all the same.
 ns:RegisterDefaults({
-	minimapQuestPOI = true,
+	minimapMarkers = true,
 })
 
 local applying = false
@@ -104,7 +106,7 @@ end
 
 local function enforce()
 	if applying or refused then return end
-	if not ns.db or not ns.db.settings[M.setting] then return end
+	if not ns.db or not ns.db.settings[M.key] then return end
 
 	local index, info = findEntry()
 	if not index then return end
@@ -144,13 +146,18 @@ local function attachTooltip()
 
 	local ok = pcall(function()
 		btn:HookScript("OnEnter", function(self)
-			if not ns.db or not ns.db.settings[M.setting] then return end
+			if not ns.db or not ns.db.settings[M.key] then return end
 			if not GameTooltip or type(GameTooltip.AddLine) ~= "function" then return end
 			if GameTooltip.GetOwner and GameTooltip:GetOwner() ~= self then return end
 			-- Blank spacer, then the addon name as its own header line so the
 			-- block reads as ours rather than as part of Blizzard's tooltip.
+			-- A tooltip header cannot be made larger: AddLine has no per-line
+			-- font, and the big header font applies only to the tooltip's own
+			-- first line. So separate the block by colour instead, using the
+			-- addon's chat blue, which stands clear of Blizzard's white body
+			-- text and yellow highlights.
 			GameTooltip:AddLine(" ")
-			GameTooltip:AddLine(ns.title, 1, 0.82, 0)
+			GameTooltip:AddLine("|cff66ccff" .. ns.title .. "|r")
 			GameTooltip:AddLine("|cffffd100Track Quest POIs|r is kept off automatically.", 1, 1, 1)
 			GameTooltip:AddLine("Switching it on here will not stick.", 0.9, 0.9, 0.9)
 			-- TODO(Options): replace with a pointer to the options panel.
@@ -167,8 +174,8 @@ function M:Enable()
 
 	-- Remember the pre-addon state once, so Disable restores what the player
 	-- actually had rather than assuming it was on.
-	if ns.db.state.minimapQuestPOITracking == nil then
-		ns.db.state.minimapQuestPOITracking = info.active and true or false
+	if ns.db.state.minimapMarkersTracking == nil then
+		ns.db.state.minimapMarkersTracking = info.active and true or false
 	end
 
 	enforce()
@@ -178,7 +185,7 @@ end
 
 function M:Disable()
 	settled = false
-	local original = ns.db and ns.db.state.minimapQuestPOITracking
+	local original = ns.db and ns.db.state.minimapMarkersTracking
 	if original == nil then return end
 	local index, info = findEntry()
 	if not index then return end
