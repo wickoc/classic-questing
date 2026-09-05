@@ -18,7 +18,14 @@
 -- objects, tracking types, globals -- so a negative result means "not present" rather
 -- than "I guessed the wrong name".
 
-local RECON_VERSION = "0.4"
+-- One source of truth: read it from the .toc rather than repeating it here.
+-- v0.4 shipped announcing 0.4 in chat while the .toc still said 0.3.
+local RECON_VERSION = (function()
+	local getter = (C_AddOns and C_AddOns.GetAddOnMetadata) or GetAddOnMetadata
+	if type(getter) ~= "function" then return "?" end
+	local ok, v = pcall(getter, "UnmarkedRecon", "Version")
+	return (ok and v) or "?"
+end)()
 
 UnmarkedReconDB = UnmarkedReconDB or {}
 
@@ -501,6 +508,111 @@ local function sectionCVarDetail()
 	add("   then look at the minimap and the world map, and set it back to 1.")
 end
 
+-- [G6] The questgiver "!" blips. Classic never showed these; MoP does, and no
+-- switch for them turned up in v0.2-v0.4. Rather than guess at CVar names,
+-- enumerate the whole console command list and filter it -- a name that is
+-- not in that list does not exist, which is a real answer either way.
+local function sectionCVarDiscovery()
+	head("[G6] CVar discovery - full console command list")
+
+	if not (C_Console and type(C_Console.GetAllCommands) == "function") then
+		add("   C_Console.GetAllCommands missing - cannot enumerate the CVar space.")
+		add("   Without it there is no principled way to find an unknown CVar name.")
+		return
+	end
+
+	local ok, cmds = pcall(C_Console.GetAllCommands)
+	if not ok or type(cmds) ~= "table" then
+		add("   GetAllCommands failed: " .. tostring(cmds))
+		return
+	end
+	add("   Total console commands: " .. #cmds)
+
+	local PATTERNS = { "quest", "poi", "blip", "minimap", "track", "helper",
+	                   "boss", "npc", "objective", "marker", "icon" }
+	local hits = {}
+	for i = 1, #cmds do
+		local c = cmds[i]
+		local name = type(c) == "table" and c.command or tostring(c)
+		if type(name) == "string" then
+			local lower = name:lower()
+			for p = 1, #PATTERNS do
+				if lower:find(PATTERNS[p], 1, true) then
+					local value = select(2, pcall(GetCVar, name))
+					hits[#hits + 1] = string.format("%-42s = %-18s %s",
+						name, tostring(value),
+						(type(c) == "table" and c.help and tostring(c.help):sub(1, 60)) or "")
+					break
+				end
+			end
+		end
+	end
+	table.sort(hits)
+	add("   Matching quest/POI/blip/minimap/track/boss/icon: " .. #hits)
+	for i = 1, #hits do add("      " .. hits[i]) end
+end
+
+-- [G6 cont.] Everything the tracking system will tell us about each entry,
+-- not just name and active. A questgiver-blip switch could live here.
+local function sectionTrackingDetail()
+	head("[G6] Tracking entries - every field")
+
+	local C = C_Minimap
+	if type(C) ~= "table" or type(C.GetNumTrackingTypes) ~= "function" then
+		add("   C_Minimap tracking API missing.")
+		return
+	end
+	local okc, count = pcall(C.GetNumTrackingTypes)
+	if not okc or type(count) ~= "number" then
+		add("   Could not read tracking count.")
+		return
+	end
+	for i = 1, count do
+		local ok, info = pcall(C.GetTrackingInfo, i)
+		if ok and type(info) == "table" then
+			local keys = {}
+			for k, v in pairs(info) do
+				if type(k) == "string" then keys[#keys + 1] = k .. "=" .. tostring(v) end
+			end
+			table.sort(keys)
+			add(string.format("   %2d  %s", i, table.concat(keys, ", ")))
+		else
+			add(string.format("   %2d  (not a table: %s)", i, tostring(info)))
+		end
+	end
+
+	add("")
+	if type(C.GetPOITextureCoords) == "function" then
+		add("   C_Minimap.GetPOITextureCoords by index:")
+		for i = 1, 24 do
+			local ok, a, b, c, d = pcall(C.GetPOITextureCoords, i)
+			if ok and a ~= nil then
+				add(string.format("      %2d  %s, %s, %s, %s", i,
+					tostring(a), tostring(b), tostring(c), tostring(d)))
+			end
+		end
+	else
+		add("   C_Minimap.GetPOITextureCoords missing.")
+	end
+
+	add("")
+	listGlobals("Globals containing 'blip'", "blip", 40)
+end
+
+-- [G7] The world map boss portraits in Pandaria zones. v0.4 already named the
+-- likely lever: provider 7 is EncounterJournalDataProviderMixin carrying
+-- cvar=showBosses. This just reports the state so it can be tested live.
+local function sectionMapClutter()
+	head("[G7] World map clutter - boss portraits and dig sites")
+	add("   v0.4 identified these providers and the CVar field each carries:")
+	add("      provider  7  EncounterJournalDataProviderMixin  cvar=showBosses")
+	add("      provider  6  DigSiteDataProviderMixin           cvar=digSites")
+	add("")
+	for _, c in ipairs({ "showBosses", "digSites" }) do probeCVar(c) end
+	add("")
+	add("   Test with: /unrecon set showBosses 0   (then look at a Pandaria zone map)")
+end
+
 ---------------------------------------------------------------------
 
 local function collect()
@@ -574,6 +686,9 @@ local function collect()
 	sectionDataProviders()
 	sectionSettings()
 	sectionCVarDetail()
+	sectionCVarDiscovery()
+	sectionTrackingDetail()
+	sectionMapClutter()
 
 	-- Any full method dumps collected via "/unrecon methods <global>" get
 	-- folded in here so they travel inside the readable report rather than
@@ -656,6 +771,8 @@ local SETTABLE = {
 	questhelper = "questHelper",
 	autoquestwatch = "autoQuestWatch",
 	trackquestsorting = "trackQuestSorting",
+	showbosses = "showBosses",
+	digsites = "digSites",
 }
 
 local function setCVar(name, value)
@@ -669,6 +786,10 @@ local function setCVar(name, value)
 		return
 	end
 	local okOld, old = pcall(GetCVar, real)
+	if not okOld or old == nil then
+		DEFAULT_CHAT_FRAME:AddMessage("|cffff5555[Recon]|r " .. real .. " does not exist on this client.")
+		return
+	end
 	local okSet, err = pcall(SetCVar, real, value)
 	if not okSet then
 		DEFAULT_CHAT_FRAME:AddMessage("|cffff5555[Recon]|r SetCVar failed: " .. tostring(err))
@@ -748,6 +869,27 @@ SLASH_UNRECON1 = "/unrecon"
 SlashCmdList["UNRECON"] = function(msg)
 	msg = msg or ""
 	local cmd, a, b = msg:lower():match("^%s*(%a*)%s*(%S*)%s*(%S*)")
+	-- Escape hatch for a CVar the G6 dump turned up that is not whitelisted.
+	-- Echoes the old value and the exact command to put it back.
+	if cmd == "trycvar" then
+		local _, name, value = msg:match("^%s*(%a*)%s+(%S+)%s+(%S+)")
+		if not name or not value then
+			DEFAULT_CHAT_FRAME:AddMessage("|cffff5555[Recon]|r usage: /unrecon trycvar <name> <value>")
+			return
+		end
+		local okOld, old = pcall(GetCVar, name)
+		if not okOld or old == nil then
+			DEFAULT_CHAT_FRAME:AddMessage("|cffff5555[Recon]|r no such CVar: " .. name)
+			return
+		end
+		pcall(SetCVar, name, value)
+		local _, new = pcall(GetCVar, name)
+		DEFAULT_CHAT_FRAME:AddMessage(string.format(
+			"|cff66ccff[Recon]|r %s: %s -> %s   restore with: /unrecon trycvar %s %s",
+			name, tostring(old), tostring(new), name, tostring(old)))
+		return
+	end
+
 	if cmd == "methods" then
 		local _, rawA = msg:match("^%s*(%a*)%s+(%S+)")
 		dumpAllMethods(rawA)

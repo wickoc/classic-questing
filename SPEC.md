@@ -84,10 +84,27 @@ Default **off**. Individually toggleable, all on one options page.
   for it. Mechanism unknown — the only plausible lever seen in recon is `Minimap:SetBlipTexture`
   (present in the 205-method dump), which is untested and may affect more than quest blips.
   Needs its own probe pass before it is designed.
+- **World map creature portraits.** MoP shows portrait pins for bosses and notable
+  creatures, at least in Pandaria zones. Classic never did, and being pointed straight at the
+  target is exactly what this addon exists to undo. **The lever is already known:** recon v0.4
+  identified provider 7 as `EncounterJournalDataProviderMixin` carrying `cvar=showBosses`, so
+  this should fall to a CVar rather than provider removal. Test with
+  `/unrecon set showBosses 0`. (`DigSiteDataProviderMixin` / `digSites` is the same shape if
+  archaeology clutter is ever worth an option.)
 - **Turn-in markers: `?` versus the gold bullet.** The minimap shows a `?` plus a gold bullet
   for nearby turn-ins. That is close enough to Classic to leave alone by default, but offer a
   toggle for the purist option: gold bullet only, no `?`.
 - Disable supertracking (the concept of one "active" quest the UI points you toward)
+
+**Note on the minimap tracking toggle.** Blizzard's tracking dropdown stays fully functional
+and is deliberately not touched: disabling one entry means reaching into Blizzard's menu code,
+which risks taint (safety rule 2) and fights the player's own UI (rule 4). Instead the addon
+**re-asserts** — flipping *Track Quest POIs* back on from the dropdown fires
+`MINIMAP_UPDATE_TRACKING` and the addon turns it off again, so the entry is effectively inert
+while the module is on, with no Blizzard code touched. The options panel is the real switch,
+and `Minimap:Status()` already reports the live tracking state (visible today via `/cq`) so the
+panel can show it and explain the interaction rather than leaving the player confused about a
+dropdown entry that will not stick.
 
 **Note on the "only show `?` when close" idea:** minimap range already *is* proximity, so
 there's no meaningful radius rule to add here. The real choice is keep-as-is versus remove.
@@ -432,7 +449,7 @@ Two consequences:
 `questHelper` **cannot be written** — the write is silently refused, value unchanged. Dropped.
 Shipping `SetCVar("questHelper", 0)` would have thrown no error and done nothing, forever.
 
-### Final Tier 1 plan
+### Final Tier 1 plan — BUILT
 
 | Spec bullet | Implementation |
 |---|---|
@@ -442,7 +459,13 @@ Shipping `SetCVar("questHelper", 0)` would have thrown no error and done nothing
 | World map quest area highlights | `questPOI 0` |
 | CVar enforcement | `questPOI` only; re-assert on `CVAR_UPDATE` |
 
-Three files: `Core.lua`, `CVars.lua`, `Minimap.lua`. No `WorldMap.lua`.
+Three files: `Core.lua`, `CVars.lua`, `Minimap.lua`. No `WorldMap.lua`. Shipped as v0.1.0.
+
+Verified off-client against a stubbed WoW environment across six scenarios (normal, refused
+CVar write, refused tracking write, missing `C_Minimap`, missing tracking entry, missing
+CVar): 49 checks, all passing. The stub models `SetCVar` firing `CVAR_UPDATE` and
+`SetTracking` firing `MINIMAP_UPDATE_TRACKING`, because a feedback loop between enforcement
+and its own event is the main structural risk in this design. Measured event depth stays at 2.
 
 Both levers are Blizzard's own switches, so **Tier 1 needs no frame surgery, no `Hide()`, and
 no `hooksecurefunc`.** Safety rules 1 and 2 are not reached by any Tier 1 code path; they stay
@@ -451,7 +474,9 @@ global is probed before use.
 
 ### Still open — Tier 3 only, not blocking Tier 1
 
-**Questgiver `!` blips.** Confirmed as a real requirement by live testing: Classic never showed
+**Questgiver `!` blips — promoted to Tier 1, not yet implemented.** No mechanism is known, so
+no code can honestly be written for it; probe v0.5 exists to find one. Everything else in
+Tier 1 shipped rather than waiting on it. Confirmed as a real requirement by live testing: Classic never showed
 these, MoP does, and there is no obvious switch. The mechanism is unknown. The only candidate
 lever seen anywhere in recon is `Minimap:SetBlipTexture`, which is untested and may well affect
 more than quest blips. This needs a dedicated probe pass before any design work.
