@@ -575,6 +575,21 @@ local function collect()
 	sectionSettings()
 	sectionCVarDetail()
 
+	-- Any full method dumps collected via "/unrecon methods <global>" get
+	-- folded in here so they travel inside the readable report rather than
+	-- sitting in a separate SavedVariables key that is easy to miss.
+	if UnmarkedReconDB.methodDumps and next(UnmarkedReconDB.methodDumps) then
+		local names = {}
+		for k in pairs(UnmarkedReconDB.methodDumps) do names[#names + 1] = k end
+		table.sort(names)
+		for i = 1, #names do
+			head("Full method dump: " .. names[i])
+			for line in tostring(UnmarkedReconDB.methodDumps[names[i]]):gmatch("[^\n]+") do
+				add("   " .. names[i] .. ":" .. line)
+			end
+		end
+	end
+
 	return table.concat(lines, "\n")
 end
 
@@ -722,7 +737,11 @@ local function dumpAllMethods(globalName)
 	for i = 1, #names do
 		DEFAULT_CHAT_FRAME:AddMessage("   " .. globalName .. ":" .. names[i])
 	end
-	DEFAULT_CHAT_FRAME:AddMessage("|cffffd100Also saved to UnmarkedReconDB.methodDumps." .. globalName .. " - /reload to write it out.|r")
+	-- Rebuild the report now so the dump is inside it; otherwise the user has
+	-- to remember to re-run /unrecon before reloading.
+	UnmarkedReconDB.report = collect()
+	UnmarkedReconDB.generated = date("%Y-%m-%d %H:%M:%S")
+	DEFAULT_CHAT_FRAME:AddMessage("|cffffd100Folded into the report. Type /reload now to write it to disk.|r")
 end
 
 SLASH_UNRECON1 = "/unrecon"
