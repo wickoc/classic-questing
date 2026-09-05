@@ -184,6 +184,21 @@ the version lived in two places and only one got bumped.
 
 ---
 
+## Release notes — CurseForge listing
+
+**TODO before first release:** write the CurseForge description, and give it a **Known
+limitations** section. It must include, at minimum:
+
+- **Quest object and gathering-node sparkles cannot be removed.** They appear because the
+  client falls back to sparkles when it cannot render object outlines, and on affected clients
+  the outline does not render at any setting — including through Blizzard's own options window.
+  This is a client rendering fault and no addon can reach it. The `questObjectOutline` option is
+  offered as an **experimental** semi-fix: if your client *can* render outlines, turning it on
+  replaces the sparkles with an outline. It does nothing on clients that cannot.
+- Anything else discovered to be unreachable gets listed here rather than quietly omitted.
+
+---
+
 ## Safety rules — non-negotiable
 
 Getting these wrong produces bugs that only appear in combat, hours later, and are miserable
@@ -565,8 +580,11 @@ Two caveats stand:
   `GetPOITextureCoords` on this client steps 0.0703125 across and 0.03515625 down, so the atlas
   is far larger. Replacement art must match the real grid. the v0.9 cell grid stretched each cell into a
   square and made the icons unreadable. v1.0 instead draws the **whole sheet** and labels every
-  index in place on top of it, positioned by UV fraction, which needs no assumption about the
-  texture's real pixel size and cannot distort anything.
+  index in place on top of it. That still did not settle it: at 256x256 and 512x512 the sheet
+  renders correctly, but the boxes do **not** line up with the art, so `GetPOITextureCoords` and
+  `ObjectIconsAtlas` disagree about the grid. `/unrecon cell <index>` now renders a single index
+  large at three aspects, which settles what one index actually points at without needing the
+  whole-sheet mapping to be right.
 - **A modified sheet means shipping altered Blizzard art.** That is what the existing addons do,
   but it is a judgement call for the author, and it is the first thing this addon would ship
   that is not purely subtractive.
@@ -581,19 +599,34 @@ DragonUI fork) does so only to stop other addons fighting over the sheet, not to
 
 ### Tier 3 candidates — live results
 
-**Quest object glimmer: the outline and the sparkle are alternatives, not additions.**
-`Outline` exists here and is settable (0, 1, 2, 3 all took). `graphicsOutlineMode` does **not**
-exist on this client. `Outline 0` removed the outline but left the glimmer — and research
-explains why: turning the outline off is exactly what makes the game fall back to sparkles.
-So the open question is not "how do I remove the sparkle" but **"is there any value of
-`Outline` that gives neither?"** That sweep is the next test, recorded per value and per object
-type (quest object versus herb node), since the glimmer affects gathering nodes too and did not
-in Classic.
+**Quest object glimmer — resolved as a client fault, not an addon problem.**
 
-A rejected workaround, tested by the author: re-setting `Outline` restarts the glimmer
-animation, so firing it every ~100ms suppresses the effect. It does not actually work — on
-larger objectives the animation is already visible and gets frozen on screen instead — and a
-per-frame CVar write is exactly the kind of thing this addon should not ship. **Not pursued.**
+The `Outline` CVar exists here and **writes correctly**: 0, 1, 2 and 3 all take. Nothing renders
+at any value — and crucially, **Blizzard's own options window changes nothing either**. So this
+is a client-side rendering fault, not a dead CVar and not something an addon can reach.
+`graphicsOutlineMode` is absent, as expected: it was added in Patch 7.0.3, long after 5.4.
+
+Because outline and sparkle are alternatives, an outline that never renders means the sparkle is
+always shown. That accounts for the whole observation: glimmer always present, outline never
+seen, on this client.
+
+Tested and rejected as fixes:
+
+| Lever | Result |
+|---|---|
+| `particleDensity 0` | Removes the glimmer — and the particles on lootable bodies too. Classic had those. Not a fix. |
+| `ffxGlow 0` | Visible change elsewhere; does not touch the particle glow at all. Not a fix. |
+| `Outline` re-set every ~100ms | Restarts the animation rather than stopping it; on larger objectives it freezes mid-glimmer. Rejected by the author. |
+
+**Target behaviour, for the record:** sparkles off for quest objectives and herb/mining nodes,
+**kept** on lootable bodies. Nothing found so far separates those three, and the one CVar that
+would cannot render here.
+
+**Shipped anyway as `questObjectOutline`, experimental, default off.** Turning `Outline` *on* is
+a semi-fix for anyone whose client can render outlines (1 is enough; 2 and 3 also work). It is
+the one rule in `CVars.lua` that turns something **on** rather than off. It is never enabled by
+default and is deliberately skipped by a bare `/cq on`, which enables the Classic set but leaves
+experiments alone — those must be named explicitly. `/cq` marks it `(experimental)`.
 
 **Quest progress tooltip: reachable, and the matching rule is now settled.** Six captured
 tooltips, with per-line colours:

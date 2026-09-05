@@ -44,6 +44,26 @@ local RULES = {
 		onText  = "world map creature portraits hidden",
 		offText = "world map creature portraits shown again",
 	},
+	{
+		-- Tier 3, opt-in, EXPERIMENTAL and off by default.
+		--
+		-- Unusually for this addon it turns something ON. Quest objects and
+		-- herbs get either an outline or a sparkle, never both, so switching
+		-- the outline on is what suppresses the glimmer -- but only on clients
+		-- that can actually render outlines. On the development client the
+		-- CVar changes correctly and nothing renders, including through
+		-- Blizzard's own options window, so this is a graphics-side fault
+		-- rather than anything an addon can fix. Offered as a maybe, never
+		-- promised, and never part of "turn everything on".
+		key          = "questObjectOutline",
+		cvar         = "Outline",
+		wanted       = "1",
+		default      = false,
+		experimental = true,
+		label        = "quest object outline",
+		onText       = "outline requested instead of sparkles (experimental; many clients cannot render it)",
+		offText      = "outline setting returned to what it was",
+	},
 }
 
 -- Guards re-entry: SetCVar itself fires CVAR_UPDATE.
@@ -90,6 +110,7 @@ local function makeModule(rule)
 	M.rule = rule
 	M.onText = rule.onText
 	M.offText = rule.offText
+	M.experimental = rule.experimental
 
 	-- One name: the module key is the saved-settings key is the handle the
 	-- player types. The CVar name stays an implementation detail in `rule`.

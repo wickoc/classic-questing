@@ -225,7 +225,8 @@ local function status()
 		local m = ns.modules[i]
 		local on = ns.db and ns.db.settings[m.key]
 		local line = "  " .. (on and "|cff55ff55on |r" or "|cffff5555off|r") ..
-			"  |cffffd100" .. tostring(m.key) .. "|r"
+			"  |cffffd100" .. tostring(m.key) .. "|r" ..
+			(m.experimental and " |cffff8800(experimental)|r" or "")
 		if type(m.Status) == "function" then
 			local ok, extra = pcall(m.Status, m)
 			if ok and extra then line = line .. "  -- " .. extra end
@@ -269,9 +270,19 @@ SlashCmdList["CLASSICQUESTINGMOP"] = function(msg)
 	elseif cmd == "on" or cmd == "off" then
 		local want = (cmd == "on")
 		if arg == "" then
-			for k in pairs(ns.defaults) do ns.db.settings[k] = want end
+			-- "/cq on" means the Classic experience, not the experiments.
+			-- Experimental features are only ever turned on by name.
+			for k in pairs(ns.defaults) do
+				local m = ns.modules[k]
+				if want and m and m.experimental then
+					-- leave it alone
+				else
+					ns.db.settings[k] = want
+				end
+			end
 			ns:ApplyAll()
-			ns:Print("All features turned " .. cmd .. ".")
+			ns:Print("All features turned " .. cmd ..
+				(want and " (experimental ones left alone; turn those on by name)." or "."))
 		else
 			local key = resolveSetting(arg)
 			if key then
