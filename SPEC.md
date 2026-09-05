@@ -580,7 +580,12 @@ Two caveats stand:
   `GetPOITextureCoords` on this client steps 0.0703125 across and 0.03515625 down, so the atlas
   is far larger. Replacement art must match the real grid. the v0.9 cell grid stretched each cell into a
   square and made the icons unreadable. v1.0 instead draws the **whole sheet** and labels every
-  index in place on top of it. That still did not settle it: at 256x256 and 512x512 the sheet
+  index in place on top of it. **This whole line of enquiry is now closed as misdirected** —
+  see `dev/BLIP-TEXTURE-WORKFLOW.md`. Knowing an index was never going to answer the real
+  question, because nothing exposes which index the engine picks for a questgiver blip; and the
+  person editing the sheet can see the cells anyway. What remains useful from the probe is the
+  arithmetic: UV coords convert to exact pixel rectangles once the file's dimensions are known.
+  For the record on the viewer itself: at 256x256 and 512x512 the sheet
   renders correctly, but the boxes do **not** line up with the art, so `GetPOITextureCoords` and
   `ObjectIconsAtlas` disagree about the grid. `/unrecon cell <index>` now renders a single index
   large at three aspects, which settles what one index actually points at without needing the
