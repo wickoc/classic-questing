@@ -150,6 +150,14 @@ panel level, even where the underlying lever is (see the `questPOI` bundling not
 **Slash command:** `/cq` opens the panel, with `/classicquesting` as a long-form alias.
 `/cq reset` restores defaults. (Renamed from `/unmarked` along with the project.)
 
+**Keep `## Notes` short.** A long Notes line widens the addon-list tooltip until the version
+is pushed outside the box. One short sentence.
+
+**The name `/cq` prints is the name `/cq` accepts.** Modules carry both a display key
+(`mapCreaturePortraits`) and a saved-setting name (`showBosses`); the status list shows the
+key, so the key must be a valid handle for `/cq on|off`. Accepting only the setting name made
+every name on screen report "Unknown setting".
+
 **Version numbers have one source of truth: the `.toc`.** Never hardcode a version string in
 Lua. Read it at runtime with `C_AddOns.GetAddOnMetadata(addonName, "Version")` (fall back to
 `GetAddOnMetadata` if the namespaced form is missing, per safety rule 5) so the chat banner,
@@ -521,24 +529,47 @@ removed, and holds the minimap POI toggle off.
 
 ### Still open
 
-**Questgiver `!` blips — Tier 1, blocked, route nearly exhausted.** Three independent
-negatives from v0.5: no tracking entry covers questgivers (all 18 enumerated with every
-field), there are **zero** globals containing "blip", and `C_Console.GetAllCommands` does not
-exist so the CVar space cannot be searched. The only lever still standing in evidence is
-`Minimap:SetBlipTexture`, which swaps the entire POI icon sheet rather than one icon — and the
-205-method dump confirms there is a setter but **no getter**, so a change cannot be read back
-or restored except by `/reload`.
+**Questgiver `!` blips — Tier 1, and the honest position.**
 
-Probe v0.6 adds `/unrecon blip <fileID>` to settle whether that lever moves questgiver icons
-at all. If it does, suppressing the `!` would mean shipping a transparent icon sheet with the
-addon and would blank other blips too — a real design decision, not a free win. If it does
-not, the `!` blips are not addon-reachable on this client and the Tier 1 promotion cannot be
-honoured; that would be an honest dead end rather than a missing feature.
+The v0.6 live test settles the mechanism: `/unrecon blip 136458` turned **every** minimap POI
+icon into a grey square, questgiver `!` and `?` among them. So `Minimap:SetBlipTexture` does
+reach them. Three costs come with it, all confirmed rather than predicted:
 
-**Instant Quest Text — Tier 2, blocked on the same enumeration problem.** The CVar behind the
-Blizzard option is unknown. With the console unenumerable, probe v0.6 walks Blizzard's own
-Settings registry instead (G8): anything with a checkbox in the options window is registered
-somewhere reachable, so the variable name should fall out of that walk.
+1. **It swaps the whole sheet, not one icon.** Every POI blip changed, each sampling a
+   different region of the replacement texture. Suppressing the `!` this way also blanks
+   tracked herbs, vendors, trainers and flight masters. The recon character has *Find Herbs*
+   active, so this is a real loss, not a hypothetical one.
+2. **`/reload` did not undo it.** Only a full client restart restored the real icons. The
+   blip texture survives a UI reload, and there is no getter to read the original path back.
+   That breaks the architecture rule that toggling takes effect immediately.
+3. **It needs an asset.** The addon would have to ship its own transparent sheet. Still
+   subtractive in effect, but no longer subtractive in the sense of touching nothing but
+   Blizzard's own switches.
+
+Probe v0.7 adds `/unrecon blipreset`, which tries `Minimap:SetToDefaults()` (present in the
+205-method dump) and then `SetBlipTexture(nil)` / `("")`. If any restores the icons without a
+restart, cost 2 disappears and the feature becomes a normal opt-in toggle. If none do, it can
+only be applied at login and undone by restarting the client, and should ship — if at all — as
+a loudly-labelled opt-in rather than part of the default Classic experience.
+
+**On breaking the safety rules to get this done.** They are not what is blocking it, so
+breaking them buys nothing. Rules 1 and 2 guard against taint and protected-frame errors,
+which are about Lua reaching into Blizzard's *code*. These blips are not drawn by Lua at all:
+`Minimap` reports zero regions and zero unnamed children, there are zero globals containing
+"blip", and no function in the 205-method dump renders one. There is no Lua call site to hook,
+overwrite, or subvert — the drawing happens below the API surface entirely. Overwriting
+Blizzard globals here would add taint risk while changing nothing on screen. The constraint is
+architectural, not a permission we are declining to take.
+
+So the realistic choice is the transparent-sheet trade above, or documenting this as a client
+limitation. Not a rule we can spend to buy our way out.
+
+**Instant Quest Text — Tier 2, one probe away.** v0.6 reached the registry:
+`SettingsPanel:GetCategoryList()` returns 42 entries, `GetAllCategories()` 16, and
+`SettingsPanel.settings` exists as a table. The walk printed `category: nil` for all 42 only
+because v0.6 *guessed* at the field names (`name`, `settings`, `layout`). v0.7 stops guessing:
+it dumps the actual key set of sample entries and reads `SettingsPanel.settings` directly,
+which is where a variable name like Instant Quest Text should surface.
 
 ### G8 — the Settings registry is the remaining discovery route
 

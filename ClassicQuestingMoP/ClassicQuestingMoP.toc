@@ -1,8 +1,8 @@
 ## Interface: 50504
 ## Title: Classic Questing (MoP)
-## Notes: Strips MoP's quest-helper layer so questing feels like Classic again. Read the quest text; explore.
+## Notes: Hides MoP's quest markers. Read the text, explore.
 ## Author: Wictor
-## Version: 0.2.0
+## Version: 0.2.1
 ## SavedVariables: ClassicQuestingMoPDB
 
 Core.lua

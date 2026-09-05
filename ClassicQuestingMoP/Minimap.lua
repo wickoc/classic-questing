@@ -88,12 +88,18 @@ local function setTracking(index, enabled)
 	return ok
 end
 
+-- TODO(Options): when the Tier 3 options panel ships, this line and the
+-- tooltip below should point at the panel instead of a slash command.
 local function notice()
 	-- Throttled: a burst of tracking events must not turn into a wall of text.
 	local now = (type(GetTime) == "function" and GetTime()) or 0
 	if now - lastNotice < 10 then return end
 	lastNotice = now
-	ns:Print("Quest POI tracking was switched back off. To allow it, use |cffffd100/cq off minimapQuestPOI|r.")
+	-- Name the tracking entry explicitly so the line can be scanned at a
+	-- glance, and say "automatically" so it reads as the addon acting rather
+	-- than the click failing.
+	ns:Print("|cffffd100Track Quest POIs|r was switched back off automatically. " ..
+		"To allow it, use |cffffd100/cq off minimapMarkers|r.")
 end
 
 local function enforce()
@@ -141,10 +147,14 @@ local function attachTooltip()
 			if not ns.db or not ns.db.settings[M.setting] then return end
 			if not GameTooltip or type(GameTooltip.AddLine) ~= "function" then return end
 			if GameTooltip.GetOwner and GameTooltip:GetOwner() ~= self then return end
+			-- Blank spacer, then the addon name as its own header line so the
+			-- block reads as ours rather than as part of Blizzard's tooltip.
 			GameTooltip:AddLine(" ")
-			GameTooltip:AddLine(ns.title .. " keeps |cffffd100Track Quest POIs|r off.", 1, 1, 1)
+			GameTooltip:AddLine(ns.title, 1, 0.82, 0)
+			GameTooltip:AddLine("|cffffd100Track Quest POIs|r is kept off automatically.", 1, 1, 1)
 			GameTooltip:AddLine("Switching it on here will not stick.", 0.9, 0.9, 0.9)
-			GameTooltip:AddLine("Use |cffffd100/cq off minimapQuestPOI|r to allow it.", 0.8, 0.8, 0.8)
+			-- TODO(Options): replace with a pointer to the options panel.
+			GameTooltip:AddLine("To allow it: |cffffd100/cq off minimapMarkers|r", 0.8, 0.8, 0.8)
 			GameTooltip:Show()
 		end)
 	end)
