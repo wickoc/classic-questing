@@ -835,22 +835,38 @@ local function sectionOutline()
 	add("   'graphicsOutlineMode' (0 disabled / 1 good / 2 high) for outline density.")
 	add("   Neither has been checked on THIS client until now.")
 	add("")
-	for _, c in ipairs({ "Outline", "outline", "graphicsOutlineMode", "ffxGlow",
+	for _, c in ipairs({ "Outline", "graphicsOutlineMode", "ffxGlow",
 	                     "particleDensity", "particleMTDensity", "ffxDeath",
-	                     "shadowMode", "SkyCloudLOD", "highlightOutlineQuality" }) do
+	                     "shadowMode", "highlightOutlineQuality" }) do
 		probeCVar(c)
 	end
 	add("")
-	add("   LIVE RESULTS so far:")
-	add("      Outline              EXISTS and is settable (0,1,2,3 all took).")
-	add("      graphicsOutlineMode  DOES NOT EXIST on this client.")
-	add("      Outline 0 removed the outline but NOT the glimmer.")
+	add("   LIVE RESULTS:")
+	add("      Outline EXISTS and reads 0 -- it was ALREADY 0 before any test,")
+	add("      so \"trycvar Outline 0\" was a no-op. That is why nothing changed.")
+	add("      Setting it to 1/2/3 produced no visible outline either, so on this")
+	add("      client the CVar looks inert.")
+	add("      graphicsOutlineMode DOES NOT EXIST here, and should not: it was")
+	add("      added in Patch 7.0.3, long after 5.4.")
+	add("      Research found no bug reports about a broken outline option in")
+	add("      MoP Classic.")
 	add("")
-	add("   Research says outline and sparkle are ALTERNATIVES: turning the")
-	add("   outline off is exactly what produces the sparkles. So the open")
-	add("   question is whether any value gives NEITHER.")
-	add("   Sweep it: /unrecon trycvar Outline 0 / 1 / 2 / 3, and for each note")
-	add("   the outline AND the glimmer separately, on a quest object and a herb.")
+	add("   Outline being off is what CAUSES the sparkles -- they are")
+	add("   alternatives -- and Outline is already off. That matches what was")
+	add("   seen: glimmer always present, outline never seen.")
+	add("")
+	add("   THE DISCRIMINATING TEST -- is the CVar dead, or is our write wrong?")
+	add("      1. Toggle the Outline option in Blizzard's OWN options window.")
+	add("      2. Does anything change on a quest object or herb?")
+	add("      3. Then /unrecon set Outline 1 and see whether the value moved.")
+	add("   If Blizzard's own checkbox does nothing either, the feature is dead")
+	add("   on this client and no addon can reach it.")
+	add("")
+	add("   OTHER CANDIDATES that exist here, one test each:")
+	add("      particleDensity = 80  ->  /unrecon trycvar particleDensity 0")
+	add("      ffxGlow = 1           ->  /unrecon trycvar ffxGlow 0")
+	add("   Research says lowering particle density reduces the sparkle but hits")
+	add("   spell effects everywhere, so it is a poor default even if it works.")
 end
 
 -- [G12] The quest progress tooltip that appears on mouseover.
@@ -1067,15 +1083,17 @@ local gridFrame
 -- icons unreadable. Draw the WHOLE sheet instead and label each POI index in
 -- place on top of it, positioned from the same UV coords. That needs no
 -- assumption about the texture's real pixel size and cannot distort anything.
-local function showBlipGrid()
-	if gridFrame then gridFrame:Show() return end
+local function showBlipGrid(w, h)
+	-- Rebuild on request so the display aspect can be changed until the art
+	-- looks natural; labels stay correct at any size because they are placed
+	-- from UV fractions rather than pixels.
+	if gridFrame then gridFrame:Hide() gridFrame = nil end
 
-	-- Displayed size only sets the zoom; labels are placed by UV fraction, so
-	-- any values here stay correct.
-	local SHEET_W, SHEET_H = 512, 1024
+	local SHEET_W = tonumber(w) or 512
+	local SHEET_H = tonumber(h) or 1024
 
 	local f = CreateFrame("Frame", "UnmarkedReconAtlas", UIParent)
-	f:SetSize(SHEET_W + 60, 700)
+	f:SetSize(math.min(SHEET_W, 900) + 60, 700)
 	f:SetPoint("CENTER")
 	f:SetFrameStrata("DIALOG")
 	f:EnableMouse(true)
@@ -1089,15 +1107,17 @@ local function showBlipGrid()
 	bg:SetColorTexture(0, 0, 0, 0.95)
 
 	local title = f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-	title:SetPoint("TOP", 0, -10)
-	title:SetText("Blip atlas - scroll to find the ! and ?, then read the number on it")
+	title:SetPoint("TOP", 0, -8)
+	title:SetText("Blip atlas " .. SHEET_W .. "x" .. SHEET_H .. "  -  each red box is one index")
+	local hint = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	hint:SetPoint("TOP", 0, -24)
+	hint:SetText("Wrong shape? Try /unrecon atlas 512 512  or  /unrecon atlas 256 512")
 
 	local close = CreateFrame("Button", nil, f, "UIPanelCloseButton")
 	close:SetPoint("TOPRIGHT", -4, -4)
 
-	-- Scrollable: the sheet is far taller than the screen.
 	local scroll = CreateFrame("ScrollFrame", "UnmarkedReconAtlasScroll", f, "UIPanelScrollFrameTemplate")
-	scroll:SetPoint("TOPLEFT", 14, -34)
+	scroll:SetPoint("TOPLEFT", 14, -44)
 	scroll:SetPoint("BOTTOMRIGHT", -34, 14)
 
 	local canvas = CreateFrame("Frame", nil, scroll)
@@ -1117,22 +1137,37 @@ local function showBlipGrid()
 		return
 	end
 
-	-- Label every index at its own UV position, on top of the real art.
+	-- v1.0 labelled cell centres, but with most cells empty there was nothing
+	-- for a number to visually attach to. Outline each cell instead: the box
+	-- IS the index, so the mapping is unambiguous however the sheet is scaled.
 	local labelled = 0
 	for i = 1, 400 do
 		local ok, l, r, t, b = pcall(getCoords, i)
 		if not ok or type(l) ~= "number" then break end
+
+		local x, y = l * SHEET_W, t * SHEET_H
+		local cw, ch = (r - l) * SHEET_W, (b - t) * SHEET_H
+
+		local top = canvas:CreateTexture(nil, "OVERLAY")
+		top:SetColorTexture(1, 0, 0, 0.45)
+		top:SetSize(cw, 1)
+		top:SetPoint("TOPLEFT", canvas, "TOPLEFT", x, -y)
+
+		local left = canvas:CreateTexture(nil, "OVERLAY")
+		left:SetColorTexture(1, 0, 0, 0.45)
+		left:SetSize(1, ch)
+		left:SetPoint("TOPLEFT", canvas, "TOPLEFT", x, -y)
+
 		local num = canvas:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-		num:SetPoint("CENTER", canvas, "TOPLEFT",
-			((l + r) / 2) * SHEET_W, -((t + b) / 2) * SHEET_H)
+		num:SetPoint("CENTER", canvas, "TOPLEFT", x + cw / 2, -(y + ch / 2))
 		num:SetText(tostring(i))
-		num:SetTextColor(1, 0.2, 0.2)
+		num:SetTextColor(1, 0.25, 0.25)
 		labelled = labelled + 1
 	end
 
 	local foot = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
 	foot:SetPoint("BOTTOM", 0, 2)
-	foot:SetText(labelled .. " indices labelled in red. Screenshot this and send it over.")
+	foot:SetText(labelled .. " cells outlined. The number sits inside its own box.")
 
 	gridFrame = f
 end
@@ -1204,6 +1239,8 @@ local SETTABLE = {
 	digsites = "digSites",
 	outline = "Outline",
 	graphicsoutlinemode = "graphicsOutlineMode",
+	particledensity = "particleDensity",
+	ffxglow = "ffxGlow",
 }
 
 local function setCVar(name, value)
@@ -1361,7 +1398,8 @@ SlashCmdList["UNRECON"] = function(msg)
 	end
 
 	if cmd == "blipgrid" or cmd == "atlas" then
-		showBlipGrid()
+		local w, h = msg:match("^%s*%a+%s+(%d+)%s+(%d+)")
+		showBlipGrid(w, h)
 		return
 	end
 

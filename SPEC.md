@@ -170,6 +170,11 @@ handles.
 **Report the effect, not the switch.** `/cq on X` prints what actually changed
 ("world map creature portraits hidden"), never the raw CVar transition.
 
+**Versioning: stay below 1.0 until the addon is releasable.** Use `0.MINOR.PATCH`. Version
+`1.0.0` is reserved for the first genuinely releasable build, which means after the Tier 3
+options GUI ships — not for an iterative step that happens to follow `0.9`. (`0.9` is followed
+by `0.10`, not `1.0`.)
+
 **Version numbers have one source of truth: the `.toc`.** Never hardcode a version string in
 Lua. Read it at runtime with `C_AddOns.GetAddOnMetadata(addonName, "Version")` (fall back to
 `GetAddOnMetadata` if the namespaced form is missing, per safety rule 5) so the chat banner,
@@ -590,7 +595,35 @@ animation, so firing it every ~100ms suppresses the effect. It does not actually
 larger objectives the animation is already visible and gets frozen on screen instead — and a
 per-frame CVar write is exactly the kind of thing this addon should not ship. **Not pursued.**
 
-**Quest progress tooltip: reachable, and the shape is known.** Observed live: the quest name is
+**Quest progress tooltip: reachable, and the matching rule is now settled.** Six captured
+tooltips, with per-line colours:
+
+```
+ 1  [0.90,0.70,0.00]  Stonetusk Boar          <- unit name, colour varies by reaction
+ 2  [1.00,1.00,1.00]  Level 6 Beast
+ 3  [1.00,0.82,0.00]  Pie for Billy           <- quest title
+ 4  [1.00,1.00,1.00]   - Tender Boar Meat: 0/4  <- objective
+
+ 1  [1.00,0.82,0.00]  Silverleaf              <- OBJECT name, same gold as a quest title
+ 2  [1.00,1.00,0.00]  Herbalism
+
+ 1  [0.90,0.70,0.00]  Stonetusk Boar
+ 2  [1.00,1.00,1.00]  Level 5 Corpse
+ 3  [1.00,1.00,0.00]  Skinnable
+ 4  [1.00,0.82,0.00]  Pie for Billy           <- same quest, now line 4, not 3
+ 5  [1.00,1.00,1.00]   - Tender Boar Meat: 0/4
+```
+
+Neither colour nor line number is sufficient on its own — gold `1.00,0.82,0.00` is also a
+gathering node's *name*, and the quest title moved from line 3 to line 4 between two tooltips
+on the same mob. The rule that survives all six samples:
+
+1. Never touch line 1; it is always the name.
+2. From line 2 on, a line coloured `1.00, 0.82, 0.00` **whose text equals an active quest title**
+   (read from the quest log) is the quest header.
+3. Lines immediately after it matching `^%s*%-%s.+:%s*%d+/%d+%s*$` are its objectives.
+
+Blank those in place. Requiring the quest-log match is what stops "Silverleaf" being eaten. Observed live: the quest name is
 its own line, followed by one line per objective (`" - Riverpaw Gnoll Clue: 0/1"`). The line
 number **varies**, so a matcher must key off text and colour, never a fixed index. `/unrecon
 tipwatch` + `tipdump` now capture a real tooltip with per-line colours so the matcher can be
