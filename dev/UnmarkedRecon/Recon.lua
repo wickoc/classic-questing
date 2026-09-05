@@ -595,34 +595,56 @@ local function sectionSettingsRegistry()
 		end
 	end
 
-	-- The settings registry is the real prize: if variables are keyed or
-	-- stored here, "Instant Quest Text" falls straight out of it.
-	local reg = reached["SettingsPanel.settings"] or reached["SettingsPanel:GetSettingsList()"]
+	-- The settings registry is the real prize, but v0.7 guessed that a setting
+	-- carried .variable or .name and got the CATEGORY name back for all 295.
+	-- Don't guess the shape: dump a few entries whole, then search every
+	-- entry's own fields for "quest" and print whatever matches.
+	local reg = reached["SettingsPanel.settings"]
 	if reg then
 		add("")
-		add("   Settings registry contents (variable = current value):")
-		local rows = {}
+		add("   Shape of three registry entries:")
+		local shown = 0
 		for k, v in pairs(reg) do
-			local variable
+			if shown >= 3 then break end
+			shown = shown + 1
+			add("      --- entry " .. shown .. " (key: " .. tostring(k) .. ", type " .. type(v) .. ")")
 			if type(v) == "table" then
-				pcall(function()
-					variable = rawget(v, "variable")
-						or (type(v.GetVariable) == "function" and v:GetVariable())
-						or rawget(v, "name")
-				end)
-			end
-			local nameShown = variable or (type(k) == "string" and k) or nil
-			if nameShown then
-				local val = select(2, pcall(GetCVar, nameShown))
-				rows[#rows + 1] = string.format("      %-46s = %s", tostring(nameShown), tostring(val))
+				dumpTable(v, "         entry", 40)
+				local mt = getmetatable(v)
+				local idx = mt and rawget(mt, "__index")
+				if type(idx) == "table" then dumpTable(idx, "         entry.__index", 40) end
 			end
 		end
-		table.sort(rows)
-		add("      " .. #rows .. " entries")
-		for i = 1, math.min(#rows, 400) do add(rows[i]) end
+
+		add("")
+		add("   Entries whose fields mention 'quest' (shape-agnostic search):")
+		local hits = 0
+		for k, v in pairs(reg) do
+			local matched, fields = false, {}
+			pcall(function()
+				if type(k) == "string" and k:lower():find("quest", 1, true) then matched = true end
+				if type(v) == "table" then
+					for fk, fv in pairs(v) do
+						local t = type(fv)
+						if t == "string" or t == "number" or t == "boolean" then
+							fields[#fields + 1] = tostring(fk) .. "=" .. tostring(fv)
+							if type(fk) == "string" and fk:lower():find("quest", 1, true) then matched = true end
+							if t == "string" and fv:lower():find("quest", 1, true) then matched = true end
+						end
+					end
+				end
+			end)
+			if matched and hits < 40 then
+				hits = hits + 1
+				table.sort(fields)
+				add("      key=" .. tostring(k))
+				add("         " .. table.concat(fields, ", "))
+			end
+		end
+		add("      " .. hits .. " matching entries")
 	else
 		add("")
-		add("   No settings registry reachable.")
+		add("   SettingsPanel.settings not reachable.")
 	end
 end
 
@@ -647,11 +669,14 @@ local function sectionBlips()
 	add("   them -- but it swaps the whole sheet, and /reload did NOT undo it;")
 	add("   only a full client restart did.")
 	add("")
-	add("   Restore candidates to try, in order:")
-	add("      /unrecon blipreset       -- Minimap:SetToDefaults(), then SetBlipTexture(nil), then \"\"")
-	add("   If any of those restores the icons without a restart, the feature is")
-	add("   shippable as a live toggle. If none do, it can only be applied at login")
-	add("   and undone by restarting the client.")
+	add("   RESOLVED, and badly. Minimap:SetToDefaults() REMOVED THE ENTIRE MINIMAP")
+	add("   FRAME. Do not call it. It is no longer used by this probe.")
+	add("   SetBlipTexture(nil) / (\"\") removed every blip instead of restoring")
+	add("   them, and that survived /reload. Only a full client restart restores")
+	add("   the real icons.")
+	add("")
+	add("   So: blips CAN be removed (set an empty blip texture -- no shipped art")
+	add("   needed), but it is all-or-nothing and cannot be undone in session.")
 	add("")
 	add("   Test with:  /unrecon blip 136458")
 	add("   That swaps the POI icon sheet for an unrelated texture. If the minimap")
@@ -1067,21 +1092,23 @@ SlashCmdList["UNRECON"] = function(msg)
 	end
 
 	if cmd == "blipreset" then
-		if not Minimap then
-			DEFAULT_CHAT_FRAME:AddMessage("|cffff5555[Recon]|r no Minimap.")
+		-- Minimap:SetToDefaults() removed the whole minimap frame when this was
+		-- tried in game. It is deliberately NOT called here any more.
+		if not (Minimap and type(Minimap.SetBlipTexture) == "function") then
+			DEFAULT_CHAT_FRAME:AddMessage("|cffff5555[Recon]|r Minimap:SetBlipTexture missing.")
 			return
 		end
-		local tried = {}
-		if type(Minimap.SetToDefaults) == "function" then
-			tried[#tried + 1] = "SetToDefaults: " .. tostring((pcall(Minimap.SetToDefaults, Minimap)))
+		local path = msg:match("^%s*%a+%s+(%S+)")
+		if not path then
+			DEFAULT_CHAT_FRAME:AddMessage("|cffff5555[Recon]|r usage: /unrecon blipreset <texture path>")
+			DEFAULT_CHAT_FRAME:AddMessage("|cffff5555[Recon]|r there is no getter, so the original path must be supplied.")
+			DEFAULT_CHAT_FRAME:AddMessage("|cffff5555[Recon]|r if you do not have it, restart the client.")
+			return
 		end
-		if type(Minimap.SetBlipTexture) == "function" then
-			tried[#tried + 1] = "SetBlipTexture(nil): " .. tostring((pcall(Minimap.SetBlipTexture, Minimap, nil)))
-			tried[#tried + 1] = "SetBlipTexture(\"\"): " .. tostring((pcall(Minimap.SetBlipTexture, Minimap, "")))
-		end
+		local ok, err = pcall(Minimap.SetBlipTexture, Minimap, path)
 		pcall(Minimap.UpdateBlips, Minimap)
-		DEFAULT_CHAT_FRAME:AddMessage("|cff66ccff[Recon]|r tried: " .. table.concat(tried, ", "))
-		DEFAULT_CHAT_FRAME:AddMessage("|cffffd100Look at the minimap now. Report whether the real icons came back.|r")
+		DEFAULT_CHAT_FRAME:AddMessage("|cff66ccff[Recon]|r tried " .. path .. ": " .. tostring(ok) ..
+			(ok and "" or (" " .. tostring(err))))
 		return
 	end
 
