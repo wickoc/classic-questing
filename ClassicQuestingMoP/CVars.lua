@@ -12,14 +12,16 @@ local RULES = {
 		-- highlights, the "Track Quest" checkbox and the quest log panel
 		-- inside the fullscreen map. Verified in game.
 		key     = "worldMapMarkers",
-		cvar    = "questPOI",
-		wanted  = "0",
+		cvar       = "questPOI",
+		wanted     = "0",
+		refreshMap = true,
 		default = true,
 		label   = "world map quest markers",
 		onText  = "world map quest markers, blue areas and map quest log hidden",
 		offText = "world map quest markers shown again",
 		group   = "Map and minimap",
 		order   = 10,
+		title   = "Hide world map quest markers",
 		desc    = "Removes the numbered quest pins, the shaded objective areas, the Track Quest checkbox and the quest list inside the full-screen map.",
 	},
 	{
@@ -35,6 +37,7 @@ local RULES = {
 		offText = "newly accepted quests are tracked automatically again",
 		group   = "Quest tracking",
 		order   = 30,
+		title   = "Disable automatic quest tracking",
 		desc    = "Accepting a quest no longer adds it to the tracker by itself. Quality of life rather than clutter, so it is yours to choose.",
 	},
 	{
@@ -43,14 +46,16 @@ local RULES = {
 		-- Recon named the lever: provider 7 is EncounterJournalDataProvider
 		-- carrying cvar=showBosses.
 		key     = "mapCreaturePortraits",
-		cvar    = "showBosses",
-		wanted  = "0",
+		cvar       = "showBosses",
+		wanted     = "0",
+		refreshMap = true,
 		default = false,
 		label   = "world map creature portraits",
 		onText  = "world map creature portraits hidden",
 		offText = "world map creature portraits shown again",
 		group   = "World map clutter",
 		order   = 40,
+		title   = "Hide world map creature portraits",
 		desc    = "Hides the boss and creature portrait pins MoP puts on zone maps. Classic never had them.",
 	},
 	{
@@ -74,6 +79,7 @@ local RULES = {
 		offText      = "outline setting returned to what it was",
 		group        = "Experimental",
 		order        = 50,
+		title        = "Request quest object outline",
 		desc         = "Quest objects show either an outline or sparkles, never both, so asking for the outline suppresses the glimmer. Many clients cannot render outlines at all, in which case this does nothing.",
 	},
 }
@@ -106,6 +112,14 @@ local function writeCVar(rule, value)
 		return false
 	end
 
+	if rule.refreshMap then
+		pcall(function()
+			if WorldMapFrame and type(WorldMapFrame.RefreshAllDataProviders) == "function" then
+				WorldMapFrame:RefreshAllDataProviders()
+			end
+		end)
+	end
+
 	local now = readCVar(rule.cvar)
 	if now ~= value then
 		refused[rule.cvar] = true
@@ -124,6 +138,7 @@ local function makeModule(rule)
 	M.offText = rule.offText
 	M.experimental = rule.experimental
 	M.group = rule.group
+	M.title = rule.title
 	M.order = rule.order
 	M.desc = rule.desc
 
@@ -159,6 +174,13 @@ local function makeModule(rule)
 		applying = true
 		pcall(SetCVar, rule.cvar, original)
 		applying = false
+		if rule.refreshMap then
+			pcall(function()
+				if WorldMapFrame and type(WorldMapFrame.RefreshAllDataProviders) == "function" then
+					WorldMapFrame:RefreshAllDataProviders()
+				end
+			end)
+		end
 	end
 
 	function M:Status()
