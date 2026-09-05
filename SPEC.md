@@ -63,6 +63,10 @@ Default **on**.
 
 ### Tier 2 — objective tracker
 
+**Status: NOT BUILT.** Of the five bullets below, only `autoQuestWatch` shipped. The
+`WatchFrame` work — hiding the tracker, stripping it to Classic form, suppressing the turn-in
+pop-ups — has never been written. `Tracker.lua` does not exist.
+
 Default **off**. The on-screen tracker that lists your active quests.
 
 Options, each independently toggleable:
@@ -127,9 +131,10 @@ ClassicQuestingMoP/
   Core.lua        -- addon table, event dispatch, saved variables, defaults, slash command
   CVars.lua       -- set + re-assert console variables
   Minimap.lua     -- Tier 1 minimap
-  Tracker.lua     -- Tier 2
+  Options.lua     -- settings panel (built; see below)
+  Tracker.lua     -- Tier 2 (NOT BUILT)
   QuestLog.lua    -- Tier 3
-  Options.lua     -- options panel, built last
+
 
   (No WorldMap.lua. Recon showed the world map needs no code of its own -- the
    questPOI CVar covers every Tier 1 world map target. See conclusion G5.)
@@ -183,6 +188,29 @@ probe broke it: v0.4 announced itself as v0.4 in chat while its `.toc` still sai
 the version lived in two places and only one got bumped.
 
 ---
+
+## Options panel — built
+
+`Options.lua`, shipped in v0.5.0. One row per registered module, grouped, each with a
+description and a live status readout; toggling applies immediately.
+
+Built as a **canvas layout with hand-made checkboxes**, not through
+`Settings.RegisterAddOnSetting` / `Settings.CreateCheckbox`. Recon confirmed those functions
+exist but not their signatures, and this client has already punished several confident guesses
+(`SetQuestBlob*`, `graphicsOutlineMode`, `SetToDefaults`, `showQuestTrackingTooltips`).
+`RegisterCanvasLayoutCategory` needs only a frame, which is verifiable.
+
+Three fallbacks, each tested:
+
+- Checkbox template names vary, and a missing template is a hard error, so the panel tries four
+  candidates and keeps the first that constructs; failing all four it builds a plain button that
+  still reports checked state.
+- If `Settings` is missing entirely, or `RegisterCanvasLayoutCategory` throws, the same frame is
+  shown as a standalone movable window and `/cq` still opens it. One warning line, once.
+- The panel reads state back from the modules after every click rather than trusting the click,
+  so a refused CVar or missing frame shows the truth.
+
+`/cq` opens the panel; `/cq status` keeps the text list.
 
 ## Release notes — CurseForge listing
 
