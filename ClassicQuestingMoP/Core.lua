@@ -5,7 +5,7 @@
 
 local ADDON_NAME, ns = ...
 
-ns.title = "Classic Questing in MoP"
+ns.title = "Classic Questing (MoP)"
 
 ---------------------------------------------------------------------
 -- Identity
@@ -109,8 +109,8 @@ function ns:RegisterDefaults(tbl)
 end
 
 local function initDB()
-	ClassicQuestingInMoPDB = ClassicQuestingInMoPDB or {}
-	local db = ClassicQuestingInMoPDB
+	ClassicQuestingMoPDB = ClassicQuestingMoPDB or {}
+	local db = ClassicQuestingMoPDB
 
 	db.settings = db.settings or {}
 	-- Pre-addon values live here so Disable() can put the game back exactly
@@ -208,8 +208,8 @@ local function status()
 	end
 end
 
-SLASH_CLASSICQUESTINGINMOP1 = "/cq"
-SLASH_CLASSICQUESTINGINMOP2 = "/classicquesting"
+SLASH_CLASSICQUESTINGMOP1 = "/cq"
+SLASH_CLASSICQUESTINGMOP2 = "/classicquesting"
 
 -- Setting keys are camelCase, so resolve the argument case-insensitively
 -- rather than lowercasing it and never matching.
@@ -223,7 +223,7 @@ local function resolveSetting(arg)
 	return nil
 end
 
-SlashCmdList["CLASSICQUESTINGINMOP"] = function(msg)
+SlashCmdList["CLASSICQUESTINGMOP"] = function(msg)
 	msg = msg or ""
 	local cmd = msg:match("^%s*(%S*)") or ""
 	cmd = cmd:lower()

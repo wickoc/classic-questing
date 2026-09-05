@@ -20,6 +20,16 @@ ns:RegisterDefaults({
 local applying = false
 local refused = false
 
+-- Enforcement only explains itself once the addon has settled. The very
+-- first turn-off at login is ours and needs no announcement; a later one
+-- means the player just clicked the entry and deserves to know why it
+-- bounced back.
+local settled = false
+local tooltipHooked = false
+-- Far enough in the past that the first notice is never swallowed by the
+-- throttle window, whatever GetTime() happens to return.
+local lastNotice = -math.huge
+
 local function api()
 	local C = C_Minimap
 	if type(C) ~= "table"
@@ -78,6 +88,14 @@ local function setTracking(index, enabled)
 	return ok
 end
 
+local function notice()
+	-- Throttled: a burst of tracking events must not turn into a wall of text.
+	local now = (type(GetTime) == "function" and GetTime()) or 0
+	if now - lastNotice < 10 then return end
+	lastNotice = now
+	ns:Print("Quest POI tracking was switched back off. To allow it, use |cffffd100/cq off minimapQuestPOI|r.")
+end
+
 local function enforce()
 	if applying or refused then return end
 	if not ns.db or not ns.db.settings[M.setting] then return end
@@ -85,6 +103,9 @@ local function enforce()
 	local index, info = findEntry()
 	if not index then return end
 	if not info.active then return end   -- already off, nothing to do and no event to cause
+
+	-- The player just turned it on themselves; say why it is about to bounce.
+	if settled then notice() end
 
 	if not setTracking(index, false) then
 		refused = true
@@ -101,6 +122,35 @@ local function enforce()
 	end
 end
 
+-- Adding a line to the tracking button's tooltip is the polite way to
+-- explain the behaviour: it is a script hook on an ordinary UI button, it
+-- adds no quest data, and it touches none of Blizzard's menu logic, so it
+-- stays clear of the taint risk in safety rule 2. If the button is not
+-- where we expect, we simply do without it -- the chat notice below is the
+-- guaranteed path.
+local function attachTooltip()
+	if tooltipHooked then return end
+	local btn = MiniMapTrackingButton or MiniMapTracking
+	if not btn or type(btn.HookScript) ~= "function" then
+		ns:Warn("mm:tooltip", "tracking button not found; using chat notices instead of a tooltip.")
+		return
+	end
+
+	local ok = pcall(function()
+		btn:HookScript("OnEnter", function(self)
+			if not ns.db or not ns.db.settings[M.setting] then return end
+			if not GameTooltip or type(GameTooltip.AddLine) ~= "function" then return end
+			if GameTooltip.GetOwner and GameTooltip:GetOwner() ~= self then return end
+			GameTooltip:AddLine(" ")
+			GameTooltip:AddLine(ns.title .. " keeps |cffffd100Track Quest POIs|r off.", 1, 1, 1)
+			GameTooltip:AddLine("Switching it on here will not stick.", 0.9, 0.9, 0.9)
+			GameTooltip:AddLine("Use |cffffd100/cq off minimapQuestPOI|r to allow it.", 0.8, 0.8, 0.8)
+			GameTooltip:Show()
+		end)
+	end)
+	tooltipHooked = ok
+end
+
 function M:Enable()
 	local index, info = findEntry()
 	if not index then return end
@@ -112,9 +162,12 @@ function M:Enable()
 	end
 
 	enforce()
+	attachTooltip()
+	settled = true
 end
 
 function M:Disable()
+	settled = false
 	local original = ns.db and ns.db.state.minimapQuestPOITracking
 	if original == nil then return end
 	local index, info = findEntry()
