@@ -558,8 +558,10 @@ Two caveats stand:
 
 - **The documented 8x2 / 256x64 `ObjectIcons` layout is the OLD sheet, not this one.**
   `GetPOITextureCoords` on this client steps 0.0703125 across and 0.03515625 down, so the atlas
-  is far larger. Replacement art must match the real grid. `/unrecon blipgrid` draws every cell
-  with its index so the `!` and `?` can be identified by looking rather than guessing.
+  is far larger. Replacement art must match the real grid. the v0.9 cell grid stretched each cell into a
+  square and made the icons unreadable. v1.0 instead draws the **whole sheet** and labels every
+  index in place on top of it, positioned by UV fraction, which needs no assumption about the
+  texture's real pixel size and cannot distort anything.
 - **A modified sheet means shipping altered Blizzard art.** That is what the existing addons do,
   but it is a judgement call for the author, and it is the first thing this addon would ship
   that is not purely subtractive.
@@ -572,7 +574,29 @@ DragonUI fork) does so only to stop other addons fighting over the sheet, not to
 
 **`Minimap:SetToDefaults()` must never be called.** It removed the entire minimap frame in game.
 
-### New Tier 3 candidates — researched, not yet verified on this client
+### Tier 3 candidates — live results
+
+**Quest object glimmer: the outline and the sparkle are alternatives, not additions.**
+`Outline` exists here and is settable (0, 1, 2, 3 all took). `graphicsOutlineMode` does **not**
+exist on this client. `Outline 0` removed the outline but left the glimmer — and research
+explains why: turning the outline off is exactly what makes the game fall back to sparkles.
+So the open question is not "how do I remove the sparkle" but **"is there any value of
+`Outline` that gives neither?"** That sweep is the next test, recorded per value and per object
+type (quest object versus herb node), since the glimmer affects gathering nodes too and did not
+in Classic.
+
+A rejected workaround, tested by the author: re-setting `Outline` restarts the glimmer
+animation, so firing it every ~100ms suppresses the effect. It does not actually work — on
+larger objectives the animation is already visible and gets frozen on screen instead — and a
+per-frame CVar write is exactly the kind of thing this addon should not ship. **Not pursued.**
+
+**Quest progress tooltip: reachable, and the shape is known.** Observed live: the quest name is
+its own line, followed by one line per objective (`" - Riverpaw Gnoll Clue: 0/1"`). The line
+number **varies**, so a matcher must key off text and colour, never a fixed index. `/unrecon
+tipwatch` + `tipdump` now capture a real tooltip with per-line colours so the matcher can be
+written against real data instead of assumptions.
+
+### Earlier research notes
 
 **Quest object outline and sparkles.** Research names a CVar `Outline` behind the option in
 Blizzard's menu (the No Questgiver Sparkles addon sets it to 0 and re-asserts it), and
