@@ -298,11 +298,21 @@ SlashCmdList["CLASSICQUESTINGMOP"] = function(msg)
 			end
 		end
 
-	else
+	elseif cmd == "status" then
 		status()
 		local example = ns.modules[1] and ns.modules[1].key or "worldMapMarkers"
 		ns:Print("Toggle one with |cffffd100/cq off " .. example ..
 			"|r, or all with |cffffd100/cq on|off|r. |cffffd100/cq reset|r restores defaults.")
-		ns:Print("The options panel arrives with the Options module.")
+
+	else
+		-- Bare /cq opens the panel; the text list stays available as
+		-- /cq status for anyone who prefers it, and as the fallback if
+		-- the Options module somehow did not load.
+		if type(ns.OpenOptions) == "function" then
+			ns:OpenOptions()
+		else
+			status()
+			ns:Print("Options panel unavailable; use |cffffd100/cq on|off <name>|r.")
+		end
 	end
 end

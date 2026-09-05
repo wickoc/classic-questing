@@ -18,6 +18,9 @@ local RULES = {
 		label   = "world map quest markers",
 		onText  = "world map quest markers, blue areas and map quest log hidden",
 		offText = "world map quest markers shown again",
+		group   = "Map and minimap",
+		order   = 10,
+		desc    = "Removes the numbered quest pins, the shaded objective areas, the Track Quest checkbox and the quest list inside the full-screen map.",
 	},
 	{
 		-- Tier 2, opt-in. Newly accepted quests stop auto-tracking. This is
@@ -30,6 +33,9 @@ local RULES = {
 		label   = "automatic tracking of new quests",
 		onText  = "newly accepted quests are no longer tracked automatically",
 		offText = "newly accepted quests are tracked automatically again",
+		group   = "Quest tracking",
+		order   = 30,
+		desc    = "Accepting a quest no longer adds it to the tracker by itself. Quality of life rather than clutter, so it is yours to choose.",
 	},
 	{
 		-- Tier 3, opt-in. The boss and creature portrait pins MoP puts on
@@ -43,6 +49,9 @@ local RULES = {
 		label   = "world map creature portraits",
 		onText  = "world map creature portraits hidden",
 		offText = "world map creature portraits shown again",
+		group   = "World map clutter",
+		order   = 40,
+		desc    = "Hides the boss and creature portrait pins MoP puts on zone maps. Classic never had them.",
 	},
 	{
 		-- Tier 3, opt-in, EXPERIMENTAL and off by default.
@@ -63,6 +72,9 @@ local RULES = {
 		label        = "quest object outline",
 		onText       = "outline requested instead of sparkles (experimental; many clients cannot render it)",
 		offText      = "outline setting returned to what it was",
+		group        = "Experimental",
+		order        = 50,
+		desc         = "Quest objects show either an outline or sparkles, never both, so asking for the outline suppresses the glimmer. Many clients cannot render outlines at all, in which case this does nothing.",
 	},
 }
 
@@ -111,6 +123,9 @@ local function makeModule(rule)
 	M.onText = rule.onText
 	M.offText = rule.offText
 	M.experimental = rule.experimental
+	M.group = rule.group
+	M.order = rule.order
+	M.desc = rule.desc
 
 	-- One name: the module key is the saved-settings key is the handle the
 	-- player types. The CVar name stays an implementation detail in `rule`.

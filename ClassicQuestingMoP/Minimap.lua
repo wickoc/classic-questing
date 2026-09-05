@@ -13,6 +13,9 @@ local ADDON_NAME, ns = ...
 local M = ns:RegisterModule("minimapMarkers", {})
 M.onText = "minimap quest pins and the blue quest area hidden"
 M.offText = "minimap quest pins and the blue quest area shown again"
+M.group = "Map and minimap"
+M.order = 20
+M.desc = "Keeps the Track Quest POIs tracking entry switched off, which removes both the numbered pins and the blue objective area from the minimap."
 
 -- One name: module key, saved-settings key and typed handle are all the same.
 ns:RegisterDefaults({
