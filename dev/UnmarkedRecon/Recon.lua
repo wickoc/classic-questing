@@ -925,6 +925,45 @@ local function sectionBlipAtlas()
 	add("   match THIS grid, not the documented one.")
 end
 
+-- [G13] Blizzard's combined selector -- arrows plus a value that drops a list,
+-- as used for Outline Mode, Status Text and Display Aggro Warning. The options
+-- panel hand-builds an equivalent because this control could not be named.
+-- Find the real template so it can be swapped in.
+local function sectionSelector()
+	head("[G13] Blizzard's arrow+dropdown selector")
+
+	add("   Templates that actually construct on this client:")
+	local CANDIDATES = {
+		"UIDropDownMenuTemplate", "UIDropDownMenuButtonTemplate",
+		"OptionsDropDownMenuTemplate", "InterfaceOptionsDropDownTemplate",
+		"SettingsDropdownTemplate", "SettingsDropDownControlTemplate",
+		"SettingsSelectionDropdownTemplate", "DropdownButtonTemplate",
+		"WowStyle1DropdownTemplate", "UIPanelSquareButton",
+		"OptionsSliderTemplate",
+	}
+	local host = CreateFrame("Frame")
+	for i = 1, #CANDIDATES do
+		local ok = pcall(CreateFrame, "Frame", nil, host, CANDIDATES[i])
+		if not ok then
+			ok = pcall(CreateFrame, "Button", nil, host, CANDIDATES[i])
+		end
+		mark(ok, CANDIDATES[i])
+	end
+
+	add("")
+	listGlobals("Globals containing 'dropdown'", "dropdown", 60)
+	add("")
+	listGlobals("Globals containing 'selection'", "selection", 30)
+
+	add("")
+	add("   Blizzard drives these through helper functions; report which exist:")
+	for _, n in ipairs({
+		"UIDropDownMenu_Initialize", "UIDropDownMenu_SetSelectedValue",
+		"UIDropDownMenu_SetText", "UIDropDownMenu_AddButton",
+		"UIDropDownMenu_SetWidth", "Settings_CreateDropdown",
+	}) do probe(n) end
+end
+
 ---------------------------------------------------------------------
 
 local function collect()
@@ -1006,6 +1045,7 @@ local function collect()
 	sectionBlipAtlas()
 	sectionOutline()
 	sectionQuestTooltip()
+	sectionSelector()
 
 	-- Any full method dumps collected via "/unrecon methods <global>" get
 	-- folded in here so they travel inside the readable report rather than

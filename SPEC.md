@@ -204,12 +204,23 @@ rule, yellow option labels, a `Defaults` button top-right, and descriptions in *
 - *Custom* — **derived, never stored.** Shown whenever the settings match neither preset, which
   gives the "selects itself automatically" behaviour with no stored flag that could drift out of
   step with the real settings. The arrows step between the two presets that *mean* something;
-  Custom is a readout, not a destination, because a control that does nothing when chosen is
-  worse than one that reports.
+  Custom is selectable and inert by design, and is chosen automatically the moment any single
+  option changes. The stored choice is honoured so picking Custom sticks, but a stored preset
+  that no longer matches the settings is downgraded to Custom rather than left lying.
 
-**`Defaults` restores the shipped state** — map and minimap markers hidden, everything else off —
-not "all off". That is what a fresh install gives, and *Disabled* already exists in the preset
-for anyone who wants everything off. The button's tooltip says so explicitly.
+**Shipped defaults are the Full Classic experience** — every non-experimental option on. That is
+what people install the addon for; neither "all off" nor a subset picked to the author's taste
+is a defensible out-of-the-box state. `Defaults` therefore restores that, and *Disabled* exists
+in the preset for anyone who wants the opposite.
+
+**`Defaults` confirms before acting**, as Blizzard's does. The button is the addon's own, not
+Blizzard's — Blizzard's lives in `SettingsPanel` and offers "All Settings / These Settings /
+Cancel". "All Settings" is Blizzard's to offer and not this addon's, so the confirmation is
+these settings or cancel. `panel.OnDefault` is also set, so if Blizzard ever drives it, it works.
+
+**The player-facing name is "Classic Questing"** everywhere in game, including the addon list.
+The `(MoP)` suffix survives only in the folder name, the repository and the future CurseForge
+listing, where it identifies which build to download for which client.
 
 **TODO(v1.0):** remove the live status readout from each row. It is useful while developing and
 meaningless to a player.
@@ -232,13 +243,27 @@ Three fallbacks, each tested:
 
 `/cq` opens the panel; `/cq status` keeps the text list.
 
+### Still to verify
+
+The **preset selector is hand-built**: arrows, a clickable value that drops a list, and the small
+nub Blizzard puts under an openable value. The real template could not be identified from recon,
+and guessing a template name is how this project has repeatedly lost time, so probe v0.12 adds
+[G13] to find it. Swap to the genuine control once named.
+
+Two font sizes are Blizzard's, not the addon's: tooltip **body** text uses `GameTooltipText`, and
+changing it would alter every tooltip in the game, so it is left alone. Option labels already use
+`GameFontNormal`, which is exactly what Blizzard's own option rows use.
+
 ### Applying changes while a frame is open
 
 `questPOI` only takes effect when the world map redraws, so toggling it while the map was open
-appeared to do nothing. Rules can now set `refreshMap`, which calls
-`WorldMapFrame:RefreshAllDataProviders()` after the write — a method confirmed present in the
-352-method dump. Preferred over prompting for a reload: try the cheap, non-destructive thing
-first and only add an Apply/reload prompt if it proves insufficient.
+appeared to do nothing. Rules can set `refreshMap`, which calls `WorldMapFrame:RefreshAllDataProviders()` after the
+write — a method confirmed present in the 352-method dump.
+
+That alone is not enough: **the options panel and the world map cannot be open at the same time**,
+so a refresh at toggle time has nothing to redraw. The map's `OnShow` is therefore hooked, and on
+every open the map-affecting CVars are re-asserted and the providers refreshed. That is the exact
+moment a stale map would be noticed, and it needs no reload prompt.
 
 ## Release notes — CurseForge listing
 

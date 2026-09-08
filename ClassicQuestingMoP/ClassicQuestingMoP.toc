@@ -1,8 +1,8 @@
 ## Interface: 50504
-## Title: Classic Questing (MoP)
+## Title: Classic Questing
 ## Notes: Hides MoP's quest markers. Read the text, explore.
 ## Author: Wictor
-## Version: 0.6.0
+## Version: 0.7.0
 ## SavedVariables: ClassicQuestingMoPDB
 
 Core.lua

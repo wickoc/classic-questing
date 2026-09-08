@@ -5,7 +5,10 @@
 
 local ADDON_NAME, ns = ...
 
-ns.title = "Classic Questing (MoP)"
+-- What the player sees, everywhere. The folder and the CurseForge listing
+-- keep the (MoP) suffix so the right build can be identified for download;
+-- inside the game it is just the addon's name.
+ns.title = "Classic Questing"
 
 ---------------------------------------------------------------------
 -- Identity
@@ -188,6 +191,10 @@ function ns:Set(key, value)
 	ns:ApplyAll()
 end
 
+-- Set by the options panel; a stub here so slash toggles can call it whether
+-- or not the Options module loaded.
+function ns.MarkCustomPreset() end
+
 -- silent: the options panel resets in place and the player can see the result,
 -- so it does not need a chat line.
 function ns:ResetDefaults(silent)
@@ -284,12 +291,14 @@ SlashCmdList["CLASSICQUESTINGMOP"] = function(msg)
 					ns.db.settings[k] = want
 				end
 			end
+			if ns.db then ns.db.preset = want and "classic" or "disabled" end
 			ns:ApplyAll()
 			ns:Print("All features turned " .. cmd ..
 				(want and " (experimental ones left alone; turn those on by name)." or "."))
 		else
 			local key = resolveSetting(arg)
 			if key then
+				ns.MarkCustomPreset()
 				ns:Set(key, want)
 				local m = ns.modules[key]
 				-- "showBosses turned on" read as though the portraits were
@@ -302,11 +311,22 @@ SlashCmdList["CLASSICQUESTINGMOP"] = function(msg)
 			end
 		end
 
+	elseif cmd == "help" then
+		ns:Print(ns.title .. " v" .. tostring(ns.version) .. " -- commands")
+		ns:Print("  |cffffd100/cq|r            open the options panel")
+		ns:Print("  |cffffd100/cq help|r       this list")
+		ns:Print("  |cffffd100/cq status|r     list every option and its live state")
+		ns:Print("  |cffffd100/cq on|r         turn on everything except experimental options")
+		ns:Print("  |cffffd100/cq off|r        turn everything off")
+		ns:Print("  |cffffd100/cq on <name>|r  turn one option on, e.g. /cq on worldMapMarkers")
+		ns:Print("  |cffffd100/cq off <name>|r turn one option off")
+		ns:Print("  |cffffd100/cq reset|r      restore default settings")
+		ns:Print("|cffffd100/classicquesting|r works anywhere |cffffd100/cq|r does.")
+
 	elseif cmd == "status" then
 		status()
 		local example = ns.modules[1] and ns.modules[1].key or "worldMapMarkers"
-		ns:Print("Toggle one with |cffffd100/cq off " .. example ..
-			"|r, or all with |cffffd100/cq on|off|r. |cffffd100/cq reset|r restores defaults.")
+		ns:Print("|cffffd100/cq help|r lists every command.")
 
 	else
 		-- Bare /cq opens the panel; the text list stays available as

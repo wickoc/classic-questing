@@ -27,7 +27,14 @@ local function attachTooltip(widget, getTitle, getBody)
 		if not GameTooltip or type(GameTooltip.SetOwner) ~= "function" then return end
 		pcall(function()
 			GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-			GameTooltip:AddLine(getTitle(), 1, 1, 1)
+			-- SetText renders line one in the tooltip HEADER font, which is
+			-- what makes Blizzard's tooltip titles larger. AddLine would use
+			-- the body font and look wrong.
+			if type(GameTooltip.SetText) == "function" then
+				GameTooltip:SetText(getTitle(), 1, 1, 1)
+			else
+				GameTooltip:AddLine(getTitle(), 1, 1, 1)
+			end
 			local body = getBody()
 			if body and body ~= "" then
 				GameTooltip:AddLine(body, 1, 0.82, 0, true)
@@ -129,7 +136,10 @@ local function nonExperimental()
 	return list
 end
 
-local function currentPreset()
+local PRESET_ORDER = { "disabled", "classic", "custom" }
+
+-- What the settings actually look like right now.
+local function derivedPreset()
 	if not ns.db then return "custom" end
 	local allOff, allOn = true, true
 	for i = 1, #ns.modules do
@@ -145,8 +155,20 @@ local function currentPreset()
 	return "custom"
 end
 
+-- What the control shows. The stored choice is honoured so that picking
+-- "Custom" sticks, but a stored preset that no longer matches the settings is
+-- downgraded to Custom rather than left lying.
+local function displayPreset()
+	if not ns.db then return "custom" end
+	local stored = ns.db.preset
+	if stored == nil then return derivedPreset() end
+	if stored ~= "custom" and derivedPreset() ~= stored then return "custom" end
+	return stored
+end
+
 local function applyPreset(which)
 	if not ns.db then return end
+	ns.db.preset = which
 	if which == "disabled" then
 		for i = 1, #ns.modules do
 			ns.db.settings[ns.modules[i].key] = false
@@ -156,11 +178,15 @@ local function applyPreset(which)
 			local m = ns.modules[i]
 			ns.db.settings[m.key] = not m.experimental
 		end
-	else
-		return -- "custom" applies nothing by definition
 	end
+	-- "custom" changes nothing by definition; it only records the choice.
 	ns:ApplyAll()
 	ns.RefreshOptions()
+end
+
+-- Any individual change means the settings are no longer a named preset.
+function ns.MarkCustomPreset()
+	if ns.db then ns.db.preset = "custom" end
 end
 
 ---------------------------------------------------------------------
@@ -183,7 +209,7 @@ local function build()
 	panel.name = ns.title
 
 	-- Header: white title, small grey version, hairline rule. Blizzard's shape.
-	local title = fs(panel, "GameFontNormalLarge", 1, 1, 1)
+	local title = fs(panel, "GameFontNormalHuge", 1, 1, 1)
 	title:SetPoint("TOPLEFT", 16, -16)
 	title:SetText(ns.title)
 
@@ -200,9 +226,30 @@ local function build()
 	local defaults = makeButton(panel, 110, 22, "Defaults")
 	if defaults then
 		defaults:SetPoint("TOPRIGHT", -16, -14)
-		defaults:SetScript("OnClick", function()
+		-- Blizzard confirms before resetting a panel; do the same. "All
+		-- Settings" is Blizzard's to offer, not ours -- this addon only owns
+		-- its own -- so the choice is these settings or cancel.
+		local function doReset()
 			ns:ResetDefaults(true)
+			if ns.db then ns.db.preset = nil end
 			ns.RefreshOptions()
+		end
+		panel.OnDefault = doReset   -- honoured if Blizzard drives it
+
+		defaults:SetScript("OnClick", function()
+			if type(StaticPopupDialogs) == "table" and type(StaticPopup_Show) == "function" then
+				StaticPopupDialogs["CLASSICQUESTING_DEFAULTS"] = {
+					text = "Restore " .. ns.title .. " to its default settings?",
+					button1 = "These Settings",
+					button2 = CANCEL or "Cancel",
+					OnAccept = doReset,
+					timeout = 0, whileDead = true, hideOnEscape = true,
+					preferredIndex = 3,
+				}
+				if not pcall(StaticPopup_Show, "CLASSICQUESTING_DEFAULTS") then doReset() end
+			else
+				doReset()
+			end
 		end)
 		attachTooltip(defaults,
 			function() return "Defaults" end,
@@ -221,92 +268,166 @@ local function build()
 	presetLabel:SetText("Preset")
 
 	local left = makeButton(panel, 24, 22, "<")
-	local value = CreateFrame("Frame", nil, panel)
+
+	-- Blizzard's selector is arrows plus a clickable value that drops a list.
+	-- The real template could not be identified from recon, so this is built
+	-- by hand to behave the same rather than guessed at by name.
+	local value = CreateFrame("Button", nil, panel)
 	value:SetSize(220, 22)
 	value:SetPoint("TOPLEFT", 150, -58)
 	local valueBg = value:CreateTexture(nil, "BACKGROUND")
 	valueBg:SetAllPoints()
-	valueBg:SetColorTexture(0.1, 0.1, 0.1, 0.8)
-	local valueText = fs(value, "GameFontHighlight", 1, 1, 1)
+	valueBg:SetColorTexture(0.12, 0.12, 0.12, 0.9)
+	local valueEdge = value:CreateTexture(nil, "BORDER")
+	valueEdge:SetPoint("TOPLEFT", -1, 1)
+	valueEdge:SetPoint("BOTTOMRIGHT", 1, -1)
+	valueEdge:SetColorTexture(0.45, 0.4, 0.3, 1)
+	valueEdge:SetDrawLayer("BORDER", -1)
+	local valueHl = value:CreateTexture(nil, "HIGHLIGHT")
+	valueHl:SetAllPoints()
+	valueHl:SetColorTexture(1, 0.82, 0, 0.12)
+	local valueText = fs(value, "GameFontNormal", 1, 0.82, 0)
 	valueText:SetPoint("CENTER")
+	-- the little downward nub Blizzard puts under an openable value
+	local nub = value:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+	nub:SetPoint("BOTTOM", value, "BOTTOM", 0, -7)
+	nub:SetTextColor(1, 0.82, 0)
+	nub:SetText("v")
 
 	local right = makeButton(panel, 24, 22, ">")
 	if left then left:SetPoint("RIGHT", value, "LEFT", -4, 0) end
 	if right then right:SetPoint("LEFT", value, "RIGHT", 4, 0) end
 
-	-- Arrows step between the two presets that mean something. "Custom" is a
-	-- readout, not a destination: selecting it would have to do nothing, and a
-	-- control that does nothing when chosen is worse than one that reports.
+	-- The dropped list.
+	local menu = CreateFrame("Frame", nil, panel)
+	menu:SetSize(220, #PRESET_ORDER * 20 + 8)
+	menu:SetPoint("TOPLEFT", value, "BOTTOMLEFT", 0, -2)
+	menu:SetFrameStrata("DIALOG")
+	menu:Hide()
+	local menuBg = menu:CreateTexture(nil, "BACKGROUND")
+	menuBg:SetAllPoints()
+	menuBg:SetColorTexture(0.05, 0.05, 0.05, 0.95)
+	local menuEdge = menu:CreateTexture(nil, "BORDER")
+	menuEdge:SetPoint("TOPLEFT", -1, 1)
+	menuEdge:SetPoint("BOTTOMRIGHT", 1, -1)
+	menuEdge:SetColorTexture(0.45, 0.4, 0.3, 1)
+	menuEdge:SetDrawLayer("BORDER", -1)
+
+	for i = 1, #PRESET_ORDER do
+		local id = PRESET_ORDER[i]
+		local item = CreateFrame("Button", nil, menu)
+		item:SetSize(212, 18)
+		item:SetPoint("TOPLEFT", 4, -4 - (i - 1) * 20)
+		local hl = item:CreateTexture(nil, "HIGHLIGHT")
+		hl:SetAllPoints()
+		hl:SetColorTexture(1, 0.82, 0, 0.2)
+		local t = item:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+		t:SetPoint("LEFT", 6, 0)
+		t:SetText(PRESET_LABEL[id])
+		item:SetScript("OnClick", function()
+			menu:Hide()
+			applyPreset(id)
+		end)
+	end
+
+	value:SetScript("OnClick", function()
+		if menu:IsShown() then menu:Hide() else menu:Show() end
+	end)
+
+	-- Arrows cycle every value, as Blizzard's arrows do.
 	local function step(dir)
-		local now = currentPreset()
-		if now == "disabled" then applyPreset("classic")
-		elseif now == "classic" then applyPreset("disabled")
-		else applyPreset(dir > 0 and "classic" or "disabled") end
+		local now = displayPreset()
+		local idx = 1
+		for i = 1, #PRESET_ORDER do
+			if PRESET_ORDER[i] == now then idx = i end
+		end
+		idx = idx + dir
+		if idx < 1 then idx = #PRESET_ORDER elseif idx > #PRESET_ORDER then idx = 1 end
+		menu:Hide()
+		applyPreset(PRESET_ORDER[idx])
 	end
 	if left then left:SetScript("OnClick", function() step(-1) end) end
 	if right then right:SetScript("OnClick", function() step(1) end) end
 
 	local function presetBody()
-		return "Disabled: every option off, the game as Blizzard ships it.\n\n"
-			.. "Full Classic experience: every option on, except experimental ones.\n\n"
-			.. "Custom: shown automatically whenever your settings match neither of "
-			.. "the above. Change any option below and this becomes Custom by itself."
+		return "|cffffffffDisabled|r  Every option off, the game as Blizzard ships it.\n\n"
+			.. "|cffffffffFull Classic experience|r  Every option on, except experimental ones.\n\n"
+			.. "|cffffffffCustom|r  Your own mix. Selecting it changes nothing, and it is "
+			.. "chosen automatically as soon as you change any option below."
 	end
 	attachTooltip(value, function() return "Preset" end, presetBody)
 	if left then attachTooltip(left, function() return "Preset" end, presetBody) end
 	if right then attachTooltip(right, function() return "Preset" end, presetBody) end
 
+	preset.menu = menu
 	preset.text = valueText
 
 	---------------------------------------------------------------
 	-- Option rows
 	---------------------------------------------------------------
 
-	local y = -100
+	local GROUP_COLOR = { ["Experimental"] = { 1, 0.5, 0.1 } }
+
+	local y = -110
 	local lastGroup
 
 	for _, m in ipairs(sortedModules()) do
 		if m.group and m.group ~= lastGroup then
 			lastGroup = m.group
-			local head = fs(panel, "GameFontNormalLarge", 1, 1, 1)
+			local c = GROUP_COLOR[m.group] or { 1, 1, 1 }
+			local head = fs(panel, "GameFontNormalLarge", c[1], c[2], c[3])
 			head:SetPoint("TOPLEFT", 16, y)
 			head:SetText(m.group)
 			y = y - 26
 		end
 
-		local cb = makeCheckbox(panel)
+		-- The whole row is clickable and hoverable, as Blizzard's rows are.
+		local row = CreateFrame("Button", nil, panel)
+		row:SetSize(580, 26)
+		row:SetPoint("TOPLEFT", 12, y + 4)
+		local hl = row:CreateTexture(nil, "HIGHLIGHT")
+		hl:SetAllPoints()
+		hl:SetColorTexture(1, 1, 1, 0.07)
+
+		local cb = makeCheckbox(row)
 		if cb then
-			cb:SetPoint("TOPLEFT", 24, y)
+			cb:SetPoint("LEFT", 12, 0)
 
-			-- Yellow label, as Blizzard's own option rows use.
-			local label = fs(panel, "GameFontNormal")
+			local label = fs(row, "GameFontNormal")
 			label:SetPoint("LEFT", cb, "RIGHT", 4, 0)
-			label:SetText((m.title or m.key)
-				.. (m.experimental and "  |cffff8800(experimental)|r" or ""))
+			label:SetText(m.title or m.key)
 
-			-- TODO(v1.0): remove the live status readout. It is useful while
-			-- developing and meaningless to a player.
-			local status = fs(panel, "GameFontDisableSmall", 0.5, 0.5, 0.5)
-			status:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -20, y - 4)
+			-- The slash handle, small and dim, so the label stays the label.
+			local slash = fs(row, "GameFontDisableSmall", 0.45, 0.45, 0.45)
+			slash:SetPoint("LEFT", label, "RIGHT", 8, -1)
+			slash:SetText("/" .. m.key)
+
+			-- TODO(v1.0): remove the live status readout. Useful while
+			-- developing, meaningless to a player.
+			local status = fs(row, "GameFontDisableSmall", 0.45, 0.45, 0.45)
+			status:SetPoint("RIGHT", row, "RIGHT", -12, 0)
 			status:SetJustifyH("RIGHT")
 
-			cb:SetScript("OnClick", function(self)
-				ns:Set(m.key, self:GetChecked() and true or false)
-				-- Read back rather than trusting the click: a module can refuse
-				-- (a locked CVar, a missing frame) and the panel must show what
-				-- is actually true.
+			-- Toggle from the saved value, not the checkbox: a row click never
+			-- moves the box, so reading the box would invert the wrong thing.
+			local function toggle()
+				local now = ns.db and ns.db.settings[m.key]
+				ns.MarkCustomPreset()
+				ns:Set(m.key, not now)
 				ns.RefreshOptions()
-			end)
+			end
+			cb:SetScript("OnClick", toggle)
+			row:SetScript("OnClick", toggle)
 
-			attachTooltip(cb,
-				function() return m.title or m.key end,
-				function()
-					local body = m.desc or ""
-					if m.experimental then
-						body = body .. "\n\nExperimental: not enabled by the Full Classic preset."
-					end
-					return body .. "\n\nSlash name: " .. m.key
-				end)
+			local function body()
+				local text = m.desc or ""
+				if m.experimental then
+					text = text .. "\n\nExperimental: not enabled by the Full Classic preset."
+				end
+				return text
+			end
+			attachTooltip(row, function() return m.title or m.key end, body)
+			attachTooltip(cb, function() return m.title or m.key end, body)
 
 			rows[#rows + 1] = { module = m, check = cb, status = status }
 			y = y - 30
@@ -335,7 +456,7 @@ function ns.RefreshOptions()
 		row.status:SetText(text)
 	end
 	if preset.text then
-		preset.text:SetText(PRESET_LABEL[currentPreset()] or "Custom")
+		preset.text:SetText(PRESET_LABEL[displayPreset()] or "Custom")
 	end
 end
 

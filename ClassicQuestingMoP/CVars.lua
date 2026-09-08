@@ -31,7 +31,9 @@ local RULES = {
 		key     = "autoQuestTracking",
 		cvar    = "autoQuestWatch",
 		wanted  = "0",
-		default = false,
+		-- Ships ON: the Full Classic experience is what people install this
+		-- addon for, so a fresh install gives exactly that.
+		default = true,
 		label   = "automatic tracking of new quests",
 		onText  = "newly accepted quests are no longer tracked automatically",
 		offText = "newly accepted quests are tracked automatically again",
@@ -49,7 +51,7 @@ local RULES = {
 		cvar       = "showBosses",
 		wanted     = "0",
 		refreshMap = true,
-		default = false,
+		default = true,
 		label   = "world map creature portraits",
 		onText  = "world map creature portraits hidden",
 		offText = "world map creature portraits shown again",
@@ -92,6 +94,19 @@ local applying = false
 -- refused write stands down instead of retrying on every event forever.
 local refused = {}
 
+-- The world map cannot be open while the options panel is, so refreshing at
+-- toggle time has nothing to redraw. Catch the next time the map opens and
+-- re-assert there, which is the moment a stale map would be noticed.
+local hookedMap = false
+
+local function refreshMapNow()
+	pcall(function()
+		if WorldMapFrame and type(WorldMapFrame.RefreshAllDataProviders) == "function" then
+			WorldMapFrame:RefreshAllDataProviders()
+		end
+	end)
+end
+
 local function readCVar(name)
 	local ok, v = pcall(GetCVar, name)
 	if not ok then return nil end
@@ -112,13 +127,7 @@ local function writeCVar(rule, value)
 		return false
 	end
 
-	if rule.refreshMap then
-		pcall(function()
-			if WorldMapFrame and type(WorldMapFrame.RefreshAllDataProviders) == "function" then
-				WorldMapFrame:RefreshAllDataProviders()
-			end
-		end)
-	end
+	if rule.refreshMap then refreshMapNow() end
 
 	local now = readCVar(rule.cvar)
 	if now ~= value then
@@ -129,6 +138,23 @@ local function writeCVar(rule, value)
 		return false
 	end
 	return true
+end
+
+local function hookWorldMap()
+	if hookedMap then return end
+	if not (WorldMapFrame and type(WorldMapFrame.HookScript) == "function") then return end
+	hookedMap = pcall(function()
+		WorldMapFrame:HookScript("OnShow", function()
+			if not ns.db then return end
+			for i = 1, #RULES do
+				local r = RULES[i]
+				if r.refreshMap and ns.db.settings[r.key] and not refused[r.cvar] then
+					if readCVar(r.cvar) ~= r.wanted then writeCVar(r, r.wanted) end
+				end
+			end
+			refreshMapNow()
+		end)
+	end)
 end
 
 local function makeModule(rule)
@@ -174,13 +200,7 @@ local function makeModule(rule)
 		applying = true
 		pcall(SetCVar, rule.cvar, original)
 		applying = false
-		if rule.refreshMap then
-			pcall(function()
-				if WorldMapFrame and type(WorldMapFrame.RefreshAllDataProviders) == "function" then
-					WorldMapFrame:RefreshAllDataProviders()
-				end
-			end)
-		end
+		if rule.refreshMap then refreshMapNow() end
 	end
 
 	function M:Status()
@@ -202,6 +222,9 @@ end
 -- Re-assert when anything changes a console variable. The first argument of
 -- CVAR_UPDATE has not been consistent across client versions, so rather than
 -- match on it, just re-check every value we own on any CVar change.
+ns:RegisterEvent("PLAYER_LOGIN", hookWorldMap)
+ns:RegisterEvent("PLAYER_ENTERING_WORLD", hookWorldMap)
+
 ns:RegisterEvent("CVAR_UPDATE", function()
 	if applying or not ns.db then return end
 	for i = 1, #RULES do
