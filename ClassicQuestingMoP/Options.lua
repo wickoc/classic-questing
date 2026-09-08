@@ -16,34 +16,82 @@ local panel
 local rows = {}
 local preset = {}
 local standalone = false
-local applyButton
-local pending = false
-
 -- Some options only reach the world map when the UI is rebuilt. Refreshing the
 -- map's data providers was tried and rejected: it re-runs the exploration
 -- provider and wipes the fog-of-war state, which is far worse than a reload.
-local function markPending(m)
-	if m and m.needsApply then pending = true end
+--
+-- An Apply button was also tried and rejected: nothing forces the player to
+-- press it, so a change could be left silently unapplied. Asking at the moment
+-- of the change cannot be ignored, and Cancel puts the setting back.
+
+local dim
+
+-- Blizzard darkens the screen behind its confirmations, which is what makes
+-- them read as modal. Ours does the same.
+local function ensureDim()
+	if dim then return dim end
+	dim = CreateFrame("Frame", nil, UIParent)
+	dim:SetAllPoints(UIParent)
+	dim:SetFrameStrata("DIALOG")
+	dim:SetFrameLevel(1)
+	local t = dim:CreateTexture(nil, "BACKGROUND")
+	t:SetAllPoints()
+	t:SetColorTexture(0, 0, 0, 0.6)
+	dim:Hide()
+	return dim
 end
 
-local function updateApplyButton()
-	if not applyButton then return end
-	if pending then
-		applyButton:Enable()
-		applyButton:Show()
-	else
-		applyButton:Disable()
-	end
+local function snapshot()
+	if not ns.db then return nil end
+	local snap = { preset = ns.db.preset, settings = {} }
+	for k, v in pairs(ns.db.settings) do snap.settings[k] = v end
+	return snap
 end
 
-local function applyNow()
-	pending = false
-	updateApplyButton()
-	if type(ReloadUI) == "function" then
-		ReloadUI()
+local function restore(snap)
+	if not snap or not ns.db then return end
+	wipe(ns.db.settings)
+	for k, v in pairs(snap.settings) do ns.db.settings[k] = v end
+	ns.db.preset = snap.preset
+	ns:ApplyAll()
+	ns.RefreshOptions()
+end
+
+-- Shown right after a change that cannot take effect until the UI is rebuilt.
+local function promptReload(before, many)
+	if type(StaticPopupDialogs) ~= "table" or type(StaticPopup_Show) ~= "function" then
+		return
+	end
+	StaticPopupDialogs["CLASSICQUESTING_RELOAD"] = {
+		text = many
+			and "The UI needs to reload for some of these settings to take effect."
+			or "The UI needs to reload for this setting to take effect.",
+		button1 = "Reload",
+		button2 = CANCEL or "Cancel",
+		OnAccept = function()
+			if dim then dim:Hide() end
+			if type(ReloadUI) == "function" then ReloadUI() end
+		end,
+		OnCancel = function()
+			if dim then dim:Hide() end
+			restore(before)
+		end,
+		OnHide = function() if dim then dim:Hide() end end,
+		timeout = 0, whileDead = true, hideOnEscape = true,
+		preferredIndex = 3,
+	}
+	ensureDim():Show()
+	local ok, dlg = pcall(StaticPopup_Show, "CLASSICQUESTING_RELOAD")
+	if not ok then
+		if dim then dim:Hide() end
+		return
+	end
+	-- Keep the dialog above the dim without touching its strata, which is
+	-- shared with every other popup in the game.
+	if type(dlg) == "table" and type(dlg.SetFrameLevel) == "function" then
+		pcall(dlg.SetFrameLevel, dlg, 20)
 	end
 end
-ns.ApplyPending = applyNow
 
 ---------------------------------------------------------------------
 -- Tooltips
@@ -196,8 +244,27 @@ local function displayPreset()
 	return stored
 end
 
-local function applyPreset(which)
+local applyPreset  -- defined below, after the prompt helpers it uses
+
+-- Any individual change means the settings are no longer a named preset.
+function ns.MarkCustomPreset()
+	if ns.db then ns.db.preset = "custom" end
+end
+
+function applyPreset(which)
 	if not ns.db then return end
+	local before = snapshot()
+	local touchesMap = false
+	if which ~= "custom" then
+		for i = 1, #ns.modules do
+			local m = ns.modules[i]
+			local want = (which == "classic") and not m.experimental or false
+			if m.needsApply and (ns.db.settings[m.key] and true or false) ~= want then
+				touchesMap = true
+			end
+		end
+	end
+
 	ns.db.preset = which
 	if which == "disabled" then
 		for i = 1, #ns.modules do
@@ -210,18 +277,9 @@ local function applyPreset(which)
 		end
 	end
 	-- "custom" changes nothing by definition; it only records the choice.
-	if which ~= "custom" then
-		for i = 1, #ns.modules do
-			if ns.modules[i].needsApply then pending = true end
-		end
-	end
 	ns:ApplyAll()
 	ns.RefreshOptions()
-end
-
--- Any individual change means the settings are no longer a named preset.
-function ns.MarkCustomPreset()
-	if ns.db then ns.db.preset = "custom" end
+	if touchesMap then promptReload(before, true) end
 end
 
 ---------------------------------------------------------------------
@@ -265,12 +323,18 @@ local function build()
 		-- Settings" is Blizzard's to offer, not ours -- this addon only owns
 		-- its own -- so the choice is these settings or cancel.
 		local function doReset()
+			local before = snapshot()
+			local touchesMap = false
+			for i = 1, #ns.modules do
+				local m = ns.modules[i]
+				if m.needsApply and (ns.db.settings[m.key] and true or false) ~= (ns.defaults[m.key] and true or false) then
+					touchesMap = true
+				end
+			end
 			ns:ResetDefaults(true)
 			if ns.db then ns.db.preset = nil end
-			for i = 1, #ns.modules do
-				if ns.modules[i].needsApply then pending = true end
-			end
 			ns.RefreshOptions()
+			if touchesMap then promptReload(before, true) end
 		end
 		panel.OnDefault = doReset   -- honoured if Blizzard drives it
 
@@ -285,10 +349,18 @@ local function build()
 					button1 = YES or "Yes",
 					button2 = NO or "No",
 					OnAccept = doReset,
+					OnHide = function() if dim then dim:Hide() end end,
 					timeout = 0, whileDead = true, hideOnEscape = true,
 					preferredIndex = 3,
 				}
-				if not pcall(StaticPopup_Show, "CLASSICQUESTING_DEFAULTS") then doReset() end
+				ensureDim():Show()
+				local shown, dlg = pcall(StaticPopup_Show, "CLASSICQUESTING_DEFAULTS")
+				if not shown then
+					if dim then dim:Hide() end
+					doReset()
+				elseif type(dlg) == "table" and type(dlg.SetFrameLevel) == "function" then
+					pcall(dlg.SetFrameLevel, dlg, 20)
+				end
 			else
 				doReset()
 			end
@@ -395,10 +467,12 @@ local function build()
 	if right then right:SetScript("OnClick", function() step(1) end) end
 
 	local function presetBody()
-		return "|cffffffffDisabled|r  Every option off, the game as Blizzard ships it.\n\n"
-			.. "|cffffffffFull Classic experience|r  Every option on, except experimental ones.\n\n"
-			.. "|cffffffffCustom|r  Your own mix. Selecting it changes nothing, and it is "
-			.. "chosen automatically as soon as you change any option below."
+		-- Leading break so the first white heading does not sit against the
+		-- white tooltip title.
+		return "\n|cffffffffFull Classic experience:|r Every option on, except experimental ones.\n\n"
+			.. "|cffffffffDisabled:|r Every option off, the game as Blizzard ships it.\n\n"
+			.. "|cffffffffCustom:|r Your own mix. It cannot be selected; it is chosen "
+			.. "automatically as soon as you change any option below."
 	end
 	attachTooltip(value, function() return "Preset" end, presetBody)
 	if left then attachTooltip(left, function() return "Preset" end, presetBody) end
@@ -451,11 +525,12 @@ local function build()
 			-- Toggle from the saved value, not the checkbox: a row click never
 			-- moves the box, so reading the box would invert the wrong thing.
 			local function toggle()
+				local before = snapshot()
 				local now = ns.db and ns.db.settings[m.key]
 				ns.MarkCustomPreset()
 				ns:Set(m.key, not now)
-				markPending(m)
 				ns.RefreshOptions()
+				if m.needsApply then promptReload(before, false) end
 			end
 			cb:SetScript("OnClick", toggle)
 			row:SetScript("OnClick", toggle)
@@ -463,7 +538,7 @@ local function build()
 			local function body()
 				local text = m.desc or ""
 				if m.experimental then
-					text = text .. "\n\nExperimental: not enabled by the Full Classic preset."
+					text = text .. "\n\n|cffff8019Experimental: not enabled by the Full Classic preset.|r"
 				end
 				-- Tooltip lines cannot be resized -- AddLine has no font
 				-- argument and the body font is Blizzard-wide -- so the slash
@@ -478,41 +553,7 @@ local function build()
 		end
 	end
 
-	applyButton = makeButton(panel, 110, 22, "Apply")
-	if applyButton then
-		applyButton:SetPoint("BOTTOMRIGHT", -16, 16)
-		applyButton:SetScript("OnClick", applyNow)
-		applyButton:Disable()
-		attachTooltip(applyButton,
-			function() return "Apply" end,
-			function()
-				return "Reloads the interface so world map changes take effect. "
-					.. "Only needed for options that say so."
-			end)
-	end
-
-	panel:SetScript("OnShow", function()
-		ns.RefreshOptions()
-		updateApplyButton()
-	end)
-
-	-- Blizzard asks before letting unapplied settings go; do the same.
-	panel:SetScript("OnHide", function()
-		if not pending then return end
-		if type(StaticPopupDialogs) ~= "table" or type(StaticPopup_Show) ~= "function" then return end
-		StaticPopupDialogs["CLASSICQUESTING_APPLY"] = {
-			text = "You have settings that have not been applied. Are you sure you wish to exit?",
-			button1 = "Apply and Exit",
-			button2 = "Exit",
-			button3 = CANCEL or "Cancel",
-			OnAccept = function() applyNow() end,
-			OnCancel = function() pending = false updateApplyButton() end,
-			OnAlt = function() if type(ns.OpenOptions) == "function" then ns:OpenOptions() end end,
-			timeout = 0, whileDead = true, hideOnEscape = true,
-			preferredIndex = 3,
-		}
-		pcall(StaticPopup_Show, "CLASSICQUESTING_APPLY")
-	end)
+	panel:SetScript("OnShow", function() ns.RefreshOptions() end)
 
 	return panel
 end
@@ -537,7 +578,6 @@ function ns.RefreshOptions()
 	if preset.text then
 		preset.text:SetText(PRESET_LABEL[displayPreset()] or "Custom")
 	end
-	updateApplyButton()
 end
 
 ---------------------------------------------------------------------

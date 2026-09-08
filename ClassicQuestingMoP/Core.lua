@@ -313,13 +313,18 @@ SlashCmdList["CLASSICQUESTINGMOP"] = function(msg)
 
 	elseif cmd == "help" then
 		ns:Print(ns.title .. " v" .. tostring(ns.version))
-		ns:Print("  |cffffd100/cq|r             Open the options panel")
-		ns:Print("  |cffffd100/cq on|r          Turn on the full Classic experience")
-		ns:Print("  |cffffd100/cq off|r         Disable the addon")
-		ns:Print("  |cffffd100/cq on <name>|r   Turn one option on")
-		ns:Print("  |cffffd100/cq off <name>|r  Turn one option off")
-		ns:Print("  |cffffd100/cq status|r      List every option and its state")
-		ns:Print("  |cffffd100/cq reset|r       Restore default settings")
+		-- The game font is not monospaced, so padding to a column would still
+		-- come out ragged. A fixed separator makes every gap identical instead.
+		local function line(cmd, what)
+			ns:Print("  |cffffd100" .. cmd .. "|r  -  " .. what)
+		end
+		line("/cq", "Open the options panel")
+		line("/cq on", "Turn on the full Classic experience")
+		line("/cq off", "Disable the addon")
+		line("/cq status", "List every option and its state")
+		line("/cq on <name>", "Turn one option on")
+		line("/cq off <name>", "Turn one option off")
+		line("/cq reset", "Restore default settings")
 
 	elseif cmd == "status" then
 		status()

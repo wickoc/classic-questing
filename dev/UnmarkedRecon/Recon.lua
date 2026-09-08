@@ -955,6 +955,34 @@ local function sectionSelector()
 	add("")
 	listGlobals("Globals containing 'selection'", "selection", 30)
 
+	-- Constructing a template proves it exists; it does not show how to drive
+	-- it. Dump what a constructed one actually offers.
+	add("")
+	for _, name in ipairs({ "SettingsDropDownControlTemplate", "WowStyle1DropdownTemplate" }) do
+		local ok, f = pcall(CreateFrame, "Frame", nil, host, name)
+		if not ok or not f then
+			ok, f = pcall(CreateFrame, "Button", nil, host, name)
+		end
+		if ok and f then
+			add("   --- " .. name .. " ---")
+			dumpMethods(f, "      " .. name, { "set", "get", "option", "select", "value", "init", "text" })
+			dumpTable(f, "      " .. name .. " keys", 40)
+		else
+			add("   --- " .. name .. ": could not construct ---")
+		end
+	end
+
+	add("")
+	add("   How Blizzard's own Apply button is driven, for the reload prompt:")
+	for _, m in ipairs({ "SetApplyButtonEnabled", "HasUnappliedSettings", "CommitSettings",
+	                     "CheckApplyButton", "RegisterSetting" }) do
+		probeMethod(SettingsPanel, "SettingsPanel", m)
+	end
+	mark(SettingsPanel ~= nil and rawget(SettingsPanel, "ApplyButton") ~= nil, "SettingsPanel.ApplyButton")
+	for _, n in ipairs({ "Settings.RegisterAddOnSetting", "Settings.SetOnValueChangedCallback" }) do
+		add("   (see the Settings dump above for " .. n .. ")")
+	end
+
 	add("")
 	add("   Blizzard drives these through helper functions; report which exist:")
 	for _, n in ipairs({

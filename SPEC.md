@@ -252,6 +252,10 @@ on this client, alongside the older `UIDropDownMenuTemplate`. Swapping to one of
 its driving API, which is not known; probe the constructed frame's methods before attempting it,
 rather than guessing a fourth time.
 
+Probe v0.13 goes further: it dumps the methods and keys of a *constructed*
+`SettingsDropDownControlTemplate` and `WowStyle1DropdownTemplate`, because constructing a
+template proves only that it exists, not how to drive it.
+
 The dropdown lists **Full Classic experience** then **Disabled**. *Custom* is not offered: it is
 what the control reports when the settings match neither, never something to pick. Stepping from
 Custom goes to the first preset going right and the last going left.
@@ -268,10 +272,19 @@ exploration data provider, which **wipes the fog-of-war state** — the map open
 until you leave the zone and return. That is far worse than the problem it was meant to solve.
 Hooking the map's `OnShow` to call it was tried and reverted; the addon now never touches it.
 
-Rules instead set **`needsApply`**, and the panel grows an **Apply** button that reloads the UI.
-Closing the panel with unapplied changes asks first, in Blizzard's shape: *Apply and Exit /
-Exit / Cancel*. A reload is heavier than a refresh but it is correct, and correctness wins over
-cheapness when the cheap route corrupts something the player cares about.
+**An Apply button was also tried and rejected.** Nothing forces the player to press it: Blizzard's
+own Close button and the X ignore an addon's Apply entirely, so a change could sit unapplied
+with no sign of it. Hooking Blizzard's Apply properly means registering settings through
+`Settings.RegisterAddOnSetting` with commit semantics whose signature is unverified — the exact
+class of guess that has cost this project repeatedly. Probe v0.13 dumps that machinery so it can
+be attempted from evidence rather than hope.
+
+**What ships instead: ask at the moment of the change.** Rules set `needsApply`; toggling one —
+or picking a preset, or restoring defaults, when that moves one — immediately asks *"The UI needs
+to reload for this setting to take effect"* with **Reload** and **Cancel**, and Cancel puts the
+setting (and its CVar) back. This cannot be ignored and needs no state carried across the panel
+closing. Blizzard's screen dim is reproduced behind it, since that is what makes a confirmation
+read as modal.
 
 ## Release notes — CurseForge listing
 
