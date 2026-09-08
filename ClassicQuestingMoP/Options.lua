@@ -16,6 +16,34 @@ local panel
 local rows = {}
 local preset = {}
 local standalone = false
+local applyButton
+local pending = false
+
+-- Some options only reach the world map when the UI is rebuilt. Refreshing the
+-- map's data providers was tried and rejected: it re-runs the exploration
+-- provider and wipes the fog-of-war state, which is far worse than a reload.
+local function markPending(m)
+	if m and m.needsApply then pending = true end
+end
+
+local function updateApplyButton()
+	if not applyButton then return end
+	if pending then
+		applyButton:Enable()
+		applyButton:Show()
+	else
+		applyButton:Disable()
+	end
+end
+
+local function applyNow()
+	pending = false
+	updateApplyButton()
+	if type(ReloadUI) == "function" then
+		ReloadUI()
+	end
+end
+ns.ApplyPending = applyNow
 
 ---------------------------------------------------------------------
 -- Tooltips
@@ -136,7 +164,9 @@ local function nonExperimental()
 	return list
 end
 
-local PRESET_ORDER = { "disabled", "classic", "custom" }
+-- Order as shown. "custom" is not offered: it is what the control REPORTS
+-- when the settings match neither preset, never something to pick.
+local PRESET_ORDER = { "classic", "disabled" }
 
 -- What the settings actually look like right now.
 local function derivedPreset()
@@ -180,6 +210,11 @@ local function applyPreset(which)
 		end
 	end
 	-- "custom" changes nothing by definition; it only records the choice.
+	if which ~= "custom" then
+		for i = 1, #ns.modules do
+			if ns.modules[i].needsApply then pending = true end
+		end
+	end
 	ns:ApplyAll()
 	ns.RefreshOptions()
 end
@@ -232,6 +267,9 @@ local function build()
 		local function doReset()
 			ns:ResetDefaults(true)
 			if ns.db then ns.db.preset = nil end
+			for i = 1, #ns.modules do
+				if ns.modules[i].needsApply then pending = true end
+			end
 			ns.RefreshOptions()
 		end
 		panel.OnDefault = doReset   -- honoured if Blizzard drives it
@@ -239,9 +277,13 @@ local function build()
 		defaults:SetScript("OnClick", function()
 			if type(StaticPopupDialogs) == "table" and type(StaticPopup_Show) == "function" then
 				StaticPopupDialogs["CLASSICQUESTING_DEFAULTS"] = {
-					text = "Restore " .. ns.title .. " to its default settings?",
-					button1 = "These Settings",
-					button2 = CANCEL or "Cancel",
+					-- The question is phrased as a question, so the answers are
+					-- Yes and No. Pairing "Yes" with "Cancel" is a mismatched
+					-- pair; Blizzard uses YES/NO for questions like this too,
+					-- so this is both sounder and consistent.
+					text = "Do you want to reset " .. ns.title .. " settings to their defaults?",
+					button1 = YES or "Yes",
+					button2 = NO or "No",
 					OnAccept = doReset,
 					timeout = 0, whileDead = true, hideOnEscape = true,
 					preferredIndex = 3,
@@ -337,7 +379,10 @@ local function build()
 	-- Arrows cycle every value, as Blizzard's arrows do.
 	local function step(dir)
 		local now = displayPreset()
-		local idx = 1
+		-- 0 when the current state is Custom, so the next step lands on the
+		-- first preset going right and the last going left, rather than
+		-- silently picking whichever happened to be index 1.
+		local idx = 0
 		for i = 1, #PRESET_ORDER do
 			if PRESET_ORDER[i] == now then idx = i end
 		end
@@ -397,11 +442,6 @@ local function build()
 			label:SetPoint("LEFT", cb, "RIGHT", 4, 0)
 			label:SetText(m.title or m.key)
 
-			-- The slash handle, small and dim, so the label stays the label.
-			local slash = fs(row, "GameFontDisableSmall", 0.45, 0.45, 0.45)
-			slash:SetPoint("LEFT", label, "RIGHT", 8, -1)
-			slash:SetText("/" .. m.key)
-
 			-- TODO(v1.0): remove the live status readout. Useful while
 			-- developing, meaningless to a player.
 			local status = fs(row, "GameFontDisableSmall", 0.45, 0.45, 0.45)
@@ -414,6 +454,7 @@ local function build()
 				local now = ns.db and ns.db.settings[m.key]
 				ns.MarkCustomPreset()
 				ns:Set(m.key, not now)
+				markPending(m)
 				ns.RefreshOptions()
 			end
 			cb:SetScript("OnClick", toggle)
@@ -424,7 +465,10 @@ local function build()
 				if m.experimental then
 					text = text .. "\n\nExperimental: not enabled by the Full Classic preset."
 				end
-				return text
+				-- Tooltip lines cannot be resized -- AddLine has no font
+				-- argument and the body font is Blizzard-wide -- so the slash
+				-- handle is set apart by colour instead.
+				return text .. "\n\n|cff808080/" .. m.key .. "|r"
 			end
 			attachTooltip(row, function() return m.title or m.key end, body)
 			attachTooltip(cb, function() return m.title or m.key end, body)
@@ -434,7 +478,42 @@ local function build()
 		end
 	end
 
-	panel:SetScript("OnShow", function() ns.RefreshOptions() end)
+	applyButton = makeButton(panel, 110, 22, "Apply")
+	if applyButton then
+		applyButton:SetPoint("BOTTOMRIGHT", -16, 16)
+		applyButton:SetScript("OnClick", applyNow)
+		applyButton:Disable()
+		attachTooltip(applyButton,
+			function() return "Apply" end,
+			function()
+				return "Reloads the interface so world map changes take effect. "
+					.. "Only needed for options that say so."
+			end)
+	end
+
+	panel:SetScript("OnShow", function()
+		ns.RefreshOptions()
+		updateApplyButton()
+	end)
+
+	-- Blizzard asks before letting unapplied settings go; do the same.
+	panel:SetScript("OnHide", function()
+		if not pending then return end
+		if type(StaticPopupDialogs) ~= "table" or type(StaticPopup_Show) ~= "function" then return end
+		StaticPopupDialogs["CLASSICQUESTING_APPLY"] = {
+			text = "You have settings that have not been applied. Are you sure you wish to exit?",
+			button1 = "Apply and Exit",
+			button2 = "Exit",
+			button3 = CANCEL or "Cancel",
+			OnAccept = function() applyNow() end,
+			OnCancel = function() pending = false updateApplyButton() end,
+			OnAlt = function() if type(ns.OpenOptions) == "function" then ns:OpenOptions() end end,
+			timeout = 0, whileDead = true, hideOnEscape = true,
+			preferredIndex = 3,
+		}
+		pcall(StaticPopup_Show, "CLASSICQUESTING_APPLY")
+	end)
+
 	return panel
 end
 
@@ -458,6 +537,7 @@ function ns.RefreshOptions()
 	if preset.text then
 		preset.text:SetText(PRESET_LABEL[displayPreset()] or "Custom")
 	end
+	updateApplyButton()
 end
 
 ---------------------------------------------------------------------

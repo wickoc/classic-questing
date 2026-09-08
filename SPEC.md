@@ -246,9 +246,15 @@ Three fallbacks, each tested:
 ### Still to verify
 
 The **preset selector is hand-built**: arrows, a clickable value that drops a list, and the small
-nub Blizzard puts under an openable value. The real template could not be identified from recon,
-and guessing a template name is how this project has repeatedly lost time, so probe v0.12 adds
-[G13] to find it. Swap to the genuine control once named.
+nub Blizzard puts under an openable value. Probe v0.12 [G13] has since **named the real
+templates** — `SettingsDropDownControlTemplate` and `WowStyle1DropdownTemplate` both construct
+on this client, alongside the older `UIDropDownMenuTemplate`. Swapping to one of them still needs
+its driving API, which is not known; probe the constructed frame's methods before attempting it,
+rather than guessing a fourth time.
+
+The dropdown lists **Full Classic experience** then **Disabled**. *Custom* is not offered: it is
+what the control reports when the settings match neither, never something to pick. Stepping from
+Custom goes to the first preset going right and the last going left.
 
 Two font sizes are Blizzard's, not the addon's: tooltip **body** text uses `GameTooltipText`, and
 changing it would alter every tooltip in the game, so it is left alone. Option labels already use
@@ -257,13 +263,15 @@ changing it would alter every tooltip in the game, so it is left alone. Option l
 ### Applying changes while a frame is open
 
 `questPOI` only takes effect when the world map redraws, so toggling it while the map was open
-appeared to do nothing. Rules can set `refreshMap`, which calls `WorldMapFrame:RefreshAllDataProviders()` after the
-write — a method confirmed present in the 352-method dump.
+appeared to do nothing. **`WorldMapFrame:RefreshAllDataProviders()` is rejected and must not be called.** It re-runs the
+exploration data provider, which **wipes the fog-of-war state** — the map opens fully revealed
+until you leave the zone and return. That is far worse than the problem it was meant to solve.
+Hooking the map's `OnShow` to call it was tried and reverted; the addon now never touches it.
 
-That alone is not enough: **the options panel and the world map cannot be open at the same time**,
-so a refresh at toggle time has nothing to redraw. The map's `OnShow` is therefore hooked, and on
-every open the map-affecting CVars are re-asserted and the providers refreshed. That is the exact
-moment a stale map would be noticed, and it needs no reload prompt.
+Rules instead set **`needsApply`**, and the panel grows an **Apply** button that reloads the UI.
+Closing the panel with unapplied changes asks first, in Blizzard's shape: *Apply and Exit /
+Exit / Cancel*. A reload is heavier than a refresh but it is correct, and correctness wins over
+cheapness when the cheap route corrupts something the player cares about.
 
 ## Release notes — CurseForge listing
 

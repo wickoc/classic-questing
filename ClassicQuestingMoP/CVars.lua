@@ -14,7 +14,7 @@ local RULES = {
 		key     = "worldMapMarkers",
 		cvar       = "questPOI",
 		wanted     = "0",
-		refreshMap = true,
+		needsApply = true,
 		default = true,
 		label   = "world map quest markers",
 		onText  = "world map quest markers, blue areas and map quest log hidden",
@@ -50,7 +50,7 @@ local RULES = {
 		key     = "mapCreaturePortraits",
 		cvar       = "showBosses",
 		wanted     = "0",
-		refreshMap = true,
+		needsApply = true,
 		default = true,
 		label   = "world map creature portraits",
 		onText  = "world map creature portraits hidden",
@@ -94,19 +94,6 @@ local applying = false
 -- refused write stands down instead of retrying on every event forever.
 local refused = {}
 
--- The world map cannot be open while the options panel is, so refreshing at
--- toggle time has nothing to redraw. Catch the next time the map opens and
--- re-assert there, which is the moment a stale map would be noticed.
-local hookedMap = false
-
-local function refreshMapNow()
-	pcall(function()
-		if WorldMapFrame and type(WorldMapFrame.RefreshAllDataProviders) == "function" then
-			WorldMapFrame:RefreshAllDataProviders()
-		end
-	end)
-end
-
 local function readCVar(name)
 	local ok, v = pcall(GetCVar, name)
 	if not ok then return nil end
@@ -127,7 +114,6 @@ local function writeCVar(rule, value)
 		return false
 	end
 
-	if rule.refreshMap then refreshMapNow() end
 
 	local now = readCVar(rule.cvar)
 	if now ~= value then
@@ -140,23 +126,6 @@ local function writeCVar(rule, value)
 	return true
 end
 
-local function hookWorldMap()
-	if hookedMap then return end
-	if not (WorldMapFrame and type(WorldMapFrame.HookScript) == "function") then return end
-	hookedMap = pcall(function()
-		WorldMapFrame:HookScript("OnShow", function()
-			if not ns.db then return end
-			for i = 1, #RULES do
-				local r = RULES[i]
-				if r.refreshMap and ns.db.settings[r.key] and not refused[r.cvar] then
-					if readCVar(r.cvar) ~= r.wanted then writeCVar(r, r.wanted) end
-				end
-			end
-			refreshMapNow()
-		end)
-	end)
-end
-
 local function makeModule(rule)
 	local M = ns:RegisterModule(rule.key, {})
 	M.rule = rule
@@ -167,6 +136,7 @@ local function makeModule(rule)
 	M.title = rule.title
 	M.order = rule.order
 	M.desc = rule.desc
+	M.needsApply = rule.needsApply
 
 	-- One name: the module key is the saved-settings key is the handle the
 	-- player types. The CVar name stays an implementation detail in `rule`.
@@ -200,7 +170,6 @@ local function makeModule(rule)
 		applying = true
 		pcall(SetCVar, rule.cvar, original)
 		applying = false
-		if rule.refreshMap then refreshMapNow() end
 	end
 
 	function M:Status()
@@ -222,9 +191,6 @@ end
 -- Re-assert when anything changes a console variable. The first argument of
 -- CVAR_UPDATE has not been consistent across client versions, so rather than
 -- match on it, just re-check every value we own on any CVar change.
-ns:RegisterEvent("PLAYER_LOGIN", hookWorldMap)
-ns:RegisterEvent("PLAYER_ENTERING_WORLD", hookWorldMap)
-
 ns:RegisterEvent("CVAR_UPDATE", function()
 	if applying or not ns.db then return end
 	for i = 1, #RULES do

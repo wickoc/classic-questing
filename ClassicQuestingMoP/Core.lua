@@ -312,31 +312,31 @@ SlashCmdList["CLASSICQUESTINGMOP"] = function(msg)
 		end
 
 	elseif cmd == "help" then
-		ns:Print(ns.title .. " v" .. tostring(ns.version) .. " -- commands")
-		ns:Print("  |cffffd100/cq|r            open the options panel")
-		ns:Print("  |cffffd100/cq help|r       this list")
-		ns:Print("  |cffffd100/cq status|r     list every option and its live state")
-		ns:Print("  |cffffd100/cq on|r         turn on everything except experimental options")
-		ns:Print("  |cffffd100/cq off|r        turn everything off")
-		ns:Print("  |cffffd100/cq on <name>|r  turn one option on, e.g. /cq on worldMapMarkers")
-		ns:Print("  |cffffd100/cq off <name>|r turn one option off")
-		ns:Print("  |cffffd100/cq reset|r      restore default settings")
-		ns:Print("|cffffd100/classicquesting|r works anywhere |cffffd100/cq|r does.")
+		ns:Print(ns.title .. " v" .. tostring(ns.version))
+		ns:Print("  |cffffd100/cq|r             Open the options panel")
+		ns:Print("  |cffffd100/cq on|r          Turn on the full Classic experience")
+		ns:Print("  |cffffd100/cq off|r         Disable the addon")
+		ns:Print("  |cffffd100/cq on <name>|r   Turn one option on")
+		ns:Print("  |cffffd100/cq off <name>|r  Turn one option off")
+		ns:Print("  |cffffd100/cq status|r      List every option and its state")
+		ns:Print("  |cffffd100/cq reset|r       Restore default settings")
 
 	elseif cmd == "status" then
 		status()
 		local example = ns.modules[1] and ns.modules[1].key or "worldMapMarkers"
 		ns:Print("|cffffd100/cq help|r lists every command.")
 
-	else
-		-- Bare /cq opens the panel; the text list stays available as
-		-- /cq status for anyone who prefers it, and as the fallback if
-		-- the Options module somehow did not load.
+	elseif cmd == "" then
+		-- Only a bare /cq opens the panel. An unrecognised word is a mistake,
+		-- and silently opening the panel would hide that.
 		if type(ns.OpenOptions) == "function" then
 			ns:OpenOptions()
 		else
 			status()
 			ns:Print("Options panel unavailable; use |cffffd100/cq on|off <name>|r.")
 		end
+
+	else
+		ns:Print("Unknown command '" .. cmd .. "'. Try |cffffd100/cq help|r for the list.")
 	end
 end
