@@ -56,10 +56,14 @@ local ACTIVE = {
 	g12 = false, -- quest progress tooltip  (matching rule settled)
 	g13 = false, -- Blizzard selector frame surface
 
+	g13c = false, -- ANSWERED v0.15: (category, variable, variableKey,
+	              --   variableTbl, variableType, name, default) scored 4/4
+	g14  = false, -- ANSWERED v0.15: WatchFrame is unprotected, 3 children
+	g15  = false, -- ANSWERED v0.15, except the turn-in pop-up, which cannot
+	              --   be probed until one is actually on screen
+
 	-- Still open.
-	g13c = true, -- WHICH RegisterAddOnSetting signature is real
-	g14  = true, -- WatchFrame surface
-	g15  = true, -- WatchFrame internals: tracker lines, item buttons, popups
+	g16 = true, -- Apply flags, category defaults, section headers
 }
 
 
@@ -1441,6 +1445,116 @@ local function sectionTrackerInternals()
 	listGlobals("Globals containing 'watchframe'", "watchframe", 200)
 end
 
+-- [G16] The last two unknowns on the native-panel route.
+--
+-- v0.15 settled the signature and confirmed the controls, and the panel is now
+-- built from Blizzard's own checkbox and dropdown. Two things did not come
+-- across from the hand-built version and are the reason the reload dialog is
+-- still there:
+--
+--   1. Blizzard's Apply button. The setting object carries Commit, Revert,
+--      IsModified, SetCommitFlags and SetPendingValue -- the whole vocabulary
+--      -- but the flag VALUES that ask for an Apply are unknown. Guessing a
+--      number here is exactly the kind of guess this project keeps paying for.
+--   2. A section header, to put "Experimental" back above the experiments,
+--      and a Defaults button for the category.
+--
+-- Read-only apart from one category registration.
+local function sectionNativePanel()
+	head("[G16] Native panel -- Apply, defaults, section headers")
+
+	if type(Settings) ~= "table" then
+		add("   Settings missing.")
+		return
+	end
+
+	-- Values, not just names: an enum is useless without its numbers.
+	local function dumpEnum(t, name)
+		if type(t) ~= "table" then
+			add("   --   " .. name .. " (" .. type(t) .. ")")
+			return
+		end
+		local keys = {}
+		for k, v in pairs(t) do
+			if type(k) == "string" then keys[#keys + 1] = k .. " = " .. tostring(v) end
+		end
+		table.sort(keys)
+		add("   OK   " .. name .. ": " .. #keys .. " member(s)")
+		for i = 1, #keys do add("           " .. keys[i]) end
+	end
+
+	dumpEnum(Settings.CommitFlag, "Settings.CommitFlag")
+	dumpEnum(Settings.VarType, "Settings.VarType")
+	dumpEnum(Settings.Default, "Settings.Default")
+	dumpEnum(Settings.UpdateReason, "Settings.UpdateReason")
+	add("")
+
+	-- The whole Settings table, unfiltered. Every previous pass filtered on a
+	-- guessed word and so could only find what was already suspected.
+	dumpTable(Settings, "   Settings", 250)
+	add("")
+
+	-- The category object, and whatever RegisterVerticalLayoutCategory hands
+	-- back alongside it -- the layout is where initializers are added.
+	local cat, layout
+	if type(Settings.RegisterVerticalLayoutCategory) == "function" then
+		local ok, a, b = pcall(Settings.RegisterVerticalLayoutCategory, "Unmarked Recon Probe")
+		if ok then cat, layout = a, b end
+	end
+	mark(cat ~= nil, "category created")
+	if cat then
+		dumpTable(cat, "   category", 60)
+		dumpMethods(cat, "   category", { "default", "layout", "header", "add", "set" })
+	end
+	add("")
+	if layout ~= nil then
+		add("   RegisterVerticalLayoutCategory returned a SECOND value: " .. type(layout))
+		if type(layout) == "table" then
+			dumpTable(layout, "   layout", 60)
+			dumpMethods(layout, "   layout", { "add", "initializer", "header", "create" })
+		end
+	else
+		add("   RegisterVerticalLayoutCategory returned ONE value only.")
+		add("   (so the layout must be fetched -- see Settings.GetLayout / AssignLayoutToCategory above)")
+	end
+	add("")
+
+	-- Section headers: what builds one, under any of the names Blizzard has
+	-- used for it. Names are enumerated rather than guessed one at a time.
+	add("   Section header candidates:")
+	for _, n in ipairs({
+		"CreateSettingsListSectionHeaderInitializer", "SettingsListSectionHeaderMixin",
+		"CreateSettingsCheckboxInitializer", "SettingsListSectionHeaderTemplate",
+	}) do probe(n) end
+	for _, n in ipairs({
+		"CreateElementInitializer", "CreateSettingInitializer", "RegisterInitializer",
+		"CreateSectionHeader", "CreateSectionHeaderInitializer", "GetLayout",
+		"AssignLayoutToCategory", "CreateCategory", "SetCategoryDefaultsCallback",
+	}) do probeMethod(Settings, "Settings", n) end
+	add("")
+	listGlobals("Globals containing 'sectionheader'", "sectionheader", 30)
+	add("")
+
+	-- The Apply button itself, so its enabling condition can be read rather
+	-- than inferred.
+	add("   SettingsPanel and its Apply button:")
+	probe("SettingsPanel")
+	if SettingsPanel then
+		for _, n in ipairs({
+			"SetApplyButtonEnabled", "HasUnappliedSettings", "CommitSettings",
+			"SetCurrentCategorySettings", "GetCurrentCategory", "Commit",
+		}) do probeMethod(SettingsPanel, "SettingsPanel", n) end
+		local ab = rawget(SettingsPanel, "ApplyButton")
+		mark(ab ~= nil, "SettingsPanel.ApplyButton")
+		if ab then
+			local shown, enabled = "?", "?"
+			pcall(function() shown = ab:IsShown() and "shown" or "hidden" end)
+			pcall(function() enabled = ab:IsEnabled() and "enabled" or "disabled" end)
+			add("           currently " .. shown .. ", " .. enabled)
+		end
+	end
+end
+
 local function collect()
 	wipe(lines)
 
@@ -1528,6 +1642,7 @@ local function collect()
 	if ACTIVE.g13c then sectionSettingReadback() end
 	if ACTIVE.g14  then sectionTracker()         end
 	if ACTIVE.g15  then sectionTrackerInternals() end
+	if ACTIVE.g16  then sectionNativePanel()     end
 
 	-- Any full method dumps collected via "/unrecon methods <global>" get
 	-- folded in here so they travel inside the readable report rather than

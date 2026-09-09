@@ -73,8 +73,15 @@ not exist.
   the frame is already empty and invisible. Not building it.
 - **Strip it to Classic form:** quest name and objective counts only — no click-to-track, no
   quest item use buttons, no auto-sort by distance to objective. **Required for the Classic
-  feel.** Blocked on recon: v0.14 established the outside of `WatchFrame` (see G14) but not what
-  a tracked quest looks like from the inside. Probe v0.15 [G15] gets that.
+  feel. Recon complete (G15); ready to build.**
+  - *Click-to-track* → `WATCHFRAME_LINKBUTTONS`, one Button per quest title, each with an
+    `OnClick`. Disable mouse on them after each `WatchFrame_Update`.
+  - *Quest item buttons* → `WatchFrameItem1..N`, parented to `WatchFrameLines`. Hide after each
+    update.
+  - *Auto-sort by distance* → **nothing to do.** This client has no proximity sort; the only
+    sort constants are manual and the two difficulty orders, and it is already on manual.
+  - Open question for the build: `WATCHFRAME_LINKBUTTONS` is a shared pool, so disabling it may
+    also silence the achievement tracker's clicks. Needs an in-game check.
 - **Disable auto-tracking of newly accepted quests (`autoQuestWatch`).** ✅ Shipped in
   v0.2.0 as an **opt-in** setting, default off: this is genuine quality of life rather than
   clutter, so the player chooses it instead of having it chosen for them.
@@ -83,9 +90,11 @@ not exist.
   `C_Console.GetAllCommands` does not exist on this client, so the console cannot be
   enumerated. Probe v0.6 walks the Settings registry instead — see G8.
 - **Suppress the "click to turn in" pop-up bubbles.** To ship **experimental**, at the player's
-  direction: the mechanism is now named (G14 found the whole `WatchFrameAutoQuest_*` family)
-  but the data shape behind it is not, so it is a feature that is coming rather than one that
-  is proven. Probe v0.15 [G15] reads the pop-up queue.
+  direction. The mechanism is named — `GetNumAutoQuestPopUps`, `GetAutoQuestPopUp`,
+  `RemoveAutoQuestPopUp`, and the `WatchFrameAutoQuest_*` display family — but the data shape
+  is not, and **it cannot be probed on demand**: `GetNumAutoQuestPopUps()` reads 0 unless a
+  pop-up is actually on screen. Parked until one appears in play. `[G15]` stays in the probe,
+  switched off, ready for that moment.
 
 ### Tier 3 — full Classic feel
 
@@ -319,20 +328,29 @@ read as modal.
 
 ### Consistency rules
 
+**The slash path says nothing about reloading; the panel asks.** These are not inconsistent —
+they are two different situations, and I had the reasoning backwards until it was corrected:
+
+- **`/cq on|off|reset`** — the player is at the keyboard with the map reachable, and the map is
+  correct the next time it opens. No reload is involved, so saying otherwise is advice for a
+  problem they do not have. A regression guard in the suite asserts the slash path never says
+  "reload".
+- **The options panel** — the map is *not* open, cannot be opened while the panel is (this
+  client will not show both), and does not open itself afterwards. Without the dialog the
+  player closes the panel, sees no change, and concludes the AddOn is broken. **The dialog is
+  not caution, it is the fix for a stale frame.** It stays.
+
+**When the dialog can go:** once every control in the panel is a real Blizzard control driving
+a real setting object, Blizzard's own Apply button handles the rebuild and the dialog becomes
+redundant. That needs the checkboxes *and* the dropdown to be Blizzard's — one alone is not
+enough, since Apply only knows about settings registered through it. As of v0.10.0 both are;
+what is still missing is the commit-flag value that asks Apply to appear. Probe v0.16 [G16].
+
 **One ordering.** `ns:SortedModules()` is the single source; the options panel and `/cq status`
 both use it, so they cannot drift apart as options are added.
 
-**~~The panel asks with a dialog; a slash command answers in text.~~ — WITHDRAWN in v0.9.3.**
-I added a `/cq` line reading *"That needs a UI reload to take effect"*. It was wrong, and the
-in-game test says so: after a slash toggle the world map is already correct the next time it
-opens. No reload is involved. The line was advice for a problem the player does not have, and
-telling someone to reload when they need not is worse than saying nothing. Removed, with a
-regression guard in the suite asserting the slash path never says "reload".
-
-**Still open:** the panel's own Reload/Cancel dialog rests on the same assumption. If merely
-reopening the map is enough there too, that dialog is over-cautious and should soften to a
-plain notice. Left alone for now because it is confirmed working and the player likes it —
-but it is inconsistent with the finding above and should not be forgotten.
+**"AddOn", not "addon".** Blizzard's own capitalisation, in every user-visible string and in
+the comments.
 
 ## Release notes — CurseForge listing
 
@@ -415,6 +433,71 @@ The report had reached 85KB, nearly all of it settled ground already written int
 v0.15 adds an `ACTIVE` switchboard: every section survives in full, but only the open questions
 print. Flip a flag to bring one back when a new client build makes a settled answer worth
 re-checking.
+
+## Recon results — v0.15 probe
+
+Run 2026-09-09 17:32, same client.
+
+### G13c — the signature, settled
+
+```lua
+Settings.RegisterAddOnSetting(category, variable, variableKey,
+                              variableTbl, variableType, name, default)
+```
+
+Scored **4/4** on readback: `GetName` → the name, `GetVariable` → the variable,
+`GetVariableType` → `"boolean"`, `GetDefaultValue` → `true`. Every other shape scrambled at
+least one slot — the six-argument form returned the *category*, and three shapes came back with
+`VARd` regardless of what they were passed, which is a registry handing back an existing
+setting rather than making a new one. **This is why "the call was accepted" was worthless as
+evidence: nothing here rejects anything.**
+
+Confirmed to accept a real setting object afterwards:
+
+- `Settings.CreateCheckbox(category, setting, tooltip)`
+- `Settings.CreateControlTextContainer()` → `container:Add(value, label)` → `container:GetData()`
+- `Settings.CreateDropdown(category, setting, getOptions, tooltip)`
+
+Also present, unprobed: `RegisterProxySetting`, `SetOnValueChangedCallback`,
+`CreateSettingInitializer`, `CreateElementInitializer`, `RegisterInitializer`,
+`RegisterCVarSetting`.
+
+**Built in v0.10.0.** The panel is now a vertical layout of Blizzard's own controls, with the
+hand-built canvas kept as an automatic fallback — if any step of `registerNative()` fails the
+old panel takes over unchanged, so the worst case is what shipped before.
+
+Two things did not survive the move and are tracked, not forgotten:
+
+- The orange **"Experimental"** section header. A vertical layout has no header mechanism I have
+  evidence for yet, so the warning moved into the tooltip. [G16] looks for one.
+- The panel's own **Defaults** button. `/cq reset` still does the job. [G16] looks for the
+  category-level defaults callback.
+
+### G15 — the tracker from the inside
+
+Run with 2 quests tracked.
+
+- `WatchFrameLines` holds **10 children**: unnamed line frames, unnamed Buttons,
+  `WatchFrameScenarioFrame`, `WatchFrameScenarioBonusHeader`, and `WatchFrameItem1`.
+- `WATCHFRAME_QUESTLINES` → **4 entries** for 2 quests: a title line and an objective line each.
+- `WATCHFRAME_LINKBUTTONS` → **2 entries, both with an `OnClick`** — one per quest title. These
+  are click-to-track, and the handlers are named: `WatchFrameLinkButtonTemplate_OnClick`,
+  `_OnLeftClick`, `_ShowContextMenu`, `_Highlight`. **This is the lever for "no click-to-track".**
+- `WatchFrameItem1` is shown, parented to `WatchFrameLines`, with `WATCHFRAME_NUM_ITEMS = 1`.
+  Its whole family exists: `WatchFrameItem_OnClick/_OnEnter/_OnShow/_OnUpdate`. **The lever for
+  "no quest item buttons".**
+- **"No auto-sort by distance" is a non-issue on this client.** `WATCHFRAME_SORT_TYPE = 0`,
+  and the only constants that exist are `SORT_MANUAL = 0`, `SORT_DIFFICULTY_HIGH = 1`,
+  `SORT_DIFFICULTY_LOW = 2`. There is no proximity sort to remove, and the current value is
+  already manual. `trackQuestSorting = "top"` governs where a newly tracked quest is inserted,
+  not distance. Nothing to build.
+- Turn-in pop-ups: `GetNumAutoQuestPopUps()` → 0, so the data shape is still unknown.
+  **Not probeable on demand** — it needs a pop-up actually on screen. Parked until one appears.
+
+Also newly visible in the full 150-name global list: `WatchFrame_DisplayTrackedQuests`,
+`WatchFrame_SetLine`, `WatchFrame_SetSorting`, `WatchFrame_SetFilter`, `WatchFrame_AbandonQuest`,
+`WatchFrame_ShareQuest`, `WatchFrame_StopTrackingQuest`, `WatchFrame_OpenMapToQuest`,
+`WatchFrameQuestPOI_OnClick`, `WatchFrame_AddObjectiveHandler` / `_RemoveObjectiveHandler`.
 
 ## Safety rules — non-negotiable
 

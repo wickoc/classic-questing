@@ -313,7 +313,7 @@ local function build()
 	if defaults then
 		defaults:SetPoint("TOPRIGHT", -16, -14)
 		-- Blizzard confirms before resetting a panel; do the same. "All
-		-- Settings" is Blizzard's to offer, not ours -- this addon only owns
+		-- Settings" is Blizzard's to offer, not ours -- this AddOn only owns
 		-- its own -- so the choice is these settings or cancel.
 		-- Two confirmations in a row for one action is one too many, and the
 		-- second one lost the dim because the first dialog's OnHide fired
@@ -572,6 +572,10 @@ end
 
 function ns.RefreshOptions()
 	if not ns.db then return end
+	if ns.optionsNative then
+		if ns.RefreshNative then ns.RefreshNative() end
+		return
+	end
 	for i = 1, #rows do
 		local row = rows[i]
 		local on = ns.db.settings[row.module.key] and true or false
@@ -586,6 +590,156 @@ function ns.RefreshOptions()
 	if preset.text then
 		preset.text:SetText(PRESET_LABEL[displayPreset()] or "Custom")
 	end
+end
+
+---------------------------------------------------------------------
+-- Native panel -- Blizzard's own controls
+---------------------------------------------------------------------
+--
+-- Everything below is built from calls the v0.15 probe verified by READBACK,
+-- not by acceptance. RegisterAddOnSetting turned out to accept every argument
+-- order it was offered, so "the call worked" proved nothing; the shape used
+-- here is the one whose sentinels all came back in the right slots:
+--
+--   Settings.RegisterAddOnSetting(category, variable, variableKey,
+--                                 variableTbl, variableType, name, default)
+--
+-- and CreateCheckbox / CreateControlTextContainer / CreateDropdown were each
+-- driven with a real setting object afterwards to confirm they accept one.
+--
+-- The payoff is that these are Blizzard's controls, not lookalikes: the real
+-- checkbox, the real dropdown, and eventually the real Apply button. If any
+-- step fails, registerNative returns false and the hand-built canvas panel
+-- takes over unchanged, so the worst case is the panel we already had.
+
+local nativeCategory
+local nativeSettings = {}   -- module key -> Blizzard setting object
+local nativePresetSetting
+
+-- Writing a value back into a control fires its changed-callback again. Every
+-- programmatic write goes through this flag so a refresh cannot be mistaken
+-- for the player clicking something.
+local suppress = false
+
+-- The dropdown gets its own backing table. ns.db.preset is legitimately nil
+-- after a Defaults reset, and handing a control a nil it must display is a
+-- needless edge; displayPreset() already knows how to derive one.
+local presetProxy = { preset = "classic" }
+
+local function varType(which)
+	local t = Settings and Settings.VarType
+	if type(t) == "table" and t[which] then return t[which] end
+	return which:lower()
+end
+
+local function registerNative()
+	if type(Settings) ~= "table" then return false end
+	for _, fn in ipairs({
+		"RegisterVerticalLayoutCategory", "RegisterAddOnSetting",
+		"RegisterAddOnCategory", "CreateCheckbox",
+		"CreateControlTextContainer", "CreateDropdown",
+	}) do
+		if type(Settings[fn]) ~= "function" then return false end
+	end
+	if not ns.db or type(ns.db.settings) ~= "table" then return false end
+
+	local ok, category = pcall(Settings.RegisterVerticalLayoutCategory, ns.title)
+	if not ok or type(category) ~= "table" then return false end
+	if category.ID == nil then category.ID = ns.title end
+
+	-- The preset selector goes first: it is the coarse control, and the
+	-- checkboxes below it are the fine one.
+	local okp, presetSetting = pcall(Settings.RegisterAddOnSetting,
+		category, "ClassicQuestingMoP_preset", "preset", presetProxy,
+		varType("String"), "Preset", "classic")
+	if not okp or type(presetSetting) ~= "table" then return false end
+
+	local okd = pcall(function()
+		Settings.CreateDropdown(category, presetSetting, function()
+			local c = Settings.CreateControlTextContainer()
+			-- Order matters: the two the player can pick, then the one that
+			-- only ever describes a state they arrived at by hand.
+			c:Add("classic",  PRESET_LABEL.classic)
+			c:Add("disabled", PRESET_LABEL.disabled)
+			c:Add("custom",   PRESET_LABEL.custom)
+			return c:GetData()
+		end,
+		"Full Classic experience:|nEverything on except the experiments.|n|n"
+		.. "Disabled:|nNothing hidden; the game behaves as Blizzard ships it.|n|n"
+		.. "Custom:|nWhat the checkboxes below say. Set by changing one of them, not chosen here.")
+	end)
+	if not okd then return false end
+
+	pcall(presetSetting.SetValueChangedCallback, presetSetting, function()
+		if suppress then return end
+		local okv, v = pcall(presetSetting.GetValue, presetSetting)
+		if okv and type(v) == "string" then applyPreset(v) end
+	end)
+	nativePresetSetting = presetSetting
+
+	-- One checkbox per module, in the single ordering ns:SortedModules owns,
+	-- so this panel and /cq status cannot drift apart.
+	local ordered = ns:SortedModules()
+	for i = 1, #ordered do
+		local m = ordered[i]
+		local tip = m.desc or ""
+		if m.experimental then
+			-- The canvas panel grouped these under an orange heading. A
+			-- vertical layout has no heading to give them yet, so the warning
+			-- moves into the tooltip rather than being dropped.
+			tip = "|cffff8800Experimental.|r " .. tip
+		end
+
+		local oks, setting = pcall(Settings.RegisterAddOnSetting,
+			category, "ClassicQuestingMoP_" .. m.key, m.key, ns.db.settings,
+			varType("Boolean"), m.title or m.key, ns.defaults[m.key] and true or false)
+		if not oks or type(setting) ~= "table" then return false end
+
+		local okc = pcall(Settings.CreateCheckbox, category, setting, tip)
+		if not okc then return false end
+
+		pcall(setting.SetValueChangedCallback, setting, function()
+			if suppress then return end
+			-- Blizzard has already written ns.db.settings[m.key]; the addon's
+			-- job from here is only to act on it.
+			local before = snapshot()
+			-- snapshot() runs after the write, so put the old value back into
+			-- the copy -- otherwise Cancel would restore the new value.
+			if before then
+				before.settings[m.key] = not (ns.db.settings[m.key] and true or false)
+			end
+			ns.MarkCustomPreset()
+			ns:ApplyAll()
+			ns.RefreshOptions()
+			if m.needsApply then promptReload(before, false) end
+		end)
+
+		nativeSettings[m.key] = setting
+	end
+
+	if not pcall(Settings.RegisterAddOnCategory, category) then return false end
+
+	nativeCategory = category
+	ns.optionsCategory = category
+	ns.optionsNative = true
+	return true
+end
+
+-- Push the AddOn's state into Blizzard's controls. Lives on the namespace, not
+-- as a local: ns.RefreshOptions is defined above this point, and a local would
+-- resolve to a nil global there -- the forward-reference trap that has already
+-- cost this project two silent failures.
+function ns.RefreshNative()
+	if not nativeCategory or not ns.db then return end
+	suppress = true
+	for key, setting in pairs(nativeSettings) do
+		pcall(setting.SetValue, setting, ns.db.settings[key] and true or false)
+	end
+	if nativePresetSetting then
+		presetProxy.preset = displayPreset()
+		pcall(nativePresetSetting.SetValue, nativePresetSetting, presetProxy.preset)
+	end
+	suppress = false
 end
 
 ---------------------------------------------------------------------
@@ -636,7 +790,7 @@ local function makeStandalone()
 end
 
 function ns:OpenOptions()
-	build()
+	if not ns.optionsNative then build() end
 
 	if ns.optionsCategory and type(Settings) == "table" and type(Settings.OpenToCategory) == "function" then
 		if pcall(Settings.OpenToCategory, ns.optionsCategory.ID or ns.optionsCategory) then
@@ -644,6 +798,7 @@ function ns:OpenOptions()
 		end
 	end
 
+	build()
 	makeStandalone()
 	panel:Show()
 	ns.RefreshOptions()
@@ -651,6 +806,11 @@ function ns:OpenOptions()
 end
 
 ns:RegisterEvent("PLAYER_LOGIN", function()
+	-- Blizzard's own controls if this client will give them, the hand-built
+	-- canvas if not, and a standalone window if even that is refused. Each
+	-- fallback is strictly worse-looking and strictly as functional.
+	if registerNative() then return end
+
 	build()
 	if not register() then
 		ns:Warn("options:register",

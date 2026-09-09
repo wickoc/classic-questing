@@ -1,13 +1,13 @@
 -- Classic Questing in MoP -- Core
 --
--- Addon table, saved variables, event dispatch, slash command.
+-- AddOn table, saved variables, event dispatch, slash command.
 -- Modules register themselves here and are driven from the saved settings.
 
 local ADDON_NAME, ns = ...
 
 -- What the player sees, everywhere. The folder and the CurseForge listing
 -- keep the (MoP) suffix so the right build can be identified for download;
--- inside the game it is just the addon's name.
+-- inside the game it is just the AddOn's name.
 ns.title = "Classic Questing"
 
 ---------------------------------------------------------------------
@@ -115,7 +115,7 @@ local DB_VERSION = 2
 -- a saved-setting name mirroring the CVar ("showBosses"). That was a mistake.
 -- It made the name /cq printed different from the name /cq accepted, and it
 -- made "showBosses turned on" mean the portraits were hidden. v2 uses one
--- name per feature, describing what the addon does rather than what Blizzard
+-- name per feature, describing what the AddOn does rather than what Blizzard
 -- calls the underlying switch.
 local RENAMED_IN_V2 = {
 	worldMapQuestPOI = "worldMapMarkers",
@@ -138,8 +138,8 @@ local function initDB()
 	local db = ClassicQuestingMoPDB
 
 	db.settings = db.settings or {}
-	-- Pre-addon values live here so Disable() can put the game back exactly
-	-- as it found it. Subtractive addons should leave no trace when off.
+	-- Pre-AddOn values live here so Disable() can put the game back exactly
+	-- as it found it. Subtractive AddOns should leave no trace when off.
 	db.state = db.state or {}
 
 	if db.dbVersion == nil then
@@ -152,7 +152,7 @@ local function initDB()
 				end
 				db.settings[old] = nil
 			end
-			-- The remembered pre-addon tracking state moves with the rename;
+			-- The remembered pre-AddOn tracking state moves with the rename;
 			-- losing it would leave Disable unable to restore what the player
 			-- actually had.
 			if db.state.minimapQuestPOITracking ~= nil and db.state.minimapMarkersTracking == nil then
@@ -304,8 +304,9 @@ SlashCmdList["CLASSICQUESTINGMOP"] = function(msg)
 			end
 			if ns.db then ns.db.preset = want and "classic" or "disabled" end
 			ns:ApplyAll()
-			ns:Print("All features turned " .. cmd ..
-				(want and " (experimental ones left alone; turn those on by name)." or "."))
+			ns:Print(want
+				and "The Full Classic Experience has been enabled. Experimental features must be activated manually."
+				or "AddOn disabled")
 		else
 			local key = resolveSetting(arg)
 			if key then
@@ -331,7 +332,7 @@ SlashCmdList["CLASSICQUESTINGMOP"] = function(msg)
 		end
 		line("/cq", "Open the options panel")
 		line("/cq on", "Turn on the full Classic experience")
-		line("/cq off", "Disable the addon")
+		line("/cq off", "Disable the AddOn")
 		line("/cq status", "List every option and its state")
 		line("/cq on <name>", "Turn one option on")
 		line("/cq off <name>", "Turn one option off")

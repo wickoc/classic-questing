@@ -26,7 +26,7 @@ ns:RegisterDefaults({
 local applying = false
 local refused = false
 
--- Enforcement only explains itself once the addon has settled. The very
+-- Enforcement only explains itself once the AddOn has settled. The very
 -- first turn-off at login is ours and needs no announcement; a later one
 -- means the player just clicked the entry and deserves to know why it
 -- bounced back.
@@ -102,7 +102,7 @@ local function notice()
 	if now - lastNotice < 10 then return end
 	lastNotice = now
 	-- Name the tracking entry explicitly so the line can be scanned at a
-	-- glance, and say "automatically" so it reads as the addon acting rather
+	-- glance, and say "automatically" so it reads as the AddOn acting rather
 	-- than the click failing.
 	ns:Print("|cffffd100Track Quest POIs|r was switched back off automatically. " ..
 		"To allow it, use |cffffd100/cq off minimapMarkers|r.")
@@ -153,12 +153,12 @@ local function attachTooltip()
 			if not ns.db or not ns.db.settings[M.key] then return end
 			if not GameTooltip or type(GameTooltip.AddLine) ~= "function" then return end
 			if GameTooltip.GetOwner and GameTooltip:GetOwner() ~= self then return end
-			-- Blank spacer, then the addon name as its own header line so the
+			-- Blank spacer, then the AddOn name as its own header line so the
 			-- block reads as ours rather than as part of Blizzard's tooltip.
 			-- A tooltip header cannot be made larger: AddLine has no per-line
 			-- font, and the big header font applies only to the tooltip's own
 			-- first line. So separate the block by colour instead, using the
-			-- addon's chat blue, which stands clear of Blizzard's white body
+			-- AddOn's chat blue, which stands clear of Blizzard's white body
 			-- text and yellow highlights.
 			GameTooltip:AddLine(" ")
 			GameTooltip:AddLine("|cff66ccff" .. ns.title .. "|r")
@@ -176,7 +176,7 @@ function M:Enable()
 	local index, info = findEntry()
 	if not index then return end
 
-	-- Remember the pre-addon state once, so Disable restores what the player
+	-- Remember the pre-AddOn state once, so Disable restores what the player
 	-- actually had rather than assuming it was on.
 	if ns.db.state.minimapMarkersTracking == nil then
 		ns.db.state.minimapMarkersTracking = info.active and true or false

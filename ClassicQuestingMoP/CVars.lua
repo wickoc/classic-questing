@@ -1,6 +1,6 @@
 -- Classic Questing (MoP) -- CVars
 --
--- Every console variable this addon drives to a Classic-correct value.
+-- Every console variable this AddOn drives to a Classic-correct value.
 -- Table-driven on purpose: adding another lever is one row, not another
 -- module. Safety rule 4 -- a switch Blizzard maintains beats frame surgery.
 
@@ -32,7 +32,7 @@ local RULES = {
 		cvar    = "autoQuestWatch",
 		wanted  = "0",
 		-- Ships ON: the Full Classic experience is what people install this
-		-- addon for, so a fresh install gives exactly that.
+		-- AddOn for, so a fresh install gives exactly that.
 		default = true,
 		label   = "automatic tracking of new quests",
 		onText  = "newly accepted quests are no longer tracked automatically",
@@ -63,13 +63,13 @@ local RULES = {
 	{
 		-- Tier 3, opt-in, EXPERIMENTAL and off by default.
 		--
-		-- Unusually for this addon it turns something ON. Quest objects and
+		-- Unusually for this AddOn it turns something ON. Quest objects and
 		-- herbs get either an outline or a sparkle, never both, so switching
 		-- the outline on is what suppresses the glimmer -- but only on clients
 		-- that can actually render outlines. On the development client the
 		-- CVar changes correctly and nothing renders, including through
 		-- Blizzard's own options window, so this is a graphics-side fault
-		-- rather than anything an addon can fix. Offered as a maybe, never
+		-- rather than anything an AddOn can fix. Offered as a maybe, never
 		-- promised, and never part of "turn everything on".
 		key          = "questObjectOutline",
 		cvar         = "Outline",
