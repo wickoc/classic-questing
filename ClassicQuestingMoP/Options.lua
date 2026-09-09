@@ -322,33 +322,47 @@ local function build()
 		-- Blizzard confirms before resetting a panel; do the same. "All
 		-- Settings" is Blizzard's to offer, not ours -- this addon only owns
 		-- its own -- so the choice is these settings or cancel.
-		local function doReset()
-			local before = snapshot()
-			local touchesMap = false
+		-- Two confirmations in a row for one action is one too many, and the
+		-- second one lost the dim because the first dialog's OnHide fired
+		-- underneath it. Fold the reload into the same question instead: one
+		-- decision, one dialog.
+		local function needsReloadToReset()
+			if not ns.db then return false end
 			for i = 1, #ns.modules do
 				local m = ns.modules[i]
-				if m.needsApply and (ns.db.settings[m.key] and true or false) ~= (ns.defaults[m.key] and true or false) then
-					touchesMap = true
+				if m.needsApply then
+					local now = ns.db.settings[m.key] and true or false
+					local def = ns.defaults[m.key] and true or false
+					if now ~= def then return true end
 				end
 			end
+			return false
+		end
+
+		local function doReset(reload)
 			ns:ResetDefaults(true)
 			if ns.db then ns.db.preset = nil end
 			ns.RefreshOptions()
-			if touchesMap then promptReload(before, true) end
+			if reload and type(ReloadUI) == "function" then ReloadUI() end
 		end
-		panel.OnDefault = doReset   -- honoured if Blizzard drives it
+		panel.OnDefault = function() doReset(needsReloadToReset()) end
 
 		defaults:SetScript("OnClick", function()
+			local reload = needsReloadToReset()
 			if type(StaticPopupDialogs) == "table" and type(StaticPopup_Show) == "function" then
+				local text = "Do you want to reset " .. ns.title .. " settings to their defaults?"
+				if reload then
+					text = text .. "\n\nThe UI will reload."
+				end
 				StaticPopupDialogs["CLASSICQUESTING_DEFAULTS"] = {
 					-- The question is phrased as a question, so the answers are
 					-- Yes and No. Pairing "Yes" with "Cancel" is a mismatched
 					-- pair; Blizzard uses YES/NO for questions like this too,
 					-- so this is both sounder and consistent.
-					text = "Do you want to reset " .. ns.title .. " settings to their defaults?",
+					text = text,
 					button1 = YES or "Yes",
 					button2 = NO or "No",
-					OnAccept = doReset,
+					OnAccept = function() doReset(reload) end,
 					OnHide = function() if dim then dim:Hide() end end,
 					timeout = 0, whileDead = true, hideOnEscape = true,
 					preferredIndex = 3,
@@ -357,19 +371,20 @@ local function build()
 				local shown, dlg = pcall(StaticPopup_Show, "CLASSICQUESTING_DEFAULTS")
 				if not shown then
 					if dim then dim:Hide() end
-					doReset()
+					doReset(reload)
 				elseif type(dlg) == "table" and type(dlg.SetFrameLevel) == "function" then
 					pcall(dlg.SetFrameLevel, dlg, 20)
 				end
 			else
-				doReset()
+				doReset(reload)
 			end
 		end)
+
 		attachTooltip(defaults,
 			function() return "Defaults" end,
 			function()
 				return "Returns every option to the state a fresh install has: "
-					.. "map and minimap markers hidden, everything else off."
+					.. "the full Classic experience, with experimental options off."
 			end)
 	end
 

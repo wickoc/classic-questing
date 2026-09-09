@@ -231,18 +231,15 @@ end)
 ---------------------------------------------------------------------
 
 local function status()
-	ns:Print(ns.title .. " v" .. tostring(ns.version))
+	ns:Print(ns.title .. " v" .. tostring(ns.version) .. " - Status")
 	for i = 1, #ns.modules do
 		local m = ns.modules[i]
 		local on = ns.db and ns.db.settings[m.key]
-		local line = "  " .. (on and "|cff55ff55on |r" or "|cffff5555off|r") ..
+		-- The live CVar readout is for developer eyes; the player wants to
+		-- know what is on.
+		ns:Print("  " .. (on and "|cff55ff55on |r" or "|cffff5555off|r") ..
 			"  |cffffd100" .. tostring(m.key) .. "|r" ..
-			(m.experimental and " |cffff8800(experimental)|r" or "")
-		if type(m.Status) == "function" then
-			local ok, extra = pcall(m.Status, m)
-			if ok and extra then line = line .. "  -- " .. extra end
-		end
-		ns:Print(line)
+			(m.experimental and " |cffff8800(experimental)|r" or ""))
 	end
 end
 
@@ -312,7 +309,7 @@ SlashCmdList["CLASSICQUESTINGMOP"] = function(msg)
 		end
 
 	elseif cmd == "help" then
-		ns:Print(ns.title .. " v" .. tostring(ns.version))
+		ns:Print(ns.title .. " v" .. tostring(ns.version) .. " - Commands")
 		-- The game font is not monospaced, so padding to a column would still
 		-- come out ragged. A fixed separator makes every gap identical instead.
 		local function line(cmd, what)

@@ -213,6 +213,11 @@ what people install the addon for; neither "all off" nor a subset picked to the 
 is a defensible out-of-the-box state. `Defaults` therefore restores that, and *Disabled* exists
 in the preset for anyone who wants the opposite.
 
+**`Defaults` asks once, not twice.** When the reset would move an option that needs a rebuild,
+the reload is folded into the same question ("…The UI will reload.") rather than raising a second
+dialog. Two confirmations for one action is one too many, and the second one also lost the screen
+dim, because the first dialog's `OnHide` fired underneath it.
+
 **`Defaults` confirms before acting**, as Blizzard's does. The button is the addon's own, not
 Blizzard's — Blizzard's lives in `SettingsPanel` and offers "All Settings / These Settings /
 Cancel". "All Settings" is Blizzard's to offer and not this addon's, so the confirmation is
@@ -252,9 +257,24 @@ on this client, alongside the older `UIDropDownMenuTemplate`. Swapping to one of
 its driving API, which is not known; probe the constructed frame's methods before attempting it,
 rather than guessing a fourth time.
 
-Probe v0.13 goes further: it dumps the methods and keys of a *constructed*
-`SettingsDropDownControlTemplate` and `WowStyle1DropdownTemplate`, because constructing a
-template proves only that it exists, not how to drive it.
+Probe v0.13 dumped both constructed templates, and the picture is now clear:
+
+- **`WowStyle1DropdownTemplate`** is the visual match, with `SetDefaultText`, `SetSelectionText`,
+  `SetSelectionTranslator`, `OverrideText`, `UpdateToMenuSelections` and a `menuMixin`. What it
+  does **not** expose is `SetupMenu`, so populating its list needs the newer Menu API, which has
+  not been probed.
+- **`SettingsDropDownControlTemplate`** has `Init`, `InitDropdown`, `SetupDropdownMenu`,
+  `SetValue`, `GetSetting`/`GetSettings` — it is built to be driven by a registered **Setting
+  object**, not by raw values.
+
+And `SettingsPanel` exposes `RegisterSetting`, `SetApplyButtonEnabled`, `HasUnappliedSettings`,
+`CommitSettings` and `ApplyButton`.
+
+**That points at one larger decision.** Going through `Settings.RegisterAddOnSetting` and
+Blizzard's own initializers would give the genuine dropdown *and* Blizzard's real Apply button
+in one move — but it means rebuilding the panel as a vertical layout around Blizzard's setting
+objects, and `RegisterAddOnSetting`'s signature is still unverified. That is an architecture
+change, not a tweak, so it is the author's call rather than something to slide in.
 
 The dropdown lists **Full Classic experience** then **Disabled**. *Custom* is not offered: it is
 what the control reports when the settings match neither, never something to pick. Stepping from
