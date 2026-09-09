@@ -62,8 +62,11 @@ local ACTIVE = {
 	g15  = false, -- ANSWERED v0.15, except the turn-in pop-up, which cannot
 	              --   be probed until one is actually on screen
 
-	-- Still open.
-	g16 = true, -- Apply flags, category defaults, section headers
+	g16 = false, -- ANSWERED v0.16: CommitFlag.Apply = 32, Revertable = 16;
+	             --   CreateSettingsListSectionHeaderInitializer is a global;
+	             --   RegisterVerticalLayoutCategory returns category, layout
+
+	-- Nothing open. The next section added here goes with the next question.
 }
 
 

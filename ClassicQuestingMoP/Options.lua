@@ -212,9 +212,17 @@ local function nonExperimental()
 	return list
 end
 
--- Order as shown. "custom" is not offered: it is what the control REPORTS
--- when the settings match neither preset, never something to pick.
+-- Order as shown in the canvas fallback's two-state toggle. "custom" is not
+-- offered there: it is what the control REPORTS when the settings match
+-- neither preset, never something to pick.
 local PRESET_ORDER = { "classic", "disabled" }
+
+-- The native dropdown must list "custom" even though it is never a choice --
+-- a dropdown cannot display a value that is not among its entries, and
+-- "custom" is exactly what it displays most of the time. Reordered on request
+-- to Full Classic experience, Custom, Disabled: reading "Classic" in that
+-- instruction as the Custom entry, since those are the three that exist.
+local PRESET_DROPDOWN_ORDER = { "classic", "custom", "disabled" }
 
 -- What the settings actually look like right now.
 local function derivedPreset()
@@ -233,15 +241,17 @@ local function derivedPreset()
 	return "custom"
 end
 
--- What the control shows. The stored choice is honoured so that picking
--- "Custom" sticks, but a stored preset that no longer matches the settings is
--- downgraded to Custom rather than left lying.
+-- What the control shows.
+--
+-- This used to prefer ns.db.preset and fall back to the derived value. That
+-- was wrong in a way the player caught: turning options off one at a time sets
+-- the stored preset to "custom", and the stored value was then returned
+-- unconditionally -- so reaching all-off by hand still read "Custom", and the
+-- control could never say "Disabled" again. Reading the settings is the only
+-- answer that cannot go stale, so that is the only thing consulted now.
 local function displayPreset()
 	if not ns.db then return "custom" end
-	local stored = ns.db.preset
-	if stored == nil then return derivedPreset() end
-	if stored ~= "custom" and derivedPreset() ~= stored then return "custom" end
-	return stored
+	return derivedPreset()
 end
 
 local applyPreset  -- defined below, after the prompt helpers it uses
@@ -279,7 +289,9 @@ function applyPreset(which)
 	-- "custom" changes nothing by definition; it only records the choice.
 	ns:ApplyAll()
 	ns.RefreshOptions()
-	if touchesMap then promptReload(before, true) end
+	-- Native mode has Blizzard's Apply button for this; the prompt belongs to
+	-- the canvas fallback only.
+	if touchesMap and not ns.optionsNative then promptReload(before, true) end
 end
 
 ---------------------------------------------------------------------
@@ -613,6 +625,7 @@ end
 -- takes over unchanged, so the worst case is the panel we already had.
 
 local nativeCategory
+local nativeLayout
 local nativeSettings = {}   -- module key -> Blizzard setting object
 local nativePresetSetting
 
@@ -626,10 +639,78 @@ local suppress = false
 -- needless edge; displayPreset() already knows how to derive one.
 local presetProxy = { preset = "classic" }
 
+-- Tooltip colours, matching Blizzard's own: body in white, a warning in
+-- orange, an aside in grey.
+local WHITE, ORANGE, GREY = "|cffffffff", "|cffff8800", "|cff9d9d9d"
+
 local function varType(which)
 	local t = Settings and Settings.VarType
 	if type(t) == "table" and t[which] then return t[which] end
 	return which:lower()
+end
+
+-- Blizzard's tooltips take colour escapes like any other font string, so the
+-- three-colour shape the canvas panel had survives the move to native
+-- controls. |n is the line break the tooltip understands.
+local function tooltipFor(m)
+	local tip = WHITE .. (m.desc or "") .. "|r"
+	if m.experimental then
+		tip = ORANGE .. "Experimental." .. "|r " .. tip
+			.. "|n|n" .. GREY .. "Not part of the Full Classic experience. Turn it on by hand." .. "|r"
+	elseif m.needsApply then
+		tip = tip .. "|n|n" .. GREY .. "Takes effect when the UI reloads." .. "|r"
+	end
+	return tip
+end
+
+-- What happens when a control's value moves. Shared by every checkbox.
+--
+-- The reload dialog used to live here. It is gone: it kept Blizzard's Apply
+-- button from ever appearing, and it fought the Defaults button, which resets
+-- settings one at a time and so raised the dialog once per setting.
+--
+-- In its place, options that need a rebuild are registered with the commit
+-- flags Apply and Revertable, which is what puts the change behind Blizzard's
+-- own Apply button. When Apply commits it, this callback runs inside the
+-- commit -- Settings.IsCommitInProgress() says so -- and that is the moment to
+-- reload. If a client ever ignores the flag, the callback simply runs outside
+-- a commit and nothing reloads: the map is correct the next time it opens,
+-- which is the same behaviour the slash commands already have.
+local function onSettingChanged(m)
+	if suppress then return end
+	ns.MarkCustomPreset()
+	ns:ApplyAll()
+	ns.RefreshOptions()
+
+	if m.needsApply and type(Settings.IsCommitInProgress) == "function" then
+		local ok, committing = pcall(Settings.IsCommitInProgress)
+		if ok and committing and type(ReloadUI) == "function" then
+			ReloadUI()
+		end
+	end
+end
+
+-- Ask for the Apply button. AddCommitFlag takes one flag at a time, which
+-- avoids guessing whether SetCommitFlags wants a list or a bitmask.
+local function askForApply(setting)
+	local flags = Settings and Settings.CommitFlag
+	if type(flags) ~= "table" or type(setting.AddCommitFlag) ~= "function" then return end
+	if flags.Apply then pcall(setting.AddCommitFlag, setting, flags.Apply) end
+	if flags.Revertable then pcall(setting.AddCommitFlag, setting, flags.Revertable) end
+end
+
+-- A heading in the list, the way Interface > Display and Raid Frames have
+-- them. The initializer is a plain global on this client, and the layout to
+-- add it to is the SECOND value RegisterVerticalLayoutCategory returns.
+local function addSectionHeader(text)
+	if not nativeLayout or type(nativeLayout.AddInitializer) ~= "function" then return false end
+	if type(CreateSettingsListSectionHeaderInitializer) ~= "function" then return false end
+	-- Colour escapes are honoured by font strings generally, so orange is
+	-- worth asking for; if this header draws its text some other way the
+	-- codes will simply not take and the heading is still there.
+	local ok, init = pcall(CreateSettingsListSectionHeaderInitializer, ORANGE .. text .. "|r")
+	if not ok or type(init) ~= "table" then return false end
+	return pcall(nativeLayout.AddInitializer, nativeLayout, init)
 end
 
 local function registerNative()
@@ -643,9 +724,10 @@ local function registerNative()
 	end
 	if not ns.db or type(ns.db.settings) ~= "table" then return false end
 
-	local ok, category = pcall(Settings.RegisterVerticalLayoutCategory, ns.title)
+	local ok, category, layout = pcall(Settings.RegisterVerticalLayoutCategory, ns.title)
 	if not ok or type(category) ~= "table" then return false end
 	if category.ID == nil then category.ID = ns.title end
+	nativeLayout = (type(layout) == "table") and layout or nil
 
 	-- The preset selector goes first: it is the coarse control, and the
 	-- checkboxes below it are the fine one.
@@ -657,16 +739,12 @@ local function registerNative()
 	local okd = pcall(function()
 		Settings.CreateDropdown(category, presetSetting, function()
 			local c = Settings.CreateControlTextContainer()
-			-- Order matters: the two the player can pick, then the one that
-			-- only ever describes a state they arrived at by hand.
-			c:Add("classic",  PRESET_LABEL.classic)
-			c:Add("disabled", PRESET_LABEL.disabled)
-			c:Add("custom",   PRESET_LABEL.custom)
+			for _, id in ipairs(PRESET_DROPDOWN_ORDER) do c:Add(id, PRESET_LABEL[id]) end
 			return c:GetData()
 		end,
-		"Full Classic experience:|nEverything on except the experiments.|n|n"
-		.. "Disabled:|nNothing hidden; the game behaves as Blizzard ships it.|n|n"
-		.. "Custom:|nWhat the checkboxes below say. Set by changing one of them, not chosen here.")
+		WHITE .. "Full Classic experience:|r|n" .. GREY .. "Everything on except the experiments.|r|n|n"
+		.. WHITE .. "Custom:|r|n" .. GREY .. "Whatever the checkboxes below say. You arrive here by changing one, you do not pick it.|r|n|n"
+		.. WHITE .. "Disabled:|r|n" .. GREY .. "Nothing hidden. The game behaves as Blizzard ships it.|r")
 	end)
 	if not okd then return false end
 
@@ -678,43 +756,38 @@ local function registerNative()
 	nativePresetSetting = presetSetting
 
 	-- One checkbox per module, in the single ordering ns:SortedModules owns,
-	-- so this panel and /cq status cannot drift apart.
+	-- so this panel and /cq status cannot drift apart. The experiments come
+	-- last so a heading can be put in front of them.
 	local ordered = ns:SortedModules()
+	local plain, experiments = {}, {}
 	for i = 1, #ordered do
 		local m = ordered[i]
-		local tip = m.desc or ""
-		if m.experimental then
-			-- The canvas panel grouped these under an orange heading. A
-			-- vertical layout has no heading to give them yet, so the warning
-			-- moves into the tooltip rather than being dropped.
-			tip = "|cffff8800Experimental.|r " .. tip
-		end
+		if m.experimental then experiments[#experiments + 1] = m else plain[#plain + 1] = m end
+	end
 
+	local function addCheckbox(m)
 		local oks, setting = pcall(Settings.RegisterAddOnSetting,
 			category, "ClassicQuestingMoP_" .. m.key, m.key, ns.db.settings,
 			varType("Boolean"), m.title or m.key, ns.defaults[m.key] and true or false)
 		if not oks or type(setting) ~= "table" then return false end
 
-		local okc = pcall(Settings.CreateCheckbox, category, setting, tip)
-		if not okc then return false end
+		if m.needsApply then askForApply(setting) end
 
-		pcall(setting.SetValueChangedCallback, setting, function()
-			if suppress then return end
-			-- Blizzard has already written ns.db.settings[m.key]; the addon's
-			-- job from here is only to act on it.
-			local before = snapshot()
-			-- snapshot() runs after the write, so put the old value back into
-			-- the copy -- otherwise Cancel would restore the new value.
-			if before then
-				before.settings[m.key] = not (ns.db.settings[m.key] and true or false)
-			end
-			ns.MarkCustomPreset()
-			ns:ApplyAll()
-			ns.RefreshOptions()
-			if m.needsApply then promptReload(before, false) end
-		end)
+		if not pcall(Settings.CreateCheckbox, category, setting, tooltipFor(m)) then return false end
 
+		pcall(setting.SetValueChangedCallback, setting, function() onSettingChanged(m) end)
 		nativeSettings[m.key] = setting
+		return true
+	end
+
+	for i = 1, #plain do
+		if not addCheckbox(plain[i]) then return false end
+	end
+	if #experiments > 0 then
+		addSectionHeader("Experimental")
+		for i = 1, #experiments do
+			if not addCheckbox(experiments[i]) then return false end
+		end
 	end
 
 	if not pcall(Settings.RegisterAddOnCategory, category) then return false end
@@ -722,6 +795,18 @@ local function registerNative()
 	nativeCategory = category
 	ns.optionsCategory = category
 	ns.optionsNative = true
+
+	-- Registration leaves every control showing its registration-time value.
+	-- Without this the dropdown read "Full Classic experience" on a fresh
+	-- login no matter what the checkboxes said.
+	ns.RefreshNative()
+
+	-- And re-read whenever the panel is opened, so a change made from chat
+	-- while it was closed is on screen when it comes back.
+	if SettingsPanel and type(SettingsPanel.HookScript) == "function" then
+		pcall(SettingsPanel.HookScript, SettingsPanel, "OnShow", function() ns.RefreshOptions() end)
+	end
+
 	return true
 end
 
@@ -730,10 +815,19 @@ end
 -- resolve to a nil global there -- the forward-reference trap that has already
 -- cost this project two silent failures.
 function ns.RefreshNative()
-	if not nativeCategory or not ns.db then return end
+	if not ns.db then return end
 	suppress = true
 	for key, setting in pairs(nativeSettings) do
-		pcall(setting.SetValue, setting, ns.db.settings[key] and true or false)
+		-- A setting waiting on Apply holds a pending value. Writing over it
+		-- here would silently discard what the player just clicked.
+		local pending = false
+		if type(setting.IsModified) == "function" then
+			local okm, mod = pcall(setting.IsModified, setting)
+			pending = okm and mod or false
+		end
+		if not pending then
+			pcall(setting.SetValue, setting, ns.db.settings[key] and true or false)
+		end
 	end
 	if nativePresetSetting then
 		presetProxy.preset = displayPreset()

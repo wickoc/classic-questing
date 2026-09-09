@@ -499,6 +499,61 @@ Also newly visible in the full 150-name global list: `WatchFrame_DisplayTrackedQ
 `WatchFrame_ShareQuest`, `WatchFrame_StopTrackingQuest`, `WatchFrame_OpenMapToQuest`,
 `WatchFrameQuestPOI_OnClick`, `WatchFrame_AddObjectiveHandler` / `_RemoveObjectiveHandler`.
 
+## Recon results — v0.16 probe
+
+Run 2026-09-09 21:34. Every question [G16] asked came back answered, and the native panel is
+finished on the strength of it.
+
+### Apply
+
+```
+Settings.CommitFlag = { None=0, ClientRestart=1, GxRestart=2, UpdateWindow=4,
+                        SaveBindings=8, Revertable=16, Apply=32,
+                        IgnoreApply=64, KioskProtected=128 }
+```
+
+`SettingsPanel` carries `SetApplyButtonEnabled`, `HasUnappliedSettings`, `CommitSettings`,
+`Commit` and a real `ApplyButton` (hidden and disabled at rest, which is why none was visible).
+`Settings.IsCommitInProgress` exists, which is what lets the AddOn tell an Apply commit from an
+ordinary click without inspecting Blizzard's internals.
+
+**Built in v0.11.0.** Options that need a rebuild are registered with `Apply` and `Revertable`
+via `AddCommitFlag` — one flag per call, so nothing has to guess whether `SetCommitFlags` wants
+a list or a bitmask. Ticking one parks the value; Blizzard's Apply commits it; the changed
+callback fires inside the commit and reloads there.
+
+### Section headers
+
+`CreateSettingsListSectionHeaderInitializer` is a **plain global**, not a `Settings` member —
+which is why every earlier search for it under `Settings.` came up empty. It pairs with the
+**second return value** of `RegisterVerticalLayoutCategory`, a layout object carrying
+`AddInitializer`. v0.10.0 discarded that second value.
+
+`Settings.SetCategoryDefaultsCallback` does **not** exist; the category object has no defaults
+method either. Blizzard's own Defaults button drives the settings directly, which is exactly why
+it misbehaved in v0.10.0 — see below.
+
+### What this fixed
+
+- **Defaults resetting one setting at a time** raised the reload dialog once per setting. With
+  the dialog gone the button behaves.
+- **No Apply button.** The dialog was intercepting the change before the commit machinery ever
+  saw it. The flags put it back where it belongs.
+- **The preset never reading "Disabled".** My bug, and a plain one: `displayPreset()` returned
+  the stored `ns.db.preset` whenever it was set, and turning options off one at a time sets it
+  to `"custom"` — so all-off could never read as Disabled again. The stored value is no longer
+  consulted for display at all; the settings are the only thing that cannot go stale.
+- **The dropdown reading "Full Classic experience" with every box unticked.** Registration
+  leaves controls showing their registration-time value and nothing refreshed them.
+  `registerNative()` now refreshes at the end, and hooks `SettingsPanel`'s `OnShow` so a change
+  made from chat is on screen when the panel comes back.
+
+### Tooltips
+
+Colour escapes work in Blizzard's tooltips as in any font string, so the three-colour shape
+survived the move to native controls: body in white, the experimental warning in orange, the
+quiet aside in grey.
+
 ## Safety rules — non-negotiable
 
 Getting these wrong produces bugs that only appear in combat, hours later, and are miserable

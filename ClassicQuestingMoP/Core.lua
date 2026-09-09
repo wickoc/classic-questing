@@ -306,7 +306,7 @@ SlashCmdList["CLASSICQUESTINGMOP"] = function(msg)
 			ns:ApplyAll()
 			ns:Print(want
 				and "The Full Classic Experience has been enabled. Experimental features must be activated manually."
-				or "AddOn disabled")
+				or "AddOn disabled.")
 		else
 			local key = resolveSetting(arg)
 			if key then
