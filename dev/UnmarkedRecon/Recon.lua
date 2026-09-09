@@ -75,8 +75,11 @@ local ACTIVE = {
 	g19 = false, -- ANSWERED v0.19: the variable is instantQuestText, read off
 	             --   Blizzard's own registered setting
 
+	g20 = false, -- ANSWERED v0.20: SetValueToDefault writes straight through
+	             --   and leaves IsModified false, so it ignores the Apply flag
+
 	-- Still open.
-	g20 = true, -- why Blizzard's Defaults button does not light Apply
+	g21 = true, -- are Blizzard's own option tooltips strings or functions?
 }
 
 
@@ -1875,6 +1878,97 @@ local function sectionDefaultsAndApply()
 	}) do probeMethod(SettingsPanel, "   SettingsPanel", n) end
 end
 
+-- [G21] Annotating Blizzard's own controls.
+--
+-- v0.14.0 appends "Managed by Classic Questing" to the tooltip of the Blizzard
+-- options this AddOn drives, by walking SettingsPanel.categoryLayouts and
+-- editing data.tooltip -- the field [G17] found the header's tooltip in.
+--
+-- What is NOT known is whether Blizzard's own controls store a tooltip STRING
+-- there or a function. A string can be appended to; a function cannot, not
+-- without knowing what it is called with. v0.14.0 leaves functions alone
+-- rather than guessing. This reports which it is for each one.
+local function sectionBlizzardTooltips()
+	head("[G21] Blizzard option tooltips -- string or function?")
+
+	if type(SettingsPanel) ~= "table" then
+		add("   SettingsPanel missing.")
+		return
+	end
+	local layouts = rawget(SettingsPanel, "categoryLayouts")
+	if type(layouts) ~= "table" then
+		add("   SettingsPanel.categoryLayouts is " .. type(layouts) .. ".")
+		return
+	end
+
+	-- The three this AddOn drives that Blizzard also shows a control for.
+	local watch = {
+		instantQuestText = "Instant Quest Text",
+		autoQuestWatch   = "Automatic Quest Tracking",
+		Outline          = "Outline Mode",
+	}
+
+	local found = 0
+	for _, layout in pairs(layouts) do
+		local inits = type(layout) == "table" and rawget(layout, "initializers")
+		if type(inits) == "table" then
+			for i = 1, #inits do
+				local init = inits[i]
+				if type(init) == "table" and type(init.GetSetting) == "function" then
+					local ok, setting = pcall(init.GetSetting, init)
+					local var, name
+					if ok and type(setting) == "table" then
+						pcall(function() var = setting:GetVariable() end)
+						pcall(function() name = setting:GetName() end)
+					end
+					if var and watch[var] then
+						found = found + 1
+						add("")
+						add("   " .. watch[var] .. "  (variable " .. var .. ", name \"" .. tostring(name) .. "\")")
+
+						local data = rawget(init, "data")
+						add("      initializer.data is " .. type(data))
+						if type(data) == "table" then
+							for k, v in pairs(data) do
+								if type(k) == "string" then
+									local shown = tostring(v)
+									if type(v) == "string" and #shown > 70 then shown = shown:sub(1, 70) .. "..." end
+									add("         data." .. k .. " = " .. shown .. "  [" .. type(v) .. "]")
+								end
+							end
+						end
+
+						if type(init.GetTooltip) == "function" then
+							local okt, tip = pcall(init.GetTooltip, init)
+							add("      GetTooltip() -> " .. (okt and type(tip) or "error"))
+							if okt and type(tip) == "string" then
+								add("         \"" .. tip:sub(1, 90) .. "\"")
+							end
+						end
+
+						-- Did v0.14.0's annotation actually land?
+						if type(data) == "table" and type(data.tooltip) == "string"
+							and data.tooltip:find("Managed by", 1, true) then
+							add("      >>> the AddOn's annotation IS present on this one.")
+						else
+							add("      >>> the AddOn's annotation is NOT present.")
+						end
+					end
+				end
+			end
+		end
+	end
+
+	if found == 0 then
+		add("   None of the three were found. Open Blizzard's options once, then")
+		add("   run this again -- the layouts may not be built until then.")
+	end
+	add("")
+	add("   (If any tooltip is a function, that is the case the AddOn skips.")
+	add("    The fix would need to know what the function is called with, which")
+	add("    the data dump above should show.)")
+end
+
 local function collect()
 	wipe(lines)
 
@@ -1967,6 +2061,7 @@ local function collect()
 	if ACTIVE.g18  then sectionBagQuestBorder()  end
 	if ACTIVE.g19  then sectionInstantQuestText() end
 	if ACTIVE.g20  then sectionDefaultsAndApply() end
+	if ACTIVE.g21  then sectionBlizzardTooltips() end
 
 	-- Any full method dumps collected via "/unrecon methods <global>" get
 	-- folded in here so they travel inside the readable report rather than

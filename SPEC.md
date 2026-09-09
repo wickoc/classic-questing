@@ -62,10 +62,11 @@ dropdown, the real Apply and Defaults buttons.
 
 ### In flight
 
-- **Blizzard's Defaults button does not park values for Apply.** A reload-needing option can be
-  reset with nothing on screen saying the panel is unfinished. v0.13.0 works around it by
-  lighting Apply itself and catching `CommitSettings`; probe v0.20 `[G20]` asks whether
-  `SetValueToDefault` ignores the Apply flag, and whether a cleaner switch exists.
+- **Annotating Blizzard's own controls.** v0.14.0 appends "Managed by Classic Questing" to the
+  tooltip of the Blizzard options this AddOn drives, by editing `data.tooltip` on their
+  initializers. It handles a tooltip that is a **string** or absent, and deliberately leaves a
+  tooltip that is a **function** alone rather than guessing what it is called with. Probe v0.21
+  `[G21]` reports which each one actually is.
 
 ### Backlog
 
@@ -696,6 +697,67 @@ with the panel looking finished. Three pieces, all built from methods `[G16]` co
    and the rebuild would otherwise be lost.
 
 This is a workaround, and is written up as one. `[G20]` asks whether it is necessary.
+
+## Driving Blizzard's options: registry or CVar?
+
+Asked directly, and worth writing down because the question contains a false premise I created.
+
+**Instant Quest Text was never switched to the Settings API.** It is a `CVars.lua` rule like every
+other, driving `instantQuestText` through `SetCVar`. What `[G19]` supplied was the **name**.
+
+So the two are not alternatives:
+
+- **The settings registry is a discovery tool.** It answers "what variable is Blizzard's own
+  control driving?" — which is exactly the question that had `showQuestTrackingTooltips` and four
+  other invented CVar names wasted on it. When the player can already do a thing in Blizzard's
+  options, the answer is in the registry, not the console.
+- **The CVar is the driving layer.** It is what persists across sessions, what `CVAR_UPDATE` lets
+  the AddOn notice a change on, and what works whether or not the options panel has ever been
+  built. Writing through a Blizzard setting object instead would add a dependency on Blizzard's
+  panel being loaded, for no gain.
+
+**Keep both, for what each is good at.** Discovery through the registry; driving through the CVar.
+
+### Who wins a conflict
+
+The reported desync — Blizzard's checkbox saying one thing, this panel another — was a missing
+rule, not a wrong mechanism. There are now two, chosen by whether Blizzard shows a control:
+
+| | Blizzard control | Behaviour on an outside change |
+| --- | --- | --- |
+| `questPOI`, `showBosses` | none | **Re-assert.** Nothing in the interface claims to own these, so something moved it behind the player's back and putting it back is the job. |
+| `instantQuestText`, `autoQuestWatch`, `Outline` | yes | **Yield.** The player used their own interface. The AddOn turns its option off, adopts the new value as what to restore later, and says so in chat. |
+
+Safety rule 4 — do not fight the player's UI — decides it. Re-asserting against a control the
+player can see produces exactly the standoff that was reported: two checkboxes disagreeing, and
+neither giving.
+
+## v0.14.0 — the Close → Exit bug
+
+Two faults, one flag. `rebuildPending` was set whenever a `needsApply` option's callback ran, and
+was never cleared when the panel closed.
+
+- **Defaults lit Apply even when nothing reload-worthy moved**, because every setting Defaults
+  touched looked like news whether or not its value changed.
+- **Closing with Exit left the flag set.** Apply was still lit on the next open, and the next
+  Close rebuilt the UI with no warning — acting on a decision the player had already walked away
+  from.
+
+Fixed with a **baseline**: the reload-needing options are recorded as the panel opens, and a
+rebuild is pending only while something differs from that. Toggling one away and back leaves
+nothing lit. `OnHide` clears the flag and the baseline, so a visit the player abandoned cannot
+reach into the next one.
+
+### G20 — why the workaround is needed
+
+Confirmed: `SetValueToDefault` **writes straight through**. The test setting carried
+`CommitFlag.Apply`, a normal `SetValue` parked correctly (`IsModified` true), and
+`SetValueToDefault` moved the backing value with `IsModified` still **false**. Defaults ignores
+the Apply flag. `SettingsPanel:Cancel` and `:Revert` do not exist; `Commit` and `CommitSettings`
+do.
+
+So lighting the button by hand and catching `CommitSettings` is not a guess to be tidied away
+later — it is the only route this client offers.
 
 ## Safety rules — non-negotiable
 

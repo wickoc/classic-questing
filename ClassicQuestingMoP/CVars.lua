@@ -30,6 +30,9 @@ local RULES = {
 		-- chooses it rather than having it chosen for them.
 		key     = "autoQuestTracking",
 		cvar    = "autoQuestWatch",
+		-- Blizzard shows this one as "Automatic Quest Tracking". Confirmed by
+		-- [G19], which read the variable off Blizzard's own control.
+		blizzOption = "Automatic Quest Tracking",
 		wanted  = "0",
 		-- Ships ON: the Full Classic experience is what people install this
 		-- AddOn for, so a fresh install gives exactly that.
@@ -54,6 +57,7 @@ local RULES = {
 		-- reading rather than skipping.
 		key     = "questTextTypesOut",
 		cvar    = "instantQuestText",
+		blizzOption = "Instant Quest Text",
 		wanted  = "0",
 		default = true,
 		label   = "instant quest text",
@@ -95,6 +99,7 @@ local RULES = {
 		-- promised, and never part of "turn everything on".
 		key          = "questObjectOutline",
 		cvar         = "Outline",
+		blizzOption  = "Outline Mode",
 		wanted       = "1",
 		default      = false,
 		experimental = true,
@@ -159,6 +164,10 @@ local function makeModule(rule)
 	M.order = rule.order
 	M.desc = rule.desc
 	M.needsApply = rule.needsApply
+	-- The label Blizzard shows for the same thing, where it shows one at all.
+	-- Used to annotate Blizzard's control and to decide who wins a conflict.
+	M.blizzOption = rule.blizzOption
+	M.blizzVariable = rule.blizzOption and rule.cvar or nil
 
 	-- One name: the module key is the saved-settings key is the handle the
 	-- player types. The CVar name stays an implementation detail in `rule`.
@@ -210,16 +219,44 @@ for i = 1, #RULES do
 	makeModule(RULES[i])
 end
 
--- Re-assert when anything changes a console variable. The first argument of
--- CVAR_UPDATE has not been consistent across client versions, so rather than
--- match on it, just re-check every value we own on any CVar change.
+-- Something changed a console variable. The first argument of CVAR_UPDATE has
+-- not been consistent across client versions, so rather than match on it, just
+-- re-check every value we own on any CVar change.
+--
+-- What happens next depends on whether Blizzard shows a control for it:
+--
+--   No Blizzard control -- questPOI, showBosses. Nothing in the interface
+--   claims to own these, so the AddOn re-asserts. Something moved it behind
+--   the player's back and putting it back is the whole job.
+--
+--   Blizzard HAS a control -- Instant Quest Text, Automatic Quest Tracking,
+--   Outline Mode. Then a change is the player using their own interface, and
+--   the AddOn YIELDS: it turns its own option off and stands down. Safety
+--   rule 4 -- do not fight the player's UI. Re-asserting here produced the
+--   desync that was reported: Blizzard's checkbox said one thing, this panel
+--   said another, and neither would give.
 ns:RegisterEvent("CVAR_UPDATE", function()
 	if applying or not ns.db then return end
 	for i = 1, #RULES do
 		local rule = RULES[i]
 		if ns.db.settings[rule.key] and not refused[rule.cvar] then
-			if readCVar(rule.cvar) ~= rule.wanted then
-				writeCVar(rule, rule.wanted)
+			local now = readCVar(rule.cvar)
+			if now ~= nil and now ~= rule.wanted then
+				if rule.blizzOption then
+					-- Yield. The setting is written straight rather than
+					-- through ns:Set, because Disable() would restore the
+					-- pre-AddOn value and undo the choice just made.
+					ns.db.settings[rule.key] = false
+					-- What the player has now IS what to restore later.
+					ns.db.state[rule.cvar] = now
+					if ns.MarkCustomPreset then ns.MarkCustomPreset() end
+					if ns.RefreshOptions then ns.RefreshOptions() end
+					ns:Print("|cffffd100" .. rule.blizzOption ..
+						"|r was changed in Blizzard's options, so |cffffd100" ..
+						rule.key .. "|r is now off.")
+				else
+					writeCVar(rule, rule.wanted)
+				end
 			end
 		end
 	end

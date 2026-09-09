@@ -23,7 +23,8 @@ commands.
 **Quest text and bags**
 
 - Instant Quest Text, so quest text types out a line at a time as it did in Classic
-- The yellow highlight MoP puts on quest items in your bags
+- The yellow highlight MoP puts on quest items in your bags, and the `!` on items that start a
+  quest — one option, since Blizzard draws both with the same texture
 
 **Quest tracker**
 
@@ -70,11 +71,14 @@ MoP shows an exclamation mark on the minimap for nearby questgivers; Classic nev
 comes from a shared texture atlas the client packs many icons into, so it cannot be switched off
 without replacing the artwork. Parked rather than solved.
 
-### The `!` on quest-starting items goes too
+## Where it overlaps Blizzard's own options
 
-Hiding the bag quest highlight also hides the `!` on items that start a quest. Blizzard draws both
-with a single texture, swapping the image rather than using two objects, so they cannot be
-separated.
+Three of these settings have a Blizzard checkbox of their own: **Instant Quest Text**,
+**Automatic Quest Tracking** and **Outline Mode**. Their tooltips are annotated to say Classic
+Questing is driving them, so a checkbox that moves on its own is not a mystery.
+
+If you change one of those in Blizzard's options, **Classic Questing stands down** — it turns its
+matching option off, keeps what you chose, and says so in chat. Your interface wins.
 
 ## Compatibility
 

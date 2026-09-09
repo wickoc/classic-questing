@@ -733,9 +733,41 @@ end
 local applyingPreset = false
 
 -- Set when something has changed that only a rebuilt UI will show. Blizzard's
--- Defaults button does not park our values for Apply the way a click does, so
--- this is how the two are made to end in the same place.
+-- Defaults button does not park our values for Apply the way a click does --
+-- confirmed by [G20]: SetValueToDefault writes straight through and leaves
+-- IsModified false -- so this is how the two are made to end in the same place.
 local rebuildPending = false
+
+-- What the reload-needing options looked like when the panel was opened.
+--
+-- Two bugs came from not having this. Defaults lit Apply even when it changed
+-- nothing that needs a rebuild, because every reset setting looked like news.
+-- And closing the panel with Exit left rebuildPending set, so Apply was still
+-- lit on the next open and the next Close rebuilt the UI with no warning --
+-- a stale flag from a session the player had already abandoned.
+local rebuildBaseline = {}
+
+local function captureRebuildBaseline()
+	wipe(rebuildBaseline)
+	if not ns.db then return end
+	for i = 1, #ns.modules do
+		local m = ns.modules[i]
+		if m.needsApply then
+			rebuildBaseline[m.key] = ns.db.settings[m.key] and true or false
+		end
+	end
+end
+
+-- True only if a reload-needing option is somewhere other than where it was
+-- when this panel visit started. Toggling one and back again leaves nothing
+-- to do, and should leave nothing lit.
+local function rebuildStillNeeded()
+	if not ns.db then return false end
+	for key, was in pairs(rebuildBaseline) do
+		if (ns.db.settings[key] and true or false) ~= was then return true end
+	end
+	return false
+end
 
 -- Apply NEVER asks. v0.12.1 raised a confirmation on commit, which was wrong
 -- twice over: pressing Apply IS the confirmation, and Blizzard already asks
@@ -778,9 +810,10 @@ local function onSettingChanged(m)
 		doRebuild()
 	else
 		-- Arrived some other way -- Defaults is the one that does this. Hold
-		-- the rebuild and light Apply, so the player finishes it the same way.
-		rebuildPending = true
-		armApplyButton()
+		-- the rebuild and light Apply, so the player finishes it the same way,
+		-- but only if something reload-worthy has actually moved.
+		rebuildPending = rebuildStillNeeded()
+		if rebuildPending then armApplyButton() end
 	end
 end
 
@@ -846,6 +879,80 @@ local function addSectionHeader(text, colour)
 	end)
 
 	return pcall(nativeLayout.AddInitializer, nativeLayout, init)
+end
+
+-- Say so on Blizzard's own controls.
+--
+-- Where this AddOn drives something Blizzard also shows a checkbox for --
+-- Instant Quest Text, Automatic Quest Tracking, Outline Mode -- a player who
+-- finds that checkbox has no way of knowing why it keeps moving. The same
+-- problem the minimap tracking tooltip solved, in the same way: say it where
+-- they are looking.
+--
+-- The route is the one [G19] proved out. Blizzard's registered settings are
+-- reachable through SettingsPanel.categoryLayouts: each layout carries
+-- initializers, each initializer has GetSetting() and a data table, and [G17]
+-- showed the tooltip string lives at data.tooltip.
+local ANNOTATION = "|cff66ccffManaged by " .. ns.title .. ".|r"
+local annotated = {}
+
+function ns.AnnotateBlizzardOptions()
+	if type(SettingsPanel) ~= "table" then return end
+	local layouts = rawget(SettingsPanel, "categoryLayouts")
+	if type(layouts) ~= "table" then return end
+
+	-- Which Blizzard variables this AddOn drives, and what it calls them.
+	local ours = {}
+	for i = 1, #ns.modules do
+		local m = ns.modules[i]
+		if m.blizzVariable then ours[m.blizzVariable] = m end
+	end
+	if not next(ours) then return end
+
+	for _, layout in pairs(layouts) do
+		local inits = type(layout) == "table" and rawget(layout, "initializers")
+		if type(inits) == "table" then
+			for i = 1, #inits do
+				local init = inits[i]
+				if type(init) == "table" and not annotated[init]
+					and type(init.GetSetting) == "function" then
+
+					local ok, setting = pcall(init.GetSetting, init)
+					local var
+					if ok and type(setting) == "table" and type(setting.GetVariable) == "function" then
+						local okv, v = pcall(setting.GetVariable, setting)
+						var = okv and v or nil
+					end
+
+					local m = var and ours[var]
+					-- Skip this AddOn's own controls: they do not need telling
+					-- who manages them.
+					if m and not tostring(var):find("ClassicQuestingMoP", 1, true) then
+						annotated[init] = true
+						local data = rawget(init, "data")
+						if type(data) == "table" then
+							local tip = data.tooltip
+							if type(tip) == "string" then
+								if not tip:find(ANNOTATION, 1, true) then
+									data.tooltip = tip .. "|n|n" .. ANNOTATION
+										.. "|n" .. GREY .. "/" .. m.key .. "|r"
+								end
+							elseif tip == nil then
+								data.tooltip = ANNOTATION .. "|n" .. GREY .. "/" .. m.key .. "|r"
+							end
+							-- A tooltip that is a function is left alone: its
+							-- shape is unverified, and probe [G21] asks what
+							-- it is before anything is done to it.
+						end
+					end
+				end
+			end
+		end
+	end
+end
+
+local function annotateBlizzardOptions()
+	pcall(ns.AnnotateBlizzardOptions)
 end
 
 local function registerNative()
@@ -958,6 +1065,12 @@ local function registerNative()
 	ns.optionsCategory = category
 	ns.optionsNative = true
 
+	annotateBlizzardOptions()
+
+	-- A baseline before the panel has ever been shown, so nothing depends on
+	-- an OnShow that a given client might not fire.
+	captureRebuildBaseline()
+
 	-- Registration leaves every control showing its registration-time value.
 	-- Without this the dropdown read "Full Classic experience" on a fresh
 	-- login no matter what the checkboxes said.
@@ -966,7 +1079,21 @@ local function registerNative()
 	-- And re-read whenever the panel is opened, so a change made from chat
 	-- while it was closed is on screen when it comes back.
 	if SettingsPanel and type(SettingsPanel.HookScript) == "function" then
-		pcall(SettingsPanel.HookScript, SettingsPanel, "OnShow", function() ns.RefreshOptions() end)
+		pcall(SettingsPanel.HookScript, SettingsPanel, "OnShow", function()
+			-- A fresh visit starts from where things actually are.
+			rebuildPending = false
+			captureRebuildBaseline()
+			ns.RefreshOptions()
+			annotateBlizzardOptions()
+		end)
+		-- Closing the panel ends the visit, whichever button did it. A held
+		-- rebuild does not survive it: the player walked away from those
+		-- changes, and carrying the flag over is what made a later Close
+		-- rebuild the UI out of nowhere.
+		pcall(SettingsPanel.HookScript, SettingsPanel, "OnHide", function()
+			rebuildPending = false
+			wipe(rebuildBaseline)
+		end)
 	end
 
 	-- Ticking a box that needs Apply parks the value and fires no callback, so

@@ -18,10 +18,9 @@ local ADDON_NAME, ns = ...
 
 local M = ns:RegisterModule("bagQuestHighlight", {})
 M.title = "Hide quest item highlight in bags"
-M.desc  = "Quest items in your bags stop being outlined in yellow, so a quest item looks like any other item."
+M.desc  = "Quest items in your bags stop being outlined in yellow, and items that start a quest lose their exclamation mark. Both are drawn by the same texture, and neither was in Classic: a quest item looked like any other item."
 M.onText  = "bag quest item highlight hidden"
 M.offText = "bag quest item highlight shown again"
-M.limitation = "Also hides the \"!\" on items that start a quest. Both are drawn by one texture, so they cannot be separated."
 M.group = "Bags"
 M.order = 80
 
