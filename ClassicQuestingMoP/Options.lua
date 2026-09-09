@@ -225,12 +225,22 @@ local PRESET_ORDER = { "classic", "disabled" }
 local PRESET_DROPDOWN_ORDER = { "classic", "custom", "disabled" }
 
 -- What the settings actually look like right now.
+--
+-- "Right now" includes a change the player has made but not yet applied.
+-- ns.EffectiveSetting is supplied by the native panel and knows about those;
+-- it is read off the namespace rather than called as a local because it is
+-- defined further down this file.
 local function derivedPreset()
 	if not ns.db then return "custom" end
 	local allOff, allOn = true, true
 	for i = 1, #ns.modules do
 		local m = ns.modules[i]
-		local on = ns.db.settings[m.key] and true or false
+		local on
+		if ns.EffectiveSetting then
+			on = ns.EffectiveSetting(m.key)
+		else
+			on = ns.db.settings[m.key] and true or false
+		end
 		if on then allOff = false end
 		if not m.experimental and not on then allOn = false end
 		-- An experimental option being on is never "Full Classic".
@@ -276,16 +286,23 @@ function applyPreset(which)
 	end
 
 	ns.db.preset = which
-	if which == "disabled" then
-		for i = 1, #ns.modules do
-			ns.db.settings[ns.modules[i].key] = false
-		end
-	elseif which == "classic" then
+	if ns.SetPresetApplying then ns.SetPresetApplying(true) end
+	if which ~= "custom" then
 		for i = 1, #ns.modules do
 			local m = ns.modules[i]
-			ns.db.settings[m.key] = not m.experimental
+			local want = (which == "classic") and not m.experimental or false
+			-- Native mode writes THROUGH the control, not around it. Writing
+			-- ns.db.settings directly left Blizzard unaware that anything had
+			-- changed, so a preset that moved a reload-needing option never
+			-- lit the Apply button.
+			if ns.SetNativeValue then
+				ns.SetNativeValue(m.key, want)
+			else
+				ns.db.settings[m.key] = want
+			end
 		end
 	end
+	if ns.SetPresetApplying then ns.SetPresetApplying(false) end
 	-- "custom" changes nothing by definition; it only records the choice.
 	ns:ApplyAll()
 	ns.RefreshOptions()
@@ -639,9 +656,17 @@ local suppress = false
 -- needless edge; displayPreset() already knows how to derive one.
 local presetProxy = { preset = "classic" }
 
--- Tooltip colours, matching Blizzard's own: body in white, a warning in
--- orange, an aside in grey.
-local WHITE, ORANGE, GREY = "|cffffffff", "|cffff8800", "|cff9d9d9d"
+-- Tooltip colours. These are the canvas panel's, unchanged.
+--
+-- Moving to native controls I repainted the body white, which was an unforced
+-- change and wrong: the canvas panel drew bodies with AddLine(text, 1, 0.82, 0)
+-- -- Blizzard's yellow -- and only used white for the headings inside the
+-- preset tooltip. Nothing about native controls required that to change, so it
+-- is back to yellow bodies and white headings.
+local WHITE  = "|cffffffff"
+local YELLOW = "|cffffd100"   -- 1, 0.82, 0: the colour AddLine was giving them
+local ORANGE = "|cffff8019"
+local GREY   = "|cff808080"
 
 local function varType(which)
 	local t = Settings and Settings.VarType
@@ -649,18 +674,29 @@ local function varType(which)
 	return which:lower()
 end
 
--- Blizzard's tooltips take colour escapes like any other font string, so the
--- three-colour shape the canvas panel had survives the move to native
--- controls. |n is the line break the tooltip understands.
+-- Blizzard paints the tooltip's first line -- the setting's name -- white by
+-- itself, so this builds only the body. Same text and same colours as the
+-- canvas panel, including the grey slash handle at the foot: tooltip lines
+-- cannot be resized, so the handle is set apart by colour instead.
 local function tooltipFor(m)
-	local tip = WHITE .. (m.desc or "") .. "|r"
+	local tip = YELLOW .. (m.desc or "") .. "|r"
 	if m.experimental then
-		tip = ORANGE .. "Experimental." .. "|r " .. tip
-			.. "|n|n" .. GREY .. "Not part of the Full Classic experience. Turn it on by hand." .. "|r"
-	elseif m.needsApply then
-		tip = tip .. "|n|n" .. GREY .. "Takes effect when the UI reloads." .. "|r"
+		tip = tip .. "|n|n" .. ORANGE .. "Experimental: not enabled by the Full Classic preset." .. "|r"
 	end
-	return tip
+	return tip .. "|n|n" .. GREY .. "/" .. m.key .. "|r"
+end
+
+-- White heading, a white colon, then the yellow body on the same row. The
+-- leading break keeps the first heading off the tooltip's own white title.
+local function presetTooltip()
+	local function row(headingKey, body)
+		return WHITE .. PRESET_LABEL[headingKey] .. ":|r " .. YELLOW .. body .. "|r"
+	end
+	return "|n"
+		.. row("classic", "Every option on, except experimental ones.") .. "|n|n"
+		.. row("custom", "Your own mix. It cannot be selected; it is chosen automatically as soon as you change any option below.") .. "|n|n"
+		.. row("disabled", "Every option off, the game as Blizzard ships it.") .. "|n|n"
+		.. GREY .. "/cq on, /cq off" .. "|r"
 end
 
 -- What happens when a control's value moves. Shared by every checkbox.
@@ -676,18 +712,72 @@ end
 -- reload. If a client ever ignores the flag, the callback simply runs outside
 -- a commit and nothing reloads: the map is correct the next time it opens,
 -- which is the same behaviour the slash commands already have.
+local applyingPreset = false
+
+-- Asked once per Apply, not once per setting. Blizzard commits settings one
+-- at a time, so without this the player would answer the same question as
+-- many times as they had ticked boxes.
+local function askToReload()
+	if type(StaticPopupDialogs) ~= "table" or type(StaticPopup_Show) ~= "function" then
+		if type(ReloadUI) == "function" then ReloadUI() end
+		return
+	end
+	StaticPopupDialogs["CLASSICQUESTING_RELOAD"] = {
+		text = "The UI needs to reload before these settings take effect.",
+		button1 = "Reload now",
+		button2 = "Later",
+		OnAccept = function() if type(ReloadUI) == "function" then ReloadUI() end end,
+		timeout = 0, whileDead = true, hideOnEscape = true,
+		preferredIndex = 3,
+	}
+	pcall(StaticPopup_Show, "CLASSICQUESTING_RELOAD")
+end
+
 local function onSettingChanged(m)
 	if suppress then return end
-	ns.MarkCustomPreset()
 	ns:ApplyAll()
+	if applyingPreset then return end
+
+	ns.MarkCustomPreset()
 	ns.RefreshOptions()
 
+	-- Reload only when Apply is what caused this. Outside a commit the change
+	-- was immediate and needs nothing; the reload question would be noise.
 	if m.needsApply and type(Settings.IsCommitInProgress) == "function" then
 		local ok, committing = pcall(Settings.IsCommitInProgress)
-		if ok and committing and type(ReloadUI) == "function" then
-			ReloadUI()
-		end
+		if ok and committing then askToReload() end
 	end
+end
+
+-- Set a value through Blizzard's control rather than around it, so a change
+-- that needs Apply is parked for Apply instead of quietly taking effect.
+-- Set while a preset is driving every control at once, so the per-setting
+-- callback does not mark the preset "custom" halfway through applying it.
+function ns.SetPresetApplying(v) applyingPreset = v and true or false end
+
+function ns.SetNativeValue(key, want)
+	local setting = nativeSettings[key]
+	if not setting or type(setting.SetValue) ~= "function" then
+		if ns.db then ns.db.settings[key] = want end
+		return
+	end
+	pcall(setting.SetValue, setting, want and true or false)
+end
+
+-- What a setting will be once Apply is pressed.
+--
+-- A setting waiting on Apply holds a pending value, and IsModified says so.
+-- These are all booleans and Blizzard only parks an actual change, so a
+-- modified boolean is by definition the opposite of the committed one -- no
+-- guess about what GetValue returns for a pending setting is needed.
+function ns.EffectiveSetting(key)
+	local committed = ns.db and ns.db.settings[key] and true or false
+	local setting = nativeSettings[key]
+	if setting and type(setting.IsModified) == "function" then
+		local ok, modified = pcall(setting.IsModified, setting)
+		if ok and modified then return not committed end
+	end
+	return committed
 end
 
 -- Ask for the Apply button. AddCommitFlag takes one flag at a time, which
@@ -702,14 +792,24 @@ end
 -- A heading in the list, the way Interface > Display and Raid Frames have
 -- them. The initializer is a plain global on this client, and the layout to
 -- add it to is the SECOND value RegisterVerticalLayoutCategory returns.
-local function addSectionHeader(text)
+local function addSectionHeader(text, colour)
 	if not nativeLayout or type(nativeLayout.AddInitializer) ~= "function" then return false end
 	if type(CreateSettingsListSectionHeaderInitializer) ~= "function" then return false end
 	-- Colour escapes are honoured by font strings generally, so orange is
 	-- worth asking for; if this header draws its text some other way the
 	-- codes will simply not take and the heading is still there.
-	local ok, init = pcall(CreateSettingsListSectionHeaderInitializer, ORANGE .. text .. "|r")
+	local ok, init = pcall(CreateSettingsListSectionHeaderInitializer, colour .. text .. "|r")
 	if not ok or type(init) ~= "table" then return false end
+
+	-- The heading was showing a tooltip on hover, which a heading has no use
+	-- for. Only one argument is passed in, so the tooltip is being defaulted
+	-- from the name somewhere inside the initializer; clear both places it
+	-- could be sitting. Probe [G17] dumps the initializer to confirm which.
+	pcall(function()
+		if type(init.data) == "table" then init.data.tooltip = nil end
+		init.tooltip = nil
+	end)
+
 	return pcall(nativeLayout.AddInitializer, nativeLayout, init)
 end
 
@@ -742,9 +842,7 @@ local function registerNative()
 			for _, id in ipairs(PRESET_DROPDOWN_ORDER) do c:Add(id, PRESET_LABEL[id]) end
 			return c:GetData()
 		end,
-		WHITE .. "Full Classic experience:|r|n" .. GREY .. "Everything on except the experiments.|r|n|n"
-		.. WHITE .. "Custom:|r|n" .. GREY .. "Whatever the checkboxes below say. You arrive here by changing one, you do not pick it.|r|n|n"
-		.. WHITE .. "Disabled:|r|n" .. GREY .. "Nothing hidden. The game behaves as Blizzard ships it.|r")
+		presetTooltip())
 	end)
 	if not okd then return false end
 
@@ -784,11 +882,21 @@ local function registerNative()
 		if not addCheckbox(plain[i]) then return false end
 	end
 	if #experiments > 0 then
-		addSectionHeader("Experimental")
+		addSectionHeader("Experimental", ORANGE)
 		for i = 1, #experiments do
 			if not addCheckbox(experiments[i]) then return false end
 		end
 	end
+
+	-- The version, which the native layout has nowhere else to put.
+	--
+	-- Two places were possible. At the top it would sit above the preset
+	-- dropdown, and a section header at the top of a Blizzard list reads as a
+	-- heading FOR what follows -- so "v0.12.0" would look like the name of the
+	-- options beneath it. At the foot it reads as a footer, which is what it
+	-- is. Grey, as asked, using the same colour escape the orange heading
+	-- proved works.
+	addSectionHeader("v" .. tostring(ns.version), GREY)
 
 	if not pcall(Settings.RegisterAddOnCategory, category) then return false end
 
@@ -805,6 +913,21 @@ local function registerNative()
 	-- while it was closed is on screen when it comes back.
 	if SettingsPanel and type(SettingsPanel.HookScript) == "function" then
 		pcall(SettingsPanel.HookScript, SettingsPanel, "OnShow", function() ns.RefreshOptions() end)
+	end
+
+	-- Ticking a box that needs Apply parks the value and fires no callback, so
+	-- the preset dropdown had nothing to tell it the settings had moved. The
+	-- Apply button changing state IS that signal, and hooking it is the only
+	-- place the information exists.
+	if SettingsPanel and type(hooksecurefunc) == "function"
+		and type(SettingsPanel.SetApplyButtonEnabled) == "function" then
+		local reentering = false
+		pcall(hooksecurefunc, SettingsPanel, "SetApplyButtonEnabled", function()
+			if reentering then return end
+			reentering = true
+			pcall(ns.RefreshOptions)
+			reentering = false
+		end)
 	end
 
 	return true

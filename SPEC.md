@@ -63,23 +63,23 @@ Default **on**.
 
 ### Tier 2 — objective tracker
 
-**Status: NOT BUILT.** Of the bullets below, only `autoQuestWatch` shipped. `Tracker.lua` does
-not exist.
+**Status: BUILT in v0.12.0.** `Tracker.lua` ships two options plus one experimental.
 
 - **~~Hide the tracker entirely~~ — DROPPED.** Raised by me, rejected by the player, and the
   player is right: Classic *has* a tracker. You shift-click a quest in the log and it appears.
   Hiding it removes a Classic feature rather than a MoP one, which is the opposite of this
   addon's job. It is also **redundant** — with `autoQuestWatch` off and nothing tracked by hand,
   the frame is already empty and invisible. Not building it.
-- **Strip it to Classic form:** quest name and objective counts only — no click-to-track, no
-  quest item use buttons, no auto-sort by distance to objective. **Required for the Classic
-  feel. Recon complete (G15); ready to build.**
+- **Strip it to Classic form:** ✅ **Shipped v0.12.0**, both halves on by default.
   - *Click-to-track* → `WATCHFRAME_LINKBUTTONS`, one Button per quest title, each with an
     `OnClick`. Disable mouse on them after each `WatchFrame_Update`.
   - *Quest item buttons* → `WatchFrameItem1..N`, parented to `WatchFrameLines`. Hide after each
     update.
   - *Auto-sort by distance* → **nothing to do.** This client has no proximity sort; the only
     sort constants are manual and the two difficulty orders, and it is already on manual.
+  - Both are re-applied on a `WatchFrame_Update` post-hook, not once at login: the tracker
+    recycles its buttons, so a one-shot fix would pass a naive test and fail in play. Turning
+    either off hands the clicks and buttons back.
   - Open question for the build: `WATCHFRAME_LINKBUTTONS` is a shared pool, so disabling it may
     also silence the achievement tracker's clicks. Needs an in-game check.
 - **Disable auto-tracking of newly accepted quests (`autoQuestWatch`).** ✅ Shipped in
@@ -93,8 +93,11 @@ not exist.
   direction. The mechanism is named — `GetNumAutoQuestPopUps`, `GetAutoQuestPopUp`,
   `RemoveAutoQuestPopUp`, and the `WatchFrameAutoQuest_*` display family — but the data shape
   is not, and **it cannot be probed on demand**: `GetNumAutoQuestPopUps()` reads 0 unless a
-  pop-up is actually on screen. Parked until one appears in play. `[G15]` stays in the probe,
-  switched off, ready for that moment.
+  pop-up is actually on screen. **Shipped experimental in v0.12.0 anyway**, with the one
+  unverified assumption stated in the file: the first return of `GetAutoQuestPopUp` is taken to
+  be the questID `RemoveAutoQuestPopUp` wants. If that is wrong the `pcall` swallows it and the
+  pop-ups keep appearing — which is exactly what "experimental" is for. `[G15]` stays in the
+  probe, switched off, ready for the moment a pop-up can be caught live.
 
 ### Tier 3 — full Classic feel
 
@@ -553,6 +556,61 @@ it misbehaved in v0.10.0 — see below.
 Colour escapes work in Blizzard's tooltips as in any font string, so the three-colour shape
 survived the move to native controls: body in white, the experimental warning in orange, the
 quiet aside in grey.
+
+## v0.12.0 — native panel corrections
+
+### The tooltip regression was mine, and avoidable
+
+Moving to native controls I repainted tooltip bodies white. The canvas panel drew them with
+`AddLine(text, 1, 0.82, 0)` — Blizzard's yellow — and used white only for the headings inside
+the preset tooltip. **Nothing about native controls required that to change**; I changed a
+setting nobody asked me to change while migrating something else, which is how a working thing
+becomes a broken thing. Restored, along with the grey slash handle at the foot of each tooltip
+that had gone missing in the same move. The suite now asserts option bodies are yellow *and*
+that they are not white.
+
+Tooltip shape, fixed:
+
+- Heading — the setting's name, which Blizzard paints white itself.
+- Body — yellow.
+- Preset tooltip — a leading break, then `WHITE Heading:|r YELLOW body` on one row each, in the
+  dropdown's own order (Full Classic experience, Custom, Disabled), and the slash commands in
+  grey at the foot.
+
+### Apply, corrected twice
+
+- **A preset that moved a reload-needing option never lit Apply.** `applyPreset` wrote
+  `ns.db.settings` directly, so Blizzard never learned anything had changed. It now writes
+  *through* the control (`ns.SetNativeValue`), and a guard stops the per-setting callback
+  marking the preset "custom" halfway through applying it.
+- **Apply reloaded without asking.** It now raises one confirmation — once per Apply, not once
+  per setting, since Blizzard commits them one at a time.
+
+### The preset could not see a parked change
+
+Ticking a box that needs Apply parks the value and fires **no** value-changed callback, so the
+dropdown had nothing to tell it the settings had moved. Two halves to the fix:
+
+- `ns.EffectiveSetting(key)` reads what a setting *will* be once applied. A setting waiting on
+  Apply reports `IsModified()`, and these are all booleans that Blizzard only parks on a real
+  change — so a modified boolean is by definition the opposite of the committed one. No guess
+  about what `GetValue` returns for a pending setting is needed.
+- `SettingsPanel:SetApplyButtonEnabled` is hooked. The Apply button changing state is the only
+  signal a parked change gives, and hooking it is the only place that information exists.
+
+### The version number
+
+Native layouts have no header to put it in. It ships as a grey section heading at the **foot**
+of the list. At the top it would sit above the preset dropdown, and a section header at the top
+of a Blizzard list reads as a heading *for* what follows — so "v0.12.0" would look like the name
+of the options beneath it. At the foot it reads as a footer, which is what it is.
+
+### Still open
+
+The Experimental heading renders orange but shows a tooltip on hover, which a heading has no use
+for. Only the name is passed in, so it is being defaulted from that somewhere inside the
+initializer. v0.12.0 clears the two fields it could plausibly be; probe v0.18 `[G17]` dumps the
+initializer to say which is real, or name a third.
 
 ## Safety rules — non-negotiable
 

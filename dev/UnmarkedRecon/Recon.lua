@@ -66,7 +66,8 @@ local ACTIVE = {
 	             --   CreateSettingsListSectionHeaderInitializer is a global;
 	             --   RegisterVerticalLayoutCategory returns category, layout
 
-	-- Nothing open. The next section added here goes with the next question.
+	-- Still open.
+	g17 = true, -- where the section header's unwanted tooltip comes from
 }
 
 
@@ -1558,6 +1559,58 @@ local function sectionNativePanel()
 	end
 end
 
+-- [G17] One loose end from the native panel: the Experimental section header
+-- renders in orange as asked, but shows a tooltip on hover that a heading has
+-- no use for. Only the name is passed in, so the tooltip is being defaulted
+-- from it somewhere inside the initializer. v0.12.0 clears the two fields it
+-- could plausibly be; this says which one is real, or names a third.
+local function sectionHeaderTooltip()
+	head("[G17] Section header -- where its tooltip comes from")
+
+	if type(CreateSettingsListSectionHeaderInitializer) ~= "function" then
+		add("   CreateSettingsListSectionHeaderInitializer missing.")
+		return
+	end
+
+	local ok, init = pcall(CreateSettingsListSectionHeaderInitializer, "PROBEHEADER")
+	if not ok or type(init) ~= "table" then
+		add("   could not build one: " .. tostring(init):sub(1, 90))
+		return
+	end
+
+	dumpTable(init, "   initializer", 40)
+	dumpMethods(init, "   initializer", { "tooltip", "name", "data", "text" })
+
+	local data = rawget(init, "data")
+	if type(data) == "table" then
+		add("")
+		add("   initializer.data, with values:")
+		for k, v in pairs(data) do
+			if type(k) == "string" then
+				add("      data." .. k .. " = " .. tostring(v) .. "  [" .. type(v) .. "]")
+			end
+		end
+	else
+		add("   initializer.data is " .. type(data) .. ", so the tooltip is not there.")
+	end
+
+	-- Two arguments would explain it too, if the second defaults to the first.
+	local ok2, init2 = pcall(CreateSettingsListSectionHeaderInitializer, "PROBEHEADER", "PROBETOOLTIP")
+	mark(ok2, "it accepts a second argument (a tooltip)")
+	if ok2 and type(init2) == "table" and type(init2.data) == "table" then
+		for k, v in pairs(init2.data) do
+			if type(k) == "string" and tostring(v):find("PROBETOOLTIP", 1, true) then
+				add("           the second argument landed in data." .. k)
+			end
+		end
+	end
+
+	add("")
+	if type(SettingsListSectionHeaderMixin) == "table" then
+		dumpTable(SettingsListSectionHeaderMixin, "   SettingsListSectionHeaderMixin", 30)
+	end
+end
+
 local function collect()
 	wipe(lines)
 
@@ -1646,6 +1699,7 @@ local function collect()
 	if ACTIVE.g14  then sectionTracker()         end
 	if ACTIVE.g15  then sectionTrackerInternals() end
 	if ACTIVE.g16  then sectionNativePanel()     end
+	if ACTIVE.g17  then sectionHeaderTooltip()   end
 
 	-- Any full method dumps collected via "/unrecon methods <global>" get
 	-- folded in here so they travel inside the readable report rather than
