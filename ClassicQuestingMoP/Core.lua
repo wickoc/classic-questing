@@ -295,15 +295,17 @@ SlashCmdList["CLASSICQUESTINGMOP"] = function(msg)
 			-- "/cq on" means the Classic experience, not the experiments.
 			-- Experimental features are only ever turned on by name.
 			--
-			-- They are turned OFF here, rather than left where they were.
-			-- This used to leave them alone, which put it out of step with
-			-- the panel's own "Full Classic experience" preset -- that has
-			-- always set them false. One preset cannot mean two things
-			-- depending on whether it was picked or typed.
+			-- Left exactly as the player set them, in both directions of the
+			-- earlier confusion. v0.14.3 made "/cq on" turn them off, to
+			-- match the panel's preset; the panel was the one that was wrong.
+			-- A preset that undoes a deliberate choice is worse than a preset
+			-- that ignores it.
+			--
+			-- "/cq off" still takes them, because Disabled means nothing is on.
 			for k in pairs(ns.defaults) do
 				local m = ns.modules[k]
 				if want and m and m.experimental then
-					ns.db.settings[k] = false
+					-- leave it alone
 				else
 					ns.db.settings[k] = want
 				end

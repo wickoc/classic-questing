@@ -99,6 +99,11 @@ local RULES = {
 		-- promised, and never part of "turn everything on".
 		key          = "questObjectOutline",
 		cvar         = "Outline",
+		-- Not a boolean. Outline has four settings on this client, and 1, 2
+		-- and 3 are all "outlines are on", differing in what they apply to.
+		-- Only 0 is off, so only 0 leaves this option unticked; the AddOn asks
+		-- for 1 but does not drag 2 or 3 down to it.
+		onValues     = { ["1"] = true, ["2"] = true, ["3"] = true },
 		blizzOption  = "Outline Mode",
 		wanted       = "1",
 		default      = false,
@@ -120,6 +125,14 @@ local applying = false
 -- CVar can behave that way, so every write is read back and verified, and a
 -- refused write stands down instead of retrying on every event forever.
 local refused = {}
+
+-- Whether a CVar's current value counts as this rule being on. Most are a
+-- plain match against `wanted`; a rule with several "on" values lists them.
+local function ruleIsOn(rule, value)
+	if value == nil then return false end
+	if rule.onValues then return rule.onValues[value] and true or false end
+	return value == rule.wanted
+end
 
 local function readCVar(name)
 	local ok, v = pcall(GetCVar, name)
@@ -192,7 +205,11 @@ local function makeModule(rule)
 			ns.db.state[rule.cvar] = current
 		end
 
-		writeCVar(rule, rule.wanted)
+		-- Already at a value that counts as on -- Outline 2 or 3, say -- is
+		-- left where the player put it rather than dragged down to `wanted`.
+		if not ruleIsOn(rule, current) then
+			writeCVar(rule, rule.wanted)
+		end
 	end
 
 	function M:Disable()
@@ -258,7 +275,7 @@ ns:RegisterEvent("CVAR_UPDATE", function()
 
 			elseif rule.blizzOption then
 				-- The player owns this one. Follow it, whichever way it went.
-				local shouldBeOn = (now == rule.wanted)
+				local shouldBeOn = ruleIsOn(rule, now)
 				if shouldBeOn ~= on then
 					ns.db.settings[rule.key] = shouldBeOn
 
@@ -281,7 +298,7 @@ ns:RegisterEvent("CVAR_UPDATE", function()
 					if ns.RefreshOptions then ns.RefreshOptions() end
 				end
 
-			elseif on and now ~= rule.wanted then
+			elseif on and not ruleIsOn(rule, now) then
 				writeCVar(rule, rule.wanted)
 			end
 		end

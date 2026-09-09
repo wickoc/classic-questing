@@ -806,12 +806,37 @@ it.
 **What remains:** `rebuildBaseline`, so a reset that moves nothing does not reload for nothing,
 cleared on rebuild so one visit cannot ask twice.
 
-### One preset, one meaning
+### Presets and experimental options
 
-Checking the experimental wording turned up a real inconsistency. The panel's **Full Classic
-experience** preset has always set experimental options to `false`; `/cq on` left them where they
-were. Same preset, two behaviours depending on whether it was clicked or typed. `/cq on` now turns
-them off too.
+Checking the experimental wording turned up a real inconsistency: the panel's **Full Classic
+experience** preset set experimental options to `false`, while `/cq on` left them where they were.
+Same preset, two behaviours depending on whether it was clicked or typed.
+
+v0.14.3 aligned them by making `/cq on` turn the experiments off. **That was the wrong side to
+align to**, and v0.15.0 reverses it. A preset that undoes a deliberate choice is worse than one
+that ignores it: switch an experiment on, pick Full Classic, and it went off again with no
+explanation.
+
+The rule now:
+
+| | Normal options | Experimental options |
+| --- | --- | --- |
+| **Full Classic experience** | all on | **left exactly as the player set them** |
+| **Disabled** | all off | all off — Disabled means nothing is on |
+| **Derived display** | all normal on ⇒ Full Classic | ignored entirely |
+
+So switching an experiment on no longer drops the preset to Custom. The experiments are not part
+of the Classic experience, so having one on does not stop the rest of the settings being it. Both
+the panel and `/cq on|off` follow this.
+
+### A rule can have more than one "on" value
+
+`Outline` is not a boolean. It has four settings on this client, and **1, 2 and 3 all mean
+outlines are on** — they differ in what they apply to. Only 0 is off.
+
+Rules may now declare `onValues`, and two things follow from it: the option reads as ticked for
+any of them, and `Enable()` no longer writes `wanted` over a value that already counts as on. A
+player who chose Outline 3 keeps Outline 3; the AddOn only asks for 1 when starting from 0.
 
 ## Safety rules — non-negotiable
 

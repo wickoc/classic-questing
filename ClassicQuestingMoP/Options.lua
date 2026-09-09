@@ -230,9 +230,18 @@ local PRESET_DROPDOWN_ORDER = { "classic", "custom", "disabled" }
 -- ns.EffectiveSetting is supplied by the native panel and knows about those;
 -- it is read off the namespace rather than called as a local because it is
 -- defined further down this file.
+--
+-- Experimental options do not enter into "Full Classic experience" at all.
+-- They used to: switching one on dropped the preset to Custom, and picking
+-- Full Classic switched it back off. Both are confusing, and the second is
+-- worse -- a preset undoing a deliberate choice the player had made. The
+-- experiments are not part of the Classic experience, so having one on does
+-- not stop the rest of the settings being it.
+--
+-- "Disabled" is different, and does count them: it means nothing is on.
 local function derivedPreset()
 	if not ns.db then return "custom" end
-	local allOff, allOn = true, true
+	local allOff, allNormalOn = true, true
 	for i = 1, #ns.modules do
 		local m = ns.modules[i]
 		local on
@@ -242,12 +251,10 @@ local function derivedPreset()
 			on = ns.db.settings[m.key] and true or false
 		end
 		if on then allOff = false end
-		if not m.experimental and not on then allOn = false end
-		-- An experimental option being on is never "Full Classic".
-		if m.experimental and on then allOn = false end
+		if not m.experimental and not on then allNormalOn = false end
 	end
 	if allOff then return "disabled" end
-	if allOn then return "classic" end
+	if allNormalOn then return "classic" end
 	return "custom"
 end
 
@@ -278,9 +285,11 @@ function applyPreset(which)
 	if which ~= "custom" then
 		for i = 1, #ns.modules do
 			local m = ns.modules[i]
-			local want = (which == "classic") and not m.experimental or false
-			if m.needsApply and (ns.db.settings[m.key] and true or false) ~= want then
-				touchesMap = true
+			if not (which == "classic" and m.experimental) then
+				local want = (which == "classic")
+				if m.needsApply and (ns.db.settings[m.key] and true or false) ~= want then
+					touchesMap = true
+				end
 			end
 		end
 	end
@@ -290,15 +299,19 @@ function applyPreset(which)
 	if which ~= "custom" then
 		for i = 1, #ns.modules do
 			local m = ns.modules[i]
-			local want = (which == "classic") and not m.experimental or false
-			-- Native mode writes THROUGH the control, not around it. Writing
-			-- ns.db.settings directly left Blizzard unaware that anything had
-			-- changed, so a preset that moved a reload-needing option never
-			-- lit the Apply button.
-			if ns.SetNativeValue then
-				ns.SetNativeValue(m.key, want)
-			else
-				ns.db.settings[m.key] = want
+			-- Full Classic leaves the experiments exactly as the player set
+			-- them. Disabled means nothing is on, so it takes everything.
+			if not (which == "classic" and m.experimental) then
+				local want = (which == "classic")
+				-- Native mode writes THROUGH the control, not around it.
+				-- Writing ns.db.settings directly left Blizzard unaware that
+				-- anything had changed, so a preset that moved a
+				-- reload-needing option never lit the Apply button.
+				if ns.SetNativeValue then
+					ns.SetNativeValue(m.key, want)
+				else
+					ns.db.settings[m.key] = want
+				end
 			end
 		end
 	end
@@ -699,7 +712,7 @@ local function tooltipFor(m)
 		tip = tip .. "|n|n" .. ORANGE .. m.limitation .. "|r"
 	end
 	if m.experimental then
-		tip = tip .. "|n|n" .. ORANGE .. "Experimental: turned off by the Full Classic experience preset. Switch it on by hand." .. "|r"
+		tip = tip .. "|n|n" .. ORANGE .. "Experimental: not part of the Full Classic experience, which leaves it exactly as you set it. Switch it on by hand." .. "|r"
 	end
 	return tip .. "|n|n" .. GREY .. "/" .. m.key .. "|r"
 end
@@ -711,9 +724,9 @@ local function presetTooltip()
 		return WHITE .. PRESET_LABEL[headingKey] .. ":|r " .. YELLOW .. body .. "|r"
 	end
 	return "|n"
-		.. row("classic", "Every option on, except experimental ones.") .. "|n|n"
+		.. row("classic", "Every normal option on. Experimental ones are left exactly as you set them.") .. "|n|n"
 		.. row("custom", "Your own mix. It cannot be selected; it is chosen automatically as soon as you change any option below.") .. "|n|n"
-		.. row("disabled", "Every option off, the game as Blizzard ships it.") .. "|n|n"
+		.. row("disabled", "Every option off, experimental ones included: the game as Blizzard ships it.") .. "|n|n"
 		.. GREY .. "/cq on, /cq off" .. "|r"
 end
 
