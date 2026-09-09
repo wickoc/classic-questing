@@ -699,7 +699,7 @@ local function tooltipFor(m)
 		tip = tip .. "|n|n" .. ORANGE .. m.limitation .. "|r"
 	end
 	if m.experimental then
-		tip = tip .. "|n|n" .. ORANGE .. "Experimental: not enabled by the Full Classic preset." .. "|r"
+		tip = tip .. "|n|n" .. ORANGE .. "Experimental: disabled by the Full Classic experience preset." .. "|r"
 	end
 	return tip .. "|n|n" .. GREY .. "/" .. m.key .. "|r"
 end
@@ -769,12 +769,45 @@ local function rebuildStillNeeded()
 	return false
 end
 
--- Apply NEVER asks. v0.12.1 raised a confirmation on commit, which was wrong
--- twice over: pressing Apply IS the confirmation, and Blizzard already asks
--- its own question on Cancel. Two dialogs for one decision.
+-- Apply NEVER asks. Pressing Apply IS the confirmation, and Blizzard already
+-- asks its own question on Cancel; a dialog on top of that is two questions
+-- for one decision.
 local function doRebuild()
 	rebuildPending = false
 	if type(ReloadUI) == "function" then ReloadUI() end
+end
+
+-- CLOSING is the other case, and it does ask.
+--
+-- Blizzard cannot ask here and never could: the Apply button in this case is
+-- lit by the AddOn, so HasUnappliedSettings() is false as far as Blizzard is
+-- concerned and its own Close confirmation has nothing to fire on. I argued
+-- from that that no question was needed, since Defaults has already written
+-- the settings and only the redraw is outstanding. That was my reasoning, not
+-- the player's: a reload is not a small thing to have happen unannounced, and
+-- being asked is what was wanted. So this is the question Blizzard would have
+-- asked if it could see what was pending.
+local function askToRebuild()
+	-- Cleared first, so dismissing the dialog cannot leave it to re-ask on the
+	-- next close.
+	rebuildPending = false
+
+	if type(StaticPopupDialogs) ~= "table" or type(StaticPopup_Show) ~= "function" then
+		if type(ReloadUI) == "function" then ReloadUI() end
+		return
+	end
+	StaticPopupDialogs["CLASSICQUESTING_REBUILD"] = {
+		text = "Some " .. ns.title .. " settings need the UI to reload before they take effect.",
+		button1 = "Reload now",
+		button2 = "Later",
+		-- "Later" is a real answer, not a cancel: the settings are already
+		-- saved either way, and the world map is correct the next time it
+		-- opens. Only the redraw waits.
+		OnAccept = function() if type(ReloadUI) == "function" then ReloadUI() end end,
+		timeout = 0, whileDead = true, hideOnEscape = true,
+		preferredIndex = 3,
+	}
+	pcall(StaticPopup_Show, "CLASSICQUESTING_REBUILD")
 end
 
 -- Light Blizzard's Apply button ourselves. Used when a change arrives by a
@@ -1090,21 +1123,17 @@ local function registerNative()
 		end)
 		-- Closing the panel ends the visit, whichever button did it.
 		--
-		-- A rebuild held over from Defaults is FINISHED here rather than
-		-- dropped. Nothing is being discarded by doing so: Defaults has
-		-- already written and applied those settings, and the only thing left
-		-- is the redraw -- so Close and Apply have the same work to do, and
-		-- Blizzard has no reason to ask a question about it. It cannot ask
-		-- one anyway: the Apply button in this case was lit by the AddOn, and
-		-- HasUnappliedSettings() is false as far as Blizzard is concerned,
-		-- which is exactly why no confirmation appeared.
+		-- A rebuild held over from Defaults is asked about here rather than
+		-- happening unannounced. Pressing Apply has already cleared the flag
+		-- by this point, so this only fires for a close that left one
+		-- outstanding.
 		--
-		-- A change PARKED for Apply is a different thing and is not affected:
+		-- A change PARKED for Apply is a different path and is not affected:
 		-- Blizzard reverts it on Exit and asks its own question, and
-		-- rebuildPending is never set for that path.
+		-- rebuildPending is never set for it.
 		pcall(SettingsPanel.HookScript, SettingsPanel, "OnHide", function()
 			wipe(rebuildBaseline)
-			if rebuildPending then doRebuild() end
+			if rebuildPending then askToRebuild() end
 		end)
 	end
 

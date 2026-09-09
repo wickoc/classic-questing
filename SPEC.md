@@ -780,15 +780,22 @@ the control's own list, not its tooltip.
 
 The slash handle is gone from these; on someone else's tooltip it read as clutter. Name only.
 
-### Close after Defaults, resolved
+### Close after Defaults — the AddOn asks, because Blizzard cannot
 
-Blizzard could not show a confirmation, and it was never going to: the Apply button in that case
-is lit **by this AddOn**, and `HasUnappliedSettings()` is false as far as Blizzard is concerned,
-so there is nothing for it to ask about.
+Blizzard was never going to show a confirmation here. The Apply button in this case is lit **by
+this AddOn**, so `HasUnappliedSettings()` is false as far as Blizzard is concerned and its own
+Close confirmation has nothing to fire on.
 
-So closing now **finishes** the held rebuild instead of dropping it. Nothing is discarded by
-doing so — Defaults has already written and applied those settings, and the only outstanding work
-is the redraw. Close and Apply therefore have the same job, and neither needs a question.
+From that I argued no question was needed: Defaults has already written and applied the settings,
+so only the redraw is outstanding and nothing would be discarded. **That was my reasoning, not the
+player's, and it was wrong on the point that matters** — a UI reload is not a small thing to have
+happen unannounced. v0.14.2 raises the question Blizzard would have asked if it could see what
+was pending: *Reload now* or *Later*, with Later leaving the settings saved and the map correct
+the next time it opens.
+
+**Apply still never asks.** Pressing Apply is the answer; a dialog on top of it would be two
+questions for one decision. The rule is: *Apply is a decision already made, Close is one still
+open.*
 
 A change **parked** for Apply is a different path and is unaffected: Blizzard reverts it on Exit
 and asks its own question, and `rebuildPending` is never set for it.
