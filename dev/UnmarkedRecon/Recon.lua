@@ -10,8 +10,11 @@
 -- After running it, type /reload to flush SavedVariables to disk, then read:
 --   _classic_\WTF\Account\<ACCOUNT>\SavedVariables\UnmarkedRecon.lua
 --
--- v0.3 targets the five gaps left open by the v0.2 run (see SPEC.md "What the log does
--- not settle"). Sections are tagged [G1]..[G5] so the output maps back to the spec.
+-- Sections are tagged [G1]..[G15] so the output maps back to SPEC.md.
+--
+-- v0.15 stops printing the settled sections. See the ACTIVE table below: every
+-- section is still here in full, but only the open questions run, so a report
+-- is a few hundred lines instead of 85KB. Flip a flag to bring one back.
 --
 -- Design rule for this probe: discover, don't guess. Where v0.2 asked "does the name I
 -- expect exist?", v0.3 enumerates what is actually there -- method tables, provider
@@ -28,6 +31,37 @@ local RECON_VERSION = (function()
 end)()
 
 UnmarkedReconDB = UnmarkedReconDB or {}
+
+-- ---------------------------------------------------------------------
+-- Which sections print.
+--
+-- The report had grown to 85KB, and most of it was ground already settled and
+-- written into SPEC.md. Nothing is deleted -- every section below still exists
+-- in full and is one "false -> true" away from running again -- but a run now
+-- prints only what is still an open question. Flip a flag back on when a
+-- settled answer needs re-checking against a new client build.
+local ACTIVE = {
+	baseline = false, -- the v0.2 existence roll-call
+	g1  = false, -- minimap surface
+	g2  = false, -- minimap tracking API
+	g3  = false, -- world map data providers
+	g4  = false, -- Settings API surface
+	g5  = false, -- quest CVar detail
+	g6  = false, -- CVar discovery / tracking entry fields
+	g7  = false, -- map clutter
+	g8  = false, -- settings registry (the 460-line one)
+	g9  = false, -- questgiver blips        (tabled: waiting on an edited texture)
+	g10 = false, -- blip atlas              (closed: cell identity does not matter)
+	g11 = false, -- outline and sparkles    (closed: client rendering fault)
+	g12 = false, -- quest progress tooltip  (matching rule settled)
+	g13 = false, -- Blizzard selector frame surface
+
+	-- Still open.
+	g13c = true, -- WHICH RegisterAddOnSetting signature is real
+	g14  = true, -- WatchFrame surface
+	g15  = true, -- WatchFrame internals: tracker lines, item buttons, popups
+}
+
 
 local lines = {}
 
@@ -1111,6 +1145,302 @@ end
 
 ---------------------------------------------------------------------
 
+-- [G13c] v0.14 asked "which signature is accepted?" and got the useless answer
+-- "all five". RegisterAddOnSetting does not validate its arguments, so a call
+-- with the wrong order still builds a setting -- just a scrambled one.
+--
+-- So stop asking whether the call is accepted and ask where each argument
+-- LANDED. Every shape is passed sentinel strings, then read back through
+-- GetName / GetVariable / GetVariableType / GetDefaultValue. The shape whose
+-- sentinels all come back in the right slots is the real signature; the rest
+-- will show the name in the variable slot, or a nil type, or a lost default.
+--
+-- NOTE: this registers real settings, so a stray "Unmarked Recon Probe"
+-- category may sit in Blizzard's options until you /reload.
+local function sectionSettingReadback()
+	head("[G13c] RegisterAddOnSetting -- where does each argument land?")
+
+	if type(Settings) ~= "table" or type(Settings.RegisterAddOnSetting) ~= "function" then
+		add("   Settings.RegisterAddOnSetting missing; nothing to try.")
+		return
+	end
+
+	local category
+	if type(Settings.RegisterVerticalLayoutCategory) == "function" then
+		local ok, cat = pcall(Settings.RegisterVerticalLayoutCategory, "Unmarked Recon Probe")
+		if ok then category = cat end
+	end
+	mark(category ~= nil, "test category created")
+	add("")
+
+	UnmarkedReconProbeVars = UnmarkedReconProbeVars or {}
+	local tbl = UnmarkedReconProbeVars
+	local vtype = (Settings.VarType and Settings.VarType.Boolean) or "boolean"
+
+	-- Sentinels are distinct per shape so a value cannot be matched by luck,
+	-- and the default is true while the backing table starts empty -- if
+	-- GetValue comes back true, the default slot was genuinely read.
+	local shapes = {
+		{ "(category, variable, varTbl, varType, name, default)",
+		  "VARa", "NAMEa",
+		  function() return Settings.RegisterAddOnSetting(category, "VARa", tbl, vtype, "NAMEa", true) end },
+
+		{ "(category, variable, varKey, varTbl, varType, name, default)",
+		  "VARb", "NAMEb",
+		  function() return Settings.RegisterAddOnSetting(category, "VARb", "VARb", tbl, vtype, "NAMEb", true) end },
+
+		{ "(category, name, variable, varTbl, varType, default)",
+		  "VARc", "NAMEc",
+		  function() return Settings.RegisterAddOnSetting(category, "NAMEc", "VARc", tbl, vtype, true) end },
+
+		{ "(category, variable, name, varTbl, varType, default)",
+		  "VARd", "NAMEd",
+		  function() return Settings.RegisterAddOnSetting(category, "VARd", "NAMEd", tbl, vtype, true) end },
+
+		{ "(variable, name, varTbl, varType, default)",
+		  "VARe", "NAMEe",
+		  function() return Settings.RegisterAddOnSetting("VARe", "NAMEe", tbl, vtype, true) end },
+
+		{ "(category, varTbl, varType, variable, name, default)",
+		  "VARf", "NAMEf",
+		  function() return Settings.RegisterAddOnSetting(category, tbl, vtype, "VARf", "NAMEf", true) end },
+	}
+
+	local function readback(obj, method)
+		if type(obj[method]) ~= "function" then return "<no " .. method .. ">" end
+		local ok, v = pcall(obj[method], obj)
+		if not ok then return "<error>" end
+		return tostring(v)
+	end
+
+	local best, bestScore = nil, -1
+	for i = 1, #shapes do
+		local desc, wantVar, wantName, call = shapes[i][1], shapes[i][2], shapes[i][3], shapes[i][4]
+		local ok, res = pcall(call)
+		if not ok then
+			add("   --   " .. desc)
+			add("           rejected: " .. tostring(res):sub(1, 100))
+		elseif type(res) ~= "table" then
+			add("   --   " .. desc .. "  -> returned " .. type(res))
+		else
+			local gotName = readback(res, "GetName")
+			local gotVar  = readback(res, "GetVariable")
+			local gotType = readback(res, "GetVariableType")
+			local gotDef  = readback(res, "GetDefaultValue")
+			local gotVal  = readback(res, "GetValue")
+
+			local score = 0
+			if gotName == wantName then score = score + 1 end
+			if gotVar  == wantVar  then score = score + 1 end
+			if gotType == "boolean" then score = score + 1 end
+			if gotDef  == "true"   then score = score + 1 end
+
+			add("   " .. (score == 4 and ">>>>" or "    ") .. "  " .. desc)
+			add("           GetName        = " .. gotName .. (gotName == wantName and "   <- correct" or "   (wanted " .. wantName .. ")"))
+			add("           GetVariable    = " .. gotVar  .. (gotVar  == wantVar  and "   <- correct" or "   (wanted " .. wantVar .. ")"))
+			add("           GetVariableType= " .. gotType .. (gotType == "boolean" and "   <- correct" or "   (wanted boolean)"))
+			add("           GetDefaultValue= " .. gotDef  .. (gotDef  == "true"    and "   <- correct" or "   (wanted true)"))
+			add("           GetValue       = " .. gotVal)
+			add("           score " .. score .. "/4")
+
+			if score > bestScore then best, bestScore = res, score end
+		end
+		add("")
+	end
+
+	if bestScore == 4 then
+		add("   VERDICT: a shape scored 4/4 -- that is the real signature.")
+	elseif best then
+		add("   VERDICT: no shape scored 4/4 (best was " .. bestScore .. "/4).")
+		add("   Read the slots above: whichever field holds NAME* tells you where")
+		add("   the name argument really goes.")
+	else
+		add("   VERDICT: nothing registered. This route is closed.")
+	end
+
+	-- Second half: does a setting object actually drive Blizzard's controls?
+	-- Getting the signature right is worthless if CreateDropdown then refuses.
+	add("")
+	add("   Can the winning setting drive Blizzard's own controls?")
+	if best then
+		if type(Settings.CreateCheckbox) == "function" then
+			local okc, errc = pcall(Settings.CreateCheckbox, category, best, "probe tooltip")
+			mark(okc, "Settings.CreateCheckbox(category, setting, tooltip)")
+			if not okc then add("           " .. tostring(errc):sub(1, 100)) end
+		end
+
+		if type(Settings.CreateControlTextContainer) == "function" and type(Settings.CreateDropdown) == "function" then
+			local okg, container = pcall(Settings.CreateControlTextContainer)
+			mark(okg, "Settings.CreateControlTextContainer()")
+			if okg and type(container) == "table" then
+				dumpTable(container, "   container", 20)
+				local oka = pcall(function() container:Add(true, "Yes") container:Add(false, "No") end)
+				mark(oka, "container:Add(value, label)")
+				local okd, errd = pcall(Settings.CreateDropdown, category, best,
+					function() return container:GetData() end, "probe tooltip")
+				mark(okd, "Settings.CreateDropdown(category, setting, getOptions, tooltip)")
+				if not okd then add("           " .. tostring(errd):sub(1, 120)) end
+			end
+		end
+	else
+		add("   (skipped -- no setting object to test with)")
+	end
+
+	add("")
+	add("   Other registration routes, in case the above stays scrambled:")
+	for _, n in ipairs({
+		"RegisterProxySetting", "RegisterAddOnSetting", "SetOnValueChangedCallback",
+		"CreateSettingInitializer", "CreateElementInitializer", "RegisterInitializer",
+	}) do probeMethod(Settings, "Settings", n) end
+end
+
+-- [G15] Tier 2 internals. v0.14 established the outside of the tracker:
+-- WatchFrame is unprotected, has three children, and is driven by a family of
+-- WatchFrame_* and WatchFrameAutoQuest_* globals. What it did not show is what
+-- a tracked quest looks like from the inside -- and that is exactly what
+-- "strip it to Classic form" needs.
+--
+-- READ THIS BEFORE RUNNING: this section is only worth anything with at least
+-- one quest TRACKED and, ideally, a quest with an item button (a quest that
+-- gives you a usable item). With an empty tracker it will honestly report
+-- nothing, which is a wasted run rather than a wrong answer.
+local function sectionTrackerInternals()
+	head("[G15] Tier 2 internals -- tracker lines, item buttons, popups")
+
+	if not WatchFrame then
+		add("   WatchFrame missing; nothing to inspect.")
+		return
+	end
+
+	local tracked = 0
+	if type(GetNumQuestWatches) == "function" then
+		local ok, n = pcall(GetNumQuestWatches)
+		if ok then tracked = n or 0 end
+	end
+	add("   Quests currently tracked: " .. tracked)
+	if tracked == 0 then
+		add("   *** Track at least one quest and run this again, or the rest of")
+		add("   *** this section has nothing to describe.")
+	end
+	add("")
+
+	-- The visible line pool. Classic form is "quest name, then objective
+	-- counts" and nothing else, so what matters is which of these are text
+	-- and which are clickable.
+	dumpChildren(WatchFrameLines, "WatchFrameLines")
+	add("")
+	dumpRegions(WatchFrameLines, "WatchFrameLines")
+	add("")
+
+	-- WATCHFRAME_QUESTLINES is an array, so dumpTable's string-key view is
+	-- blind to it. Walk it by index instead and read the text out.
+	local function dumpArray(t, name, cap)
+		if type(t) ~= "table" then
+			add("   " .. name .. " is not a table (" .. type(t) .. ").")
+			return
+		end
+		local n = #t
+		add("   " .. name .. ": " .. n .. " entr" .. (n == 1 and "y" or "ies"))
+		for i = 1, math.min(n, cap or 20) do
+			local e = t[i]
+			local desc = type(e)
+			if type(e) == "table" then
+				local nm, txt, otype
+				pcall(function() nm = e.GetName and e:GetName() end)
+				pcall(function() otype = e.GetObjectType and e:GetObjectType() end)
+				pcall(function() txt = e.GetText and e:GetText() end)
+				desc = (nm or "<unnamed>") .. "  [" .. tostring(otype) .. "]"
+				if txt then desc = desc .. "  text=\"" .. tostring(txt) .. "\"" end
+				local hasClick
+				pcall(function() hasClick = e.GetScript and e:GetScript("OnClick") ~= nil end)
+				if hasClick then desc = desc .. "  HAS OnClick" end
+			end
+			add(string.format("      %2d  %s", i, desc))
+		end
+		if n > (cap or 20) then add("      ... and " .. (n - (cap or 20)) .. " more") end
+	end
+
+	dumpArray(WATCHFRAME_QUESTLINES, "WATCHFRAME_QUESTLINES", 25)
+	add("")
+	dumpArray(WATCHFRAME_LINKBUTTONS, "WATCHFRAME_LINKBUTTONS", 25)
+	add("")
+
+	-- Quest item buttons: Classic had none, so these are a removal target.
+	add("   Quest item buttons:")
+	local foundItem = false
+	for i = 1, 8 do
+		local f = _G["WatchFrameItem" .. i]
+		if f then
+			foundItem = true
+			local shown, parent = "?", "?"
+			pcall(function() shown = f:IsShown() and "shown" or "hidden" end)
+			pcall(function() local p = f:GetParent() parent = (p and p:GetName()) or "<unnamed>" end)
+			add(string.format("      WatchFrameItem%d  %s  parent=%s", i, shown, parent))
+		end
+	end
+	if not foundItem then add("      none exist under that name.") end
+	add("")
+
+	-- Sorting. trackQuestSorting is a real CVar on this client (v0.14 read it
+	-- as "top"), and these constants are what the tracker compares it against.
+	add("   Sorting and filtering constants:")
+	for _, n in ipairs({
+		"WATCHFRAME_SORT_TYPE", "WATCHFRAME_SORT_MANUAL",
+		"WATCHFRAME_SORT_DIFFICULTY_HIGH", "WATCHFRAME_SORT_DIFFICULTY_LOW",
+		"WATCHFRAME_FILTER_TYPE", "WATCHFRAME_FILTER_NONE",
+		"WATCHFRAME_FILTER_COMPLETED_QUESTS", "WATCHFRAME_FILTER_REMOTE_ZONES",
+		"WATCHFRAME_FILTER_ACHIEVEMENTS", "WATCHFRAME_MAXQUESTS",
+		"WATCHFRAME_NUM_ITEMS", "WATCHFRAME_NUM_POPUPS", "WATCHFRAME_ITEM_WIDTH",
+		"WATCHFRAME_QUEST_OFFSET", "WATCHFRAME_TYPE_OFFSET", "WATCHFRAME_LINEHEIGHT",
+	}) do
+		local v = _G[n]
+		if v == nil then
+			add("   --   " .. n)
+		else
+			add("   OK   " .. n .. " = " .. tostring(v) .. "  [" .. type(v) .. "]")
+		end
+	end
+	probeCVar("trackQuestSorting")
+	add("")
+
+	-- The turn-in pop-up. v0.14 found the whole WatchFrameAutoQuest_* family;
+	-- what is still unknown is the shape of the data behind it, which decides
+	-- whether the pop-up can be removed at the source rather than hidden after
+	-- the fact. Reads only -- nothing here removes a live pop-up.
+	add("   Auto-quest turn-in pop-ups:")
+	if type(GetNumAutoQuestPopUps) == "function" then
+		local ok, n = pcall(GetNumAutoQuestPopUps)
+		add("      GetNumAutoQuestPopUps() -> " .. (ok and tostring(n) or "error"))
+		if ok and (n or 0) > 0 and type(GetAutoQuestPopUp) == "function" then
+			local okp, a, b, c, d = pcall(GetAutoQuestPopUp, 1)
+			if okp then
+				add("      GetAutoQuestPopUp(1) -> " .. tostring(a) .. ", " .. tostring(b) ..
+					", " .. tostring(c) .. ", " .. tostring(d))
+				add("      (first return is most likely the questID that")
+				add("       RemoveAutoQuestPopUp would take)")
+			else
+				add("      GetAutoQuestPopUp(1) errored: " .. tostring(a):sub(1, 80))
+			end
+		elseif ok then
+			add("      No pop-up live right now. Accept a quest that auto-completes,")
+			add("      or finish one, then run this again to catch the data shape.")
+		end
+	else
+		add("      GetNumAutoQuestPopUps missing.")
+	end
+	for _, n in ipairs({
+		"AddAutoQuestPopUp", "GetAutoQuestPopUp", "RemoveAutoQuestPopUp",
+		"WatchFrameAutoQuest_DisplayAutoQuestPopUps", "WatchFrameAutoQuest_SlideIn",
+		"WatchFrameAutoQuest_GetOrCreateFrame", "WatchFrameAutoQuest_ClearPopUp",
+		"WatchFrameAutoQuest_ClearPopUpByLogIndex", "WatchFrameAutoQuest_OnUpdate",
+	}) do probe(n) end
+	add("")
+
+	-- v0.14 cut this list at 60 of 150. The remaining 90 are where the line
+	-- templates and item-button plumbing will be named.
+	listGlobals("Globals containing 'watchframe'", "watchframe", 200)
+end
+
 local function collect()
 	wipe(lines)
 
@@ -1119,80 +1449,85 @@ local function collect()
 	add("Client " .. tostring(version) .. " build " .. tostring(build) .. ", interface number " .. tostring(tocnum))
 
 	-- ---- v0.2 sections, kept so each run is a self-contained record ----
+	if ACTIVE.baseline then
 
-	head("Objective tracker (on-screen)")
-	for _, n in ipairs({
-		"WatchFrame", "WatchFrame_Update", "WatchFrame_Collapse",
-		"ObjectiveTrackerFrame", "ObjectiveTracker_Update",
-		"QuestWatchFrame", "AutoQuestPopUpTracker", "ObjectiveTrackerBlocksFrame",
-	}) do probe(n) end
+		head("Objective tracker (on-screen)")
+		for _, n in ipairs({
+			"WatchFrame", "WatchFrame_Update", "WatchFrame_Collapse",
+			"ObjectiveTrackerFrame", "ObjectiveTracker_Update",
+			"QuestWatchFrame", "AutoQuestPopUpTracker", "ObjectiveTrackerBlocksFrame",
+		}) do probe(n) end
 
-	head("World map")
-	for _, n in ipairs({
-		"WorldMapFrame", "WorldMapBlobFrame", "WorldMapPOIFrame",
-		"WorldMapQuestShowObjectives", "WorldMapShowDropDown",
-		"QuestMapFrame", "QuestScrollFrame", "QuestMapFrame_UpdateAll",
-		"QuestMapFrame_ShowQuestDetails", "WorldMapTooltip",
-	}) do probe(n) end
+		head("World map")
+		for _, n in ipairs({
+			"WorldMapFrame", "WorldMapBlobFrame", "WorldMapPOIFrame",
+			"WorldMapQuestShowObjectives", "WorldMapShowDropDown",
+			"QuestMapFrame", "QuestScrollFrame", "QuestMapFrame_UpdateAll",
+			"QuestMapFrame_ShowQuestDetails", "WorldMapTooltip",
+		}) do probe(n) end
 
-	head("Map style: old frame or modern canvas?")
-	if WorldMapFrame and WorldMapFrame.RemoveDataProvider then
-		add("MODERN CANVAS - WorldMapFrame:RemoveDataProvider exists.")
-		local n = 0
-		for _ in pairs(WorldMapFrame.dataProviders or {}) do n = n + 1 end
-		add("Registered data providers: " .. n)
-	else
-		add("OLD-STYLE MAP - no RemoveDataProvider. Hide WorldMapBlobFrame / WorldMapPOIFrame directly.")
-	end
+		head("Map style: old frame or modern canvas?")
+		if WorldMapFrame and WorldMapFrame.RemoveDataProvider then
+			add("MODERN CANVAS - WorldMapFrame:RemoveDataProvider exists.")
+			local n = 0
+			for _ in pairs(WorldMapFrame.dataProviders or {}) do n = n + 1 end
+			add("Registered data providers: " .. n)
+		else
+			add("OLD-STYLE MAP - no RemoveDataProvider. Hide WorldMapBlobFrame / WorldMapPOIFrame directly.")
+		end
 
-	head("Quest POI system")
-	for _, n in ipairs({
-		"QuestPOIGetIconInfo", "QuestPOI_DisplayButton", "QuestPOI_GetButton",
-		"QuestPOIUpdateIcons", "GetQuestPOILeaderboardInfo",
-		"SetSuperTrackedQuestID", "GetSuperTrackedQuestID", "C_SuperTrack",
-	}) do probe(n) end
+		head("Quest POI system")
+		for _, n in ipairs({
+			"QuestPOIGetIconInfo", "QuestPOI_DisplayButton", "QuestPOI_GetButton",
+			"QuestPOIUpdateIcons", "GetQuestPOILeaderboardInfo",
+			"SetSuperTrackedQuestID", "GetSuperTrackedQuestID", "C_SuperTrack",
+		}) do probe(n) end
 
-	head("Minimap blob methods")
-	for _, m in ipairs({
-		"SetQuestBlobRingAlpha", "SetQuestBlobInsideAlpha", "SetQuestBlobRingScalar",
-		"SetQuestBlobInsideTexture", "SetArchBlobRingAlpha", "SetArchBlobInsideAlpha",
-	}) do probeMethod(Minimap, "Minimap", m) end
+		head("Minimap blob methods")
+		for _, m in ipairs({
+			"SetQuestBlobRingAlpha", "SetQuestBlobInsideAlpha", "SetQuestBlobRingScalar",
+			"SetQuestBlobInsideTexture", "SetArchBlobRingAlpha", "SetArchBlobInsideAlpha",
+		}) do probeMethod(Minimap, "Minimap", m) end
 
-	head("Relevant CVars")
-	for _, c in ipairs({
-		"questPOI", "autoQuestWatch", "autoQuestProgress", "mapQuestDifficulty",
-		"showQuestTrackingTooltips", "trackQuestSorting", "minimapTrackingShowAll",
-		"questHelper", "worldMapFilterAccountCompletedQuests",
-	}) do probeCVar(c) end
+		head("Relevant CVars")
+		for _, c in ipairs({
+			"questPOI", "autoQuestWatch", "autoQuestProgress", "mapQuestDifficulty",
+			"showQuestTrackingTooltips", "trackQuestSorting", "minimapTrackingShowAll",
+			"questHelper", "worldMapFilterAccountCompletedQuests",
+		}) do probeCVar(c) end
 
-	head("Options panel API")
-	for _, n in ipairs({ "Settings", "InterfaceOptions_AddCategory", "InterfaceOptionsFramePanelContainer" }) do
-		probe(n)
-	end
-	if Settings and Settings.RegisterCanvasLayoutCategory then
-		add("Modern Settings API available - use Settings.RegisterCanvasLayoutCategory.")
-	else
-		add("Legacy panel - use InterfaceOptions_AddCategory.")
+		head("Options panel API")
+		for _, n in ipairs({ "Settings", "InterfaceOptions_AddCategory", "InterfaceOptionsFramePanelContainer" }) do
+			probe(n)
+		end
+		if Settings and Settings.RegisterCanvasLayoutCategory then
+			add("Modern Settings API available - use Settings.RegisterCanvasLayoutCategory.")
+		else
+			add("Legacy panel - use InterfaceOptions_AddCategory.")
+		end
 	end
 
 	-- ---- v0.3 gap sections ----
 
-	sectionMinimapSurface()
-	sectionTracking()
-	sectionDataProviders()
-	sectionSettings()
-	sectionCVarDetail()
-	sectionCVarDiscovery()
-	sectionTrackingDetail()
-	sectionMapClutter()
-	sectionSettingsRegistry()
-	sectionBlips()
-	sectionBlipAtlas()
-	sectionOutline()
-	sectionQuestTooltip()
-	sectionSelector()
-	sectionSettingSignature()
-	sectionTracker()
+	if ACTIVE.g1  then sectionMinimapSurface()  end
+	if ACTIVE.g2  then sectionTracking()        end
+	if ACTIVE.g3  then sectionDataProviders()   end
+	if ACTIVE.g4  then sectionSettings()        end
+	if ACTIVE.g5  then sectionCVarDetail()      end
+	if ACTIVE.g6  then sectionCVarDiscovery()   end
+	if ACTIVE.g6  then sectionTrackingDetail()  end
+	if ACTIVE.g7  then sectionMapClutter()      end
+	if ACTIVE.g8  then sectionSettingsRegistry() end
+	if ACTIVE.g9  then sectionBlips()           end
+	if ACTIVE.g10 then sectionBlipAtlas()       end
+	if ACTIVE.g11 then sectionOutline()         end
+	if ACTIVE.g12 then sectionQuestTooltip()    end
+	if ACTIVE.g13 then sectionSelector()        end
+	if ACTIVE.g13 then sectionSettingSignature() end
+
+	if ACTIVE.g13c then sectionSettingReadback() end
+	if ACTIVE.g14  then sectionTracker()         end
+	if ACTIVE.g15  then sectionTrackerInternals() end
 
 	-- Any full method dumps collected via "/unrecon methods <global>" get
 	-- folded in here so they travel inside the readable report rather than

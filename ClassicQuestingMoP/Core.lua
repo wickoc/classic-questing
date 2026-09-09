@@ -204,30 +204,9 @@ end
 -- or not the Options module loaded.
 function ns.MarkCustomPreset() end
 
--- The panel asks with a dialog because a click gives no other chance to say
--- so. A typed command answers in text instead: a modal popping over the game
--- from a deliberate command is heavier than the situation needs.
-function ns:SnapshotSettings()
-	if not ns.db then return {} end
-	local snap = {}
-	for k, v in pairs(ns.db.settings) do snap[k] = v end
-	return snap
-end
-
-function ns:NoticeIfReloadNeeded(before)
-	if not ns.db then return end
-	for i = 1, #ns.modules do
-		local m = ns.modules[i]
-		if m.needsApply then
-			local was = before[m.key] and true or false
-			local now = ns.db.settings[m.key] and true or false
-			if was ~= now then
-				ns:Print("That needs a UI reload to take effect. Type |cffffd100/reload|r when ready.")
-				return
-			end
-		end
-	end
-end
+-- No reload notice here. Tested in game: after a slash toggle the next time
+-- the world map opens it is already correct, so telling the player to /reload
+-- would be advice for a problem they do not have.
 
 -- silent: the options panel resets in place and the player can see the result,
 -- so it does not need a chat line.
@@ -307,11 +286,8 @@ SlashCmdList["CLASSICQUESTINGMOP"] = function(msg)
 	cmd = cmd:lower()
 	local arg = msg:match("^%s*%S*%s+(%S+)") or ""
 
-	local before = ns:SnapshotSettings()
-
 	if cmd == "reset" then
 		ns:ResetDefaults()
-		ns:NoticeIfReloadNeeded(before)
 
 	elseif cmd == "on" or cmd == "off" then
 		local want = (cmd == "on")
@@ -330,7 +306,6 @@ SlashCmdList["CLASSICQUESTINGMOP"] = function(msg)
 			ns:ApplyAll()
 			ns:Print("All features turned " .. cmd ..
 				(want and " (experimental ones left alone; turn those on by name)." or "."))
-			ns:NoticeIfReloadNeeded(before)
 		else
 			local key = resolveSetting(arg)
 			if key then
@@ -342,7 +317,6 @@ SlashCmdList["CLASSICQUESTINGMOP"] = function(msg)
 				local effect = m and (want and m.onText or m.offText)
 				ns:Print("|cffffd100" .. key .. "|r " .. cmd ..
 					(effect and (" -- " .. effect .. ".") or "."))
-				ns:NoticeIfReloadNeeded(before)
 			else
 				ns:Print("Unknown setting '" .. arg .. "'. Try /cq for the list.")
 			end

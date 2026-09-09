@@ -63,17 +63,18 @@ Default **on**.
 
 ### Tier 2 — objective tracker
 
-**Status: NOT BUILT.** Of the five bullets below, only `autoQuestWatch` shipped. The
-`WatchFrame` work — hiding the tracker, stripping it to Classic form, suppressing the turn-in
-pop-ups — has never been written. `Tracker.lua` does not exist.
+**Status: NOT BUILT.** Of the bullets below, only `autoQuestWatch` shipped. `Tracker.lua` does
+not exist.
 
-Default **off**. The on-screen tracker that lists your active quests.
-
-Options, each independently toggleable:
-
-- Hide the tracker entirely
-- Strip it to Classic form: quest name and objective counts only — no click-to-track,
-  no quest item use buttons, no auto-sort by distance to objective
+- **~~Hide the tracker entirely~~ — DROPPED.** Raised by me, rejected by the player, and the
+  player is right: Classic *has* a tracker. You shift-click a quest in the log and it appears.
+  Hiding it removes a Classic feature rather than a MoP one, which is the opposite of this
+  addon's job. It is also **redundant** — with `autoQuestWatch` off and nothing tracked by hand,
+  the frame is already empty and invisible. Not building it.
+- **Strip it to Classic form:** quest name and objective counts only — no click-to-track, no
+  quest item use buttons, no auto-sort by distance to objective. **Required for the Classic
+  feel.** Blocked on recon: v0.14 established the outside of `WatchFrame` (see G14) but not what
+  a tracked quest looks like from the inside. Probe v0.15 [G15] gets that.
 - **Disable auto-tracking of newly accepted quests (`autoQuestWatch`).** ✅ Shipped in
   v0.2.0 as an **opt-in** setting, default off: this is genuine quality of life rather than
   clutter, so the player chooses it instead of having it chosen for them.
@@ -81,7 +82,10 @@ Options, each independently toggleable:
   out rather than appearing at once. **Blocked:** the CVar behind it is unknown, and
   `C_Console.GetAllCommands` does not exist on this client, so the console cannot be
   enumerated. Probe v0.6 walks the Settings registry instead — see G8.
-- Suppress the "click to turn in" pop-up bubbles
+- **Suppress the "click to turn in" pop-up bubbles.** To ship **experimental**, at the player's
+  direction: the mechanism is now named (G14 found the whole `WatchFrameAutoQuest_*` family)
+  but the data shape behind it is not, so it is a feature that is coming rather than one that
+  is proven. Probe v0.15 [G15] reads the pop-up queue.
 
 ### Tier 3 — full Classic feel
 
@@ -318,10 +322,17 @@ read as modal.
 **One ordering.** `ns:SortedModules()` is the single source; the options panel and `/cq status`
 both use it, so they cannot drift apart as options are added.
 
-**The panel asks with a dialog; a slash command answers in text.** A click gives no other chance
-to warn, so the panel raises a modal. A typed command is deliberate, and a modal popping over the
-game in response is heavier than the situation needs — so `/cq` prints one line naming `/reload`
-instead. Both paths guarantee the same thing: a change needing a rebuild is never left silent.
+**~~The panel asks with a dialog; a slash command answers in text.~~ — WITHDRAWN in v0.9.3.**
+I added a `/cq` line reading *"That needs a UI reload to take effect"*. It was wrong, and the
+in-game test says so: after a slash toggle the world map is already correct the next time it
+opens. No reload is involved. The line was advice for a problem the player does not have, and
+telling someone to reload when they need not is worse than saying nothing. Removed, with a
+regression guard in the suite asserting the slash path never says "reload".
+
+**Still open:** the panel's own Reload/Cancel dialog rests on the same assumption. If merely
+reopening the map is enough there too, that dialog is over-cautious and should soften to a
+plain notice. Left alone for now because it is confirmed working and the player likes it —
+but it is inconsistent with the finding above and should not be forgotten.
 
 ## Release notes — CurseForge listing
 
@@ -337,6 +348,73 @@ limitations** section. It must include, at minimum:
 - Anything else discovered to be unreachable gets listed here rather than quietly omitted.
 
 ---
+
+## Recon results — v0.14 probe
+
+Run 2026-09-09 16:49, client 5.5.4 build 69585, interface 50504.
+
+### G13b — asked the wrong question
+
+All five `Settings.RegisterAddOnSetting` shapes came back **OK**, and a setting object with 39
+keys was returned. That is not the good news it looks like. A function that accepts five
+mutually contradictory argument orders is not validating its arguments — it built a setting
+every time, just a scrambled one where the name may have landed in the variable slot.
+
+**My probe was at fault, twice.** It asked *"was the call accepted?"* when the question is
+*"where did each argument land?"*, and two of its five shapes were the same call written out
+with different descriptions (shape 1 passed seven arguments under a six-argument label).
+
+What it did settle, usefully:
+
+- The setting object exposes `GetName`, `GetVariable`, `GetVariableType`, `GetDefaultValue`,
+  `GetValue`, `SetValue`, `SetValueChangedCallback`, `Commit`, `Revert`, `IsModified`,
+  `SetPendingValue`, `ClearPendingValue` — **the full commit/revert vocabulary an Apply button
+  needs.** If the signature can be pinned down, Blizzard's own Apply comes with it.
+- `Settings.CreateDropdown`, `Settings.CreateDropdownInitializer` and
+  `Settings.CreateControlTextContainer` all exist.
+- `MenuUtil`, `Menu` and `MenuResponse` exist. `CreateContextMenu` does not, and a frame built
+  from `WowStyle1DropdownTemplate` has **no `SetupMenu` method** — its `menuMixin` carries only
+  `Generate`, `GetChildExtentPadding`, `GetInset`. So driving that template by hand is not the
+  route; going through `Settings.CreateDropdown` is.
+
+**v0.15 [G13c] replaces it** with a readback test: each shape gets distinct sentinel strings and
+a `true` default against an empty backing table, then the object is interrogated. Four correct
+slots out of four identifies the real signature; anything less shows exactly which argument
+went astray.
+
+### G14 — the tracker, resolved enough to plan against
+
+- **`WatchFrame:IsProtected()` → `false`, explicitly false.** Safety rule 1 is satisfied: it can
+  be touched, in combat included.
+- Three children: `WatchFrameHeader` (Button), `WatchFrameCollapseExpandButton` (Button),
+  `WatchFrameLines` (Frame). **Zero regions** — all art lives in the children.
+- Driving globals present: `WatchFrame_Update`, `WatchFrame_Collapse`, `WatchFrame_Expand`,
+  `WatchFrame_ClearDisplay`, `WATCHFRAME_QUESTLINES`.
+- Absent, so not routes: `ObjectiveTrackerFrame`, `ObjectiveTracker_Update`, `QuestWatchFrame`,
+  `AutoQuestPopUpTracker`, `WatchFrame_GetRemainingSpace`, `AUTOQUEST_POPUP_ENABLED`,
+  `AutoQuestPopUp_Show`. This client is the 5.x `WatchFrame`, not the later
+  `ObjectiveTrackerFrame` — the modern names must not be reached for.
+- **The turn-in pop-up mechanism is fully named:** `AddAutoQuestPopUp`, `GetAutoQuestPopUp`,
+  `GetNumAutoQuestPopUps`, `RemoveAutoQuestPopUp`, and the display side
+  `WatchFrameAutoQuest_DisplayAutoQuestPopUps`, `_SlideIn`, `_GetOrCreateFrame`, `_ClearPopUp`,
+  `_ClearPopUpByLogIndex`, `_OnUpdate`.
+- Sorting constants exist — `WATCHFRAME_SORT_TYPE`, `WATCHFRAME_SORT_MANUAL`,
+  `WATCHFRAME_SORT_DIFFICULTY_HIGH/LOW` — alongside the confirmed CVar `trackQuestSorting`
+  (currently `"top"`). That pair is where "no auto-sort by distance" will be settled.
+- Also present and relevant to stripping: `WATCHFRAME_LINKBUTTONS`, `WATCHFRAME_NUM_ITEMS`,
+  `WATCHFRAME_ITEM_WIDTH`, `WATCHFRAME_MAXQUESTS`, `WATCHFRAME_FILTER_TYPE`.
+
+**What it does not answer:** the run was made with an empty tracker, so `WATCHFRAME_QUESTLINES`
+was never described, no quest item button was seen, and no pop-up was live. The global list was
+also cut at 60 of 150 names. v0.15 [G15] covers all of it — **and must be run with a quest
+tracked**, or it will honestly report nothing.
+
+### Probe output size
+
+The report had reached 85KB, nearly all of it settled ground already written into this file.
+v0.15 adds an `ACTIVE` switchboard: every section survives in full, but only the open questions
+print. Flip a flag to bring one back when a new client build makes a settled answer worth
+re-checking.
 
 ## Safety rules — non-negotiable
 
