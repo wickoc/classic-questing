@@ -270,11 +270,18 @@ Probe v0.13 dumped both constructed templates, and the picture is now clear:
 And `SettingsPanel` exposes `RegisterSetting`, `SetApplyButtonEnabled`, `HasUnappliedSettings`,
 `CommitSettings` and `ApplyButton`.
 
-**That points at one larger decision.** Going through `Settings.RegisterAddOnSetting` and
-Blizzard's own initializers would give the genuine dropdown *and* Blizzard's real Apply button
-in one move — but it means rebuilding the panel as a vertical layout around Blizzard's setting
-objects, and `RegisterAddOnSetting`'s signature is still unverified. That is an architecture
-change, not a tweak, so it is the author's call rather than something to slide in.
+**Decision taken: pursue the genuine control.** Looking legitimate is a stated goal of this
+addon, so the hand-built selector is a stopgap, not the destination. The fallback — two plain
+buttons for *Full Classic* and *Disabled*, dropping *Custom* — is last resort only.
+
+Probe v0.14 [G13b] is the keystone: it **calls** `Settings.RegisterAddOnSetting` with each
+plausible signature and reports which is accepted, then dumps the returned setting object. It
+also checks the Menu API that `WowStyle1DropdownTemplate` needs to fill its list. Signature
+discovery by trial beats a sixth guess. (A successful call registers a real setting, so a stray
+entry may sit in Blizzard's options until `/reload` — a fair price, and the probe says so.)
+
+If the signature lands, going through Blizzard's initializers gives the real dropdown **and**
+Blizzard's Apply button in one move.
 
 The dropdown lists **Full Classic experience** then **Disabled**. *Custom* is not offered: it is
 what the control reports when the settings match neither, never something to pick. Stepping from
@@ -305,6 +312,16 @@ to reload for this setting to take effect"* with **Reload** and **Cancel**, and 
 setting (and its CVar) back. This cannot be ignored and needs no state carried across the panel
 closing. Blizzard's screen dim is reproduced behind it, since that is what makes a confirmation
 read as modal.
+
+### Consistency rules
+
+**One ordering.** `ns:SortedModules()` is the single source; the options panel and `/cq status`
+both use it, so they cannot drift apart as options are added.
+
+**The panel asks with a dialog; a slash command answers in text.** A click gives no other chance
+to warn, so the panel raises a modal. A typed command is deliberate, and a modal popping over the
+game in response is heavier than the situation needs — so `/cq` prints one line naming `/reload`
+instead. Both paths guarantee the same thing: a change needing a rebuild is never left silent.
 
 ## Release notes — CurseForge listing
 

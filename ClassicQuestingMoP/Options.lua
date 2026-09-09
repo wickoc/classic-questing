@@ -286,13 +286,6 @@ end
 -- Build
 ---------------------------------------------------------------------
 
-local function sortedModules()
-	local list = {}
-	for i = 1, #ns.modules do list[#list + 1] = ns.modules[i] end
-	table.sort(list, function(a, b) return (a.order or 999) < (b.order or 999) end)
-	return list
-end
-
 local function build()
 	if panel then return panel end
 
@@ -352,7 +345,7 @@ local function build()
 			if type(StaticPopupDialogs) == "table" and type(StaticPopup_Show) == "function" then
 				local text = "Do you want to reset " .. ns.title .. " settings to their defaults?"
 				if reload then
-					text = text .. "\n\nThe UI will reload."
+					text = text .. "\n\nNote: The UI will reload."
 				end
 				StaticPopupDialogs["CLASSICQUESTING_DEFAULTS"] = {
 					-- The question is phrased as a question, so the answers are
@@ -505,7 +498,7 @@ local function build()
 	local y = -110
 	local lastGroup
 
-	for _, m in ipairs(sortedModules()) do
+	for _, m in ipairs(ns:SortedModules()) do
 		if m.group and m.group ~= lastGroup then
 			lastGroup = m.group
 			local c = GROUP_COLOR[m.group] or { 1, 1, 1 }

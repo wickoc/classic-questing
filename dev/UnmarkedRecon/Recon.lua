@@ -992,6 +992,123 @@ local function sectionSelector()
 	}) do probe(n) end
 end
 
+-- [G13b] The keystone. Blizzard's dropdown wants a registered Setting object,
+-- and Settings.CreateDropdown builds the control from one. Both functions
+-- exist; only their signatures are unknown. Rather than guess a sixth time,
+-- CALL them with each plausible shape and report which one is accepted.
+--
+-- NOTE: a successful call registers a real setting, so a stray entry may sit
+-- in Blizzard's options until you /reload. That is the price of finding out.
+local function sectionSettingSignature()
+	head("[G13b] Settings.RegisterAddOnSetting -- which signature works?")
+
+	if type(Settings) ~= "table" or type(Settings.RegisterAddOnSetting) ~= "function" then
+		add("   Settings.RegisterAddOnSetting missing; nothing to try.")
+		return
+	end
+
+	local category
+	if type(Settings.RegisterVerticalLayoutCategory) == "function" then
+		local ok, cat = pcall(Settings.RegisterVerticalLayoutCategory, "Unmarked Recon Probe")
+		if ok then category = cat end
+	end
+	mark(category ~= nil, "test category created")
+
+	UnmarkedReconProbeVars = UnmarkedReconProbeVars or {}
+	local tbl = UnmarkedReconProbeVars
+	local vtype = (Settings.VarType and Settings.VarType.Boolean) or "boolean"
+
+	local shapes = {
+		{ "(category, variable, varTbl, varType, name, default)",
+		  function() return Settings.RegisterAddOnSetting(category, "URP1", "URP1", tbl, vtype, "Probe 1", false) end },
+		{ "(category, variable, varKey, varTbl, varType, name, default)",
+		  function() return Settings.RegisterAddOnSetting(category, "URP2", "URP2", tbl, vtype, "Probe 2", false) end },
+		{ "(category, name, variable, varTbl, varType, default)",
+		  function() return Settings.RegisterAddOnSetting(category, "Probe 3", "URP3", tbl, vtype, false) end },
+		{ "(name, variable, varTbl, varType, default)",
+		  function() return Settings.RegisterAddOnSetting("Probe 4", "URP4", tbl, vtype, false) end },
+		{ "(variable, name, varTbl, varType, default)",
+		  function() return Settings.RegisterAddOnSetting("URP5", "Probe 5", tbl, vtype, false) end },
+	}
+
+	local winner
+	for i = 1, #shapes do
+		local ok, res = pcall(shapes[i][2])
+		if ok and type(res) == "table" then
+			add("   OK   " .. shapes[i][1])
+			winner = winner or res
+		elseif ok then
+			add("   ??   " .. shapes[i][1] .. "  -> returned " .. type(res))
+		else
+			add("   --   " .. shapes[i][1] .. "  -> " .. tostring(res):sub(1, 90))
+		end
+	end
+
+	if winner then
+		add("")
+		dumpMethods(winner, "   setting object", { "get", "set", "value", "variable", "default" })
+		dumpTable(winner, "   setting object keys", 30)
+	else
+		add("")
+		add("   No shape accepted. The dropdown cannot be driven this way.")
+	end
+
+	add("")
+	add("   Menu API, which WowStyle1DropdownTemplate needs to fill its list:")
+	for _, n in ipairs({ "MenuUtil", "Menu", "MenuResponse", "CreateContextMenu" }) do probe(n) end
+	local okd, dd = pcall(CreateFrame, "Button", nil, UIParent, "WowStyle1DropdownTemplate")
+	if okd and dd then
+		probeMethod(dd, "WowStyle1Dropdown", "SetupMenu")
+		local mm = rawget(dd, "menuMixin")
+		if type(mm) == "table" then
+			dumpTable(mm, "   menuMixin", 40)
+		else
+			add("   menuMixin is not a readable table.")
+		end
+	end
+	for _, n in ipairs({ "CreateDropdown", "CreateDropdownInitializer", "CreateControlTextContainer" }) do
+		probeMethod(Settings, "Settings", n)
+	end
+end
+
+-- [G14] Tier 2: the on-screen objective tracker. Nothing here has been probed
+-- beyond confirming WatchFrame exists.
+local function sectionTracker()
+	head("[G14] Tier 2 -- the WatchFrame tracker")
+
+	if not WatchFrame then
+		add("   WatchFrame missing; Tier 2 has nothing to act on.")
+		return
+	end
+
+	local prot, explicit = nil, nil
+	pcall(function() prot, explicit = WatchFrame:IsProtected() end)
+	add("   WatchFrame:IsProtected() -> " .. tostring(prot) .. ", explicit " .. tostring(explicit))
+	add("   (safety rule 1: a protected frame must never be hidden in combat)")
+
+	add("")
+	dumpChildren(WatchFrame, "WatchFrame")
+	add("")
+	dumpRegions(WatchFrame, "WatchFrame")
+	add("")
+	dumpMethods(WatchFrame, "WatchFrame", { "collapse", "expand", "update", "link", "quest" })
+
+	add("")
+	add("   Globals that drive it:")
+	for _, n in ipairs({
+		"WatchFrame_Update", "WatchFrame_Collapse", "WatchFrame_Expand",
+		"WatchFrame_ClearDisplay", "WatchFrame_GetRemainingSpace",
+		"WATCHFRAME_QUESTLINES", "WATCHFRAME_ACTIVE_ACHIEVEMENTS",
+		"AUTOQUEST_POPUP_ENABLED", "AutoQuestPopUp_Show",
+		"QuestPOI_UpdateButton", "WatchFrameAutoQuest_ClearPopUp",
+	}) do probe(n) end
+
+	add("")
+	listGlobals("Globals containing 'watchframe'", "watchframe", 60)
+	add("")
+	listGlobals("Globals containing 'autoquest'", "autoquest", 30)
+end
+
 ---------------------------------------------------------------------
 
 local function collect()
@@ -1074,6 +1191,8 @@ local function collect()
 	sectionOutline()
 	sectionQuestTooltip()
 	sectionSelector()
+	sectionSettingSignature()
+	sectionTracker()
 
 	-- Any full method dumps collected via "/unrecon methods <global>" get
 	-- folded in here so they travel inside the readable report rather than
