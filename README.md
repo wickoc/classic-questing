@@ -28,14 +28,22 @@ commands.
 
 **Quest tracker**
 
+The tracker itself stays. Classic had one: you shift-click a quest in the log and it appears.
+What goes is everything MoP bolted onto it.
+
 - Clickable quest titles — no click-to-open-map, no right-click menu. Classic's tracker was text
   you read
 - Quest item use buttons beside tracked quests. Quest items are used from your bags
 - Automatic tracking of newly accepted quests
 - Turn-in pop-up bubbles *(experimental)*
 
-Every option is individually switchable, and the **Full Classic experience** preset turns on
-everything except the experiments.
+**Experimental**
+
+- Asking the client for quest object outlines instead of sparkles — see Known limitations
+
+Every option is individually switchable. The **Full Classic experience** preset turns on every
+normal option and leaves the experimental ones exactly as you set them; **Disabled** turns
+everything off.
 
 ## Known limitations
 

@@ -101,11 +101,14 @@ local RULES = {
 		cvar         = "Outline",
 		-- Not a boolean. Outline has four settings on this client, and 1, 2
 		-- and 3 are all "outlines are on", differing in what they apply to.
-		-- Only 0 is off, so only 0 leaves this option unticked; the AddOn asks
-		-- for 1 but does not drag 2 or 3 down to it.
+		-- Only 0 is off, so only 0 leaves this option unticked, and a value
+		-- the player already chose is never dragged down to `wanted`.
 		onValues     = { ["1"] = true, ["2"] = true, ["3"] = true },
 		blizzOption  = "Outline Mode",
-		wanted       = "1",
+		-- 2 is Blizzard's own default for this option, so switching it on
+		-- from off lands where the game would have put it rather than on the
+		-- narrowest setting.
+		wanted       = "2",
 		default      = false,
 		experimental = true,
 		label        = "quest object outline",
@@ -168,7 +171,6 @@ end
 
 local function makeModule(rule)
 	local M = ns:RegisterModule(rule.key, {})
-	M.rule = rule
 	M.onText = rule.onText
 	M.offText = rule.offText
 	M.experimental = rule.experimental
@@ -294,7 +296,6 @@ ns:RegisterEvent("CVAR_UPDATE", function()
 							rule.key .. "|r is now off.")
 					end
 
-					if ns.MarkCustomPreset then ns.MarkCustomPreset() end
 					if ns.RefreshOptions then ns.RefreshOptions() end
 				end
 

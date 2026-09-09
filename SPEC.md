@@ -164,10 +164,11 @@ handles.
 **Report the effect, not the switch.** `/cq on X` prints what actually changed
 ("world map creature portraits hidden"), never the raw CVar transition.
 
-**Versioning: stay below 1.0 until the addon is releasable.** Use `0.MINOR.PATCH`. Version
-`1.0.0` is reserved for the first genuinely releasable build, which means after the Tier 3
-options GUI ships — not for an iterative step that happens to follow `0.9`. (`0.9` is followed
-by `0.10`, not `1.0`.)
+**Versioning: stay below 1.0 until the AddOn is releasable.** Use `0.MINOR.PATCH`. Version
+`1.0.0` is reserved for the first genuinely releasable build — not for an iterative step that
+happens to follow `0.9`. (`0.9` is followed by `0.10`, not `1.0`.) What "releasable" means is
+tracked in the work list; as of v0.15.1 it is the CurseForge description, the name decision in
+`NAMING.md`, and removing the fallback panel's live status readout.
 
 **Version numbers have one source of truth: the `.toc`.** Never hardcode a version string in
 Lua. Read it at runtime with `C_AddOns.GetAddOnMetadata(addonName, "Version")` (fall back to
@@ -180,103 +181,92 @@ the version lived in two places and only one got bumped.
 
 ## Options panel — built
 
-`Options.lua`. One row per registered module, grouped, toggling applies immediately.
+`Options.lua`. Two implementations, one preferred and one held in reserve.
 
-**Styled to sit alongside Blizzard's own panels:** white headings and page title with a hairline
-rule, yellow option labels, a `Defaults` button top-right, and descriptions in **hover tooltips**
-(white title, yellow wrapped body) rather than printed under each row.
+### The native panel — what ships
 
-**Preset selector** at the top, in the arrow-stepper style Blizzard uses for Loot Key:
+Blizzard's own controls, through its own Settings API. Registered as a **vertical layout
+category**, so Blizzard draws the list: a real `Settings.CreateCheckbox` per option, the real
+dropdown for the preset, and Blizzard's own **Apply** and **Defaults** buttons.
 
-- *Disabled* — every option off, the game as Blizzard ships it.
-- *Full Classic experience* — every option on **except** experimental ones.
-- *Custom* — **derived, never stored.** Shown whenever the settings match neither preset, which
-  gives the "selects itself automatically" behaviour with no stored flag that could drift out of
-  step with the real settings. The arrows step between the two presets that *mean* something;
-  Custom is selectable and inert by design, and is chosen automatically the moment any single
-  option changes. The stored choice is honoured so picking Custom sticks, but a stored preset
-  that no longer matches the settings is downgraded to Custom rather than left lying.
+The signature that makes it possible was settled by readback rather than guesswork — see G13c:
+
+```lua
+Settings.RegisterAddOnSetting(category, variable, variableKey,
+                              variableTbl, variableType, name, default)
+```
+
+Details that matter:
+
+- **Ordering** comes from `ns:SortedModules()`, the same source `/cq status` uses, with the
+  experiments moved to the end so a heading can sit in front of them.
+- **The Experimental heading** is a real section header —
+  `CreateSettingsListSectionHeaderInitializer`, a plain global, added to the **second** return
+  value of `RegisterVerticalLayoutCategory`. Coloured with an escape in the header text.
+- **The version** is a grey section heading at the foot. At the top it would read as a heading
+  *for* the options below it.
+- **Reload-needing options** carry `CommitFlag.Apply` and `Revertable`, so ticking one parks the
+  value and Blizzard's Apply commits it. The changed callback fires inside the commit, and that
+  is where the reload happens. Apply never asks: pressing it *is* the answer.
+- **Defaults** needs nothing from this AddOn. Blizzard's button reloads the UI itself when a
+  setting it reset requires one. Two workarounds for this were written and both removed; see the
+  v0.14.3 notes.
+- **Tooltips** are built as strings with colour escapes: yellow body, orange for an experimental
+  note or a known limitation, grey for the slash handle at the foot.
+
+### The canvas panel — the fallback
+
+The original hand-built panel is kept and used automatically if any step of `registerNative()`
+fails, so the worst case is the panel that shipped before rather than no panel. It has its own
+`Defaults` button, dialogs and arrow-stepper preset control, and it is the only consumer of each
+module's `group` field — the native layout uses one heading and no grouping.
+
+If even `RegisterCanvasLayoutCategory` fails, the same frame is shown as a standalone movable
+window and `/cq` still opens it. One warning line, once.
+
+### Presets
+
+- *Full Classic experience* — every normal option on, experimental ones **left exactly as the
+  player set them**.
+- *Disabled* — every option off, experimental included.
+- *Custom* — **derived, never stored.** Shown whenever the settings match neither preset. Listed
+  in the dropdown because a dropdown cannot display a value that is not among its entries, but
+  never a choice.
+
+Experimental options do not enter into whether the settings read as Full Classic. See
+"Presets and experimental options".
 
 **Shipped defaults are the Full Classic experience** — every non-experimental option on. That is
-what people install the addon for; neither "all off" nor a subset picked to the author's taste
-is a defensible out-of-the-box state. `Defaults` therefore restores that, and *Disabled* exists
-in the preset for anyone who wants the opposite.
+what people install the AddOn for; neither "all off" nor a subset picked to the author's taste is
+a defensible out-of-the-box state.
 
-**`Defaults` asks once, not twice.** When the reset would move an option that needs a rebuild,
-the reload is folded into the same question ("…The UI will reload.") rather than raising a second
-dialog. Two confirmations for one action is one too many, and the second one also lost the screen
-dim, because the first dialog's `OnHide` fired underneath it.
-
-**`Defaults` confirms before acting**, as Blizzard's does. The button is the addon's own, not
-Blizzard's — Blizzard's lives in `SettingsPanel` and offers "All Settings / These Settings /
-Cancel". "All Settings" is Blizzard's to offer and not this addon's, so the confirmation is
-these settings or cancel. `panel.OnDefault` is also set, so if Blizzard ever drives it, it works.
-
-**The player-facing name is "Classic Questing"** everywhere in game, including the addon list.
+**The player-facing name is "Classic Questing"** everywhere in game, including the AddOn list.
 The `(MoP)` suffix survives only in the folder name, the repository and the future CurseForge
-listing, where it identifies which build to download for which client.
+listing, where it identifies which build to download for which client. See `NAMING.md` — the name
+itself is under review.
 
-**TODO(v1.0):** remove the live status readout from each row. It is useful while developing and
-meaningless to a player.
+**TODO(v1.0):** remove the live status readout from each row of the canvas fallback. It is useful
+while developing and meaningless to a player. The native panel never had one.
 
-Built as a **canvas layout with hand-made checkboxes**, not through
-`Settings.RegisterAddOnSetting` / `Settings.CreateCheckbox`. Recon confirmed those functions
-exist but not their signatures, and this client has already punished several confident guesses
-(`SetQuestBlob*`, `graphicsOutlineMode`, `SetToDefaults`, `showQuestTrackingTooltips`).
-`RegisterCanvasLayoutCategory` needs only a frame, which is verifiable.
+### The dropdown — resolved
 
-Three fallbacks, each tested:
+This section tracked a long hunt for Blizzard's real dropdown. It is finished, and the detail
+lives in the G13/G13b/G13c results below. The short version, kept because the *method* is worth
+repeating:
 
-- Checkbox template names vary, and a missing template is a hard error, so the panel tries four
-  candidates and keeps the first that constructs; failing all four it builds a plain button that
-  still reports checked state.
-- If `Settings` is missing entirely, or `RegisterCanvasLayoutCategory` throws, the same frame is
-  shown as a standalone movable window and `/cq` still opens it. One warning line, once.
-- The panel reads state back from the modules after every click rather than trusting the click,
-  so a refused CVar or missing frame shows the truth.
+- v0.12 and v0.13 named the templates and dumped them. `WowStyle1DropdownTemplate` is the visual
+  match but has no `SetupMenu` on this client, so driving it by hand was never the route.
+  `SettingsDropDownControlTemplate` is built to be driven by a registered **Setting object**.
+- v0.14 `[G13b]` asked "which signature is accepted?" and got the useless answer "all five" —
+  `RegisterAddOnSetting` validates nothing.
+- v0.15 `[G13c]` asked the right question, "where did each argument land?", with sentinel values
+  read back through `GetName`/`GetVariable`/`GetVariableType`/`GetDefaultValue`. One shape scored
+  4/4 and the panel was rebuilt on it.
 
-`/cq` opens the panel; `/cq status` keeps the text list.
+**The rule that came out of it:** when a call takes arguments and validates none of them,
+acceptance is not evidence. Pass values you can recognise and read them back.
 
-### Still to verify
-
-The **preset selector is hand-built**: arrows, a clickable value that drops a list, and the small
-nub Blizzard puts under an openable value. Probe v0.12 [G13] has since **named the real
-templates** — `SettingsDropDownControlTemplate` and `WowStyle1DropdownTemplate` both construct
-on this client, alongside the older `UIDropDownMenuTemplate`. Swapping to one of them still needs
-its driving API, which is not known; probe the constructed frame's methods before attempting it,
-rather than guessing a fourth time.
-
-Probe v0.13 dumped both constructed templates, and the picture is now clear:
-
-- **`WowStyle1DropdownTemplate`** is the visual match, with `SetDefaultText`, `SetSelectionText`,
-  `SetSelectionTranslator`, `OverrideText`, `UpdateToMenuSelections` and a `menuMixin`. What it
-  does **not** expose is `SetupMenu`, so populating its list needs the newer Menu API, which has
-  not been probed.
-- **`SettingsDropDownControlTemplate`** has `Init`, `InitDropdown`, `SetupDropdownMenu`,
-  `SetValue`, `GetSetting`/`GetSettings` — it is built to be driven by a registered **Setting
-  object**, not by raw values.
-
-And `SettingsPanel` exposes `RegisterSetting`, `SetApplyButtonEnabled`, `HasUnappliedSettings`,
-`CommitSettings` and `ApplyButton`.
-
-**Decision taken: pursue the genuine control.** Looking legitimate is a stated goal of this
-addon, so the hand-built selector is a stopgap, not the destination. The fallback — two plain
-buttons for *Full Classic* and *Disabled*, dropping *Custom* — is last resort only.
-
-Probe v0.14 [G13b] is the keystone: it **calls** `Settings.RegisterAddOnSetting` with each
-plausible signature and reports which is accepted, then dumps the returned setting object. It
-also checks the Menu API that `WowStyle1DropdownTemplate` needs to fill its list. Signature
-discovery by trial beats a sixth guess. (A successful call registers a real setting, so a stray
-entry may sit in Blizzard's options until `/reload` — a fair price, and the probe says so.)
-
-If the signature lands, going through Blizzard's initializers gives the real dropdown **and**
-Blizzard's Apply button in one move.
-
-The dropdown lists **Full Classic experience** then **Disabled**. *Custom* is not offered: it is
-what the control reports when the settings match neither, never something to pick. Stepping from
-Custom goes to the first preset going right and the last going left.
-
-Two font sizes are Blizzard's, not the addon's: tooltip **body** text uses `GameTooltipText`, and
+Two font sizes are Blizzard's, not the AddOn's: tooltip **body** text uses `GameTooltipText`, and
 changing it would alter every tooltip in the game, so it is left alone. Option labels already use
 `GameFontNormal`, which is exactly what Blizzard's own option rows use.
 
@@ -837,6 +827,57 @@ outlines are on** — they differ in what they apply to. Only 0 is off.
 Rules may now declare `onValues`, and two things follow from it: the option reads as ticked for
 any of them, and `Enable()` no longer writes `wanted` over a value that already counts as on. A
 player who chose Outline 3 keeps Outline 3; the AddOn only asks for 1 when starting from 0.
+
+## v0.15.1 — audit
+
+A full sweep of the repository. What changed, and why.
+
+### Dead code removed
+
+- **`ns.db.preset` and `ns.MarkCustomPreset`.** The preset was stored *and* derived. The stored
+  copy went unread from v0.11.0, when `displayPreset()` became purely derived — five writes, zero
+  reads, across three files. Removed, with a `dbVersion` 3 migration that clears the orphaned key
+  from existing saved variables.
+- **`nonExperimental()`** in `Options.lua` — defined, never called.
+- **`M.rule = rule`** in `CVars.lua` — assigned, never read.
+
+### Drift fixed
+
+- The **canvas fallback's experimental tooltip** still carried the v0.12 wording after the native
+  panel moved on. One string, two places, and only one was being updated — the kind of thing an
+  audit exists to catch.
+- **"Options panel — built"** in this file still described the canvas panel as what ships. It has
+  been the fallback since v0.10.0. Rewritten.
+- **"Still to verify"** tracked the dropdown hunt that finished in v0.11.0. Collapsed to the
+  method that came out of it, which is still worth having.
+- The **versioning rule** defined 1.0 as "after the Tier 3 options GUI ships", and tiers were
+  dropped in v0.12.1. Reworded against the work list.
+- **`README.md`** did not list the tracker or experimental options and still described the old
+  preset behaviour.
+
+### The finding that mattered
+
+**The test suite was not in the repository.** 412 checks lived only in an ephemeral scratchpad
+directory — one container restart from gone, and invisible to anyone reading the project. Moved
+to `dev/tests/` with a `run.sh`, and the harness's hardcoded absolute path made repo-relative.
+
+### Added
+
+- **`BUGS.md`** — open faults with enough detail to pick up cold. B1 is the slash-commands-while-
+  the-panel-is-open bug.
+- **`STRINGS.md`** — every player-visible string, labelled, with the colour palette.
+- **`NAMING.md`** — the name decision, with everything a rename touches.
+- **`dev/README.md`** — what the probe is, why the old logs are kept, how to run the tests.
+
+### Kept deliberately
+
+- **The eleven old recon logs** (616 KB). Every conclusion in this file is evidence from one of
+  them, and later probe runs switch settled sections off — so an earlier log is often the only
+  remaining record of an answer. Indexed in `dev/README.md` rather than pruned.
+- **The canvas fallback panel**, and each module's `group` field, which only it consumes. It is
+  the reason a client that refuses the Settings API still gets a working panel.
+- **`local ADDON_NAME, ns = ...`** in files that never use the first value. It is the standard
+  idiom and the name documents what the slot holds.
 
 ## Safety rules — non-negotiable
 

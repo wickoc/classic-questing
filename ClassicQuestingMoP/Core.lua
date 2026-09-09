@@ -109,7 +109,7 @@ end
 ---------------------------------------------------------------------
 
 -- Account-wide (see the .toc): someone who wants this wants it everywhere.
-local DB_VERSION = 2
+local DB_VERSION = 3
 
 -- v1 gave every feature two names: a display key ("mapCreaturePortraits") and
 -- a saved-setting name mirroring the CVar ("showBosses"). That was a mistake.
@@ -160,6 +160,13 @@ local function initDB()
 			end
 			db.state.minimapQuestPOITracking = nil
 		end
+		if db.dbVersion < 3 then
+			-- The preset was stored as well as derived, and the stored copy
+			-- went unread from v0.11.0 onwards -- the panel has computed it
+			-- from the options ever since. Clear the orphan rather than leave
+			-- a key in everyone's saved variables that nothing consults.
+			db.preset = nil
+		end
 		db.dbVersion = DB_VERSION
 	end
 
@@ -199,10 +206,6 @@ function ns:Set(key, value)
 	ns.db.settings[key] = value
 	ns:ApplyAll()
 end
-
--- Set by the options panel; a stub here so slash toggles can call it whether
--- or not the Options module loaded.
-function ns.MarkCustomPreset() end
 
 -- No reload notice here. Tested in game: after a slash toggle the next time
 -- the world map opens it is already correct, so telling the player to /reload
@@ -310,7 +313,6 @@ SlashCmdList["CLASSICQUESTINGMOP"] = function(msg)
 					ns.db.settings[k] = want
 				end
 			end
-			if ns.db then ns.db.preset = want and "classic" or "disabled" end
 			ns:ApplyAll()
 			ns:Print(want
 				and "The Full Classic Experience has been enabled. Experimental features must be activated manually."
@@ -318,7 +320,6 @@ SlashCmdList["CLASSICQUESTINGMOP"] = function(msg)
 		else
 			local key = resolveSetting(arg)
 			if key then
-				ns.MarkCustomPreset()
 				ns:Set(key, want)
 				local m = ns.modules[key]
 				-- "showBosses turned on" read as though the portraits were

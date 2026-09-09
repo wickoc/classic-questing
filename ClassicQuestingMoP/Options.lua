@@ -43,7 +43,7 @@ end
 
 local function snapshot()
 	if not ns.db then return nil end
-	local snap = { preset = ns.db.preset, settings = {} }
+	local snap = { settings = {} }
 	for k, v in pairs(ns.db.settings) do snap.settings[k] = v end
 	return snap
 end
@@ -52,7 +52,6 @@ local function restore(snap)
 	if not snap or not ns.db then return end
 	wipe(ns.db.settings)
 	for k, v in pairs(snap.settings) do ns.db.settings[k] = v end
-	ns.db.preset = snap.preset
 	ns:ApplyAll()
 	ns.RefreshOptions()
 end
@@ -203,15 +202,6 @@ local PRESET_LABEL = {
 	custom   = "Custom",
 }
 
-local function nonExperimental()
-	local list = {}
-	for i = 1, #ns.modules do
-		local m = ns.modules[i]
-		if not m.experimental then list[#list + 1] = m end
-	end
-	return list
-end
-
 -- Order as shown in the canvas fallback's two-state toggle. "custom" is not
 -- offered there: it is what the control REPORTS when the settings match
 -- neither preset, never something to pick.
@@ -260,23 +250,19 @@ end
 
 -- What the control shows.
 --
--- This used to prefer ns.db.preset and fall back to the derived value. That
--- was wrong in a way the player caught: turning options off one at a time sets
--- the stored preset to "custom", and the stored value was then returned
--- unconditionally -- so reaching all-off by hand still read "Custom", and the
--- control could never say "Disabled" again. Reading the settings is the only
--- answer that cannot go stale, so that is the only thing consulted now.
+-- Derived from the options, never stored. A stored preset was tried and was
+-- wrong in a way the player caught: turning options off one at a time set it
+-- to "custom", and the stored value was then returned unconditionally -- so
+-- reaching all-off by hand still read "Custom" and the control could never say
+-- "Disabled" again. Reading the settings is the only answer that cannot go
+-- stale, and v0.15.1 removed the stored key entirely: it had not been read for
+-- four versions.
 local function displayPreset()
 	if not ns.db then return "custom" end
 	return derivedPreset()
 end
 
 local applyPreset  -- defined below, after the prompt helpers it uses
-
--- Any individual change means the settings are no longer a named preset.
-function ns.MarkCustomPreset()
-	if ns.db then ns.db.preset = "custom" end
-end
 
 function applyPreset(which)
 	if not ns.db then return end
@@ -294,7 +280,6 @@ function applyPreset(which)
 		end
 	end
 
-	ns.db.preset = which
 	if ns.SetPresetApplying then ns.SetPresetApplying(true) end
 	if which ~= "custom" then
 		for i = 1, #ns.modules do
@@ -376,7 +361,6 @@ local function build()
 
 		local function doReset(reload)
 			ns:ResetDefaults(true)
-			if ns.db then ns.db.preset = nil end
 			ns.RefreshOptions()
 			if reload and type(ReloadUI) == "function" then ReloadUI() end
 		end
@@ -577,7 +561,6 @@ local function build()
 			local function toggle()
 				local before = snapshot()
 				local now = ns.db and ns.db.settings[m.key]
-				ns.MarkCustomPreset()
 				ns:Set(m.key, not now)
 				ns.RefreshOptions()
 				if m.needsApply then promptReload(before, false) end
@@ -588,7 +571,7 @@ local function build()
 			local function body()
 				local text = m.desc or ""
 				if m.experimental then
-					text = text .. "\n\n|cffff8019Experimental: not enabled by the Full Classic preset.|r"
+					text = text .. "\n\n|cffff8019Experimental: not part of the Full Classic experience, which leaves it exactly as you set it. Switch it on by hand.|r"
 				end
 				-- Tooltip lines cannot be resized -- AddLine has no font
 				-- argument and the body font is Blizzard-wide -- so the slash
@@ -677,9 +660,9 @@ local function suppressed() return suppressDepth > 0 end
 -- whatever route the re-entry takes.
 local refreshing = false
 
--- The dropdown gets its own backing table. ns.db.preset is legitimately nil
--- after a Defaults reset, and handing a control a nil it must display is a
--- needless edge; displayPreset() already knows how to derive one.
+-- The dropdown gets its own backing table rather than a saved setting. The
+-- preset is not stored anywhere: it is derived from the options every time it
+-- is needed, which is the only answer that cannot go stale.
 local presetProxy = { preset = "classic" }
 
 -- Tooltip colours. These are the canvas panel's, unchanged.
@@ -796,7 +779,6 @@ local function onSettingChanged(m)
 	ns:ApplyAll()
 	if applyingPreset then return end
 
-	ns.MarkCustomPreset()
 	ns.RefreshOptions()
 
 	if not m.needsApply then return end
