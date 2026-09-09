@@ -732,23 +732,29 @@ end
 -- which is the same behaviour the slash commands already have.
 local applyingPreset = false
 
--- Asked once per Apply, not once per setting. Blizzard commits settings one
--- at a time, so without this the player would answer the same question as
--- many times as they had ticked boxes.
-local function askToReload()
-	if type(StaticPopupDialogs) ~= "table" or type(StaticPopup_Show) ~= "function" then
-		if type(ReloadUI) == "function" then ReloadUI() end
-		return
-	end
-	StaticPopupDialogs["CLASSICQUESTING_RELOAD"] = {
-		text = "The UI needs to reload before these settings take effect.",
-		button1 = "Reload now",
-		button2 = "Later",
-		OnAccept = function() if type(ReloadUI) == "function" then ReloadUI() end end,
-		timeout = 0, whileDead = true, hideOnEscape = true,
-		preferredIndex = 3,
-	}
-	pcall(StaticPopup_Show, "CLASSICQUESTING_RELOAD")
+-- Set when something has changed that only a rebuilt UI will show. Blizzard's
+-- Defaults button does not park our values for Apply the way a click does, so
+-- this is how the two are made to end in the same place.
+local rebuildPending = false
+
+-- Apply NEVER asks. v0.12.1 raised a confirmation on commit, which was wrong
+-- twice over: pressing Apply IS the confirmation, and Blizzard already asks
+-- its own question on Cancel. Two dialogs for one decision.
+local function doRebuild()
+	rebuildPending = false
+	if type(ReloadUI) == "function" then ReloadUI() end
+end
+
+-- Light Blizzard's Apply button ourselves. Used when a change arrives by a
+-- route that does not park a value -- Defaults -- so the player still gets the
+-- same button to press rather than a panel that looks finished but is not.
+local function armApplyButton()
+	if not SettingsPanel or type(SettingsPanel.SetApplyButtonEnabled) ~= "function" then return end
+	-- Bracketed, or our own hook on this method treats it as news and
+	-- refreshes underneath us.
+	pushSuppress()
+	pcall(SettingsPanel.SetApplyButtonEnabled, SettingsPanel, true)
+	popSuppress()
 end
 
 local function onSettingChanged(m)
@@ -759,11 +765,22 @@ local function onSettingChanged(m)
 	ns.MarkCustomPreset()
 	ns.RefreshOptions()
 
-	-- Reload only when Apply is what caused this. Outside a commit the change
-	-- was immediate and needs nothing; the reload question would be noise.
-	if m.needsApply and type(Settings.IsCommitInProgress) == "function" then
-		local ok, committing = pcall(Settings.IsCommitInProgress)
-		if ok and committing then askToReload() end
+	if not m.needsApply then return end
+
+	local committing = false
+	if type(Settings.IsCommitInProgress) == "function" then
+		local ok, c = pcall(Settings.IsCommitInProgress)
+		committing = ok and c or false
+	end
+
+	if committing then
+		-- Apply pressed. Do the rebuild, no question asked.
+		doRebuild()
+	else
+		-- Arrived some other way -- Defaults is the one that does this. Hold
+		-- the rebuild and light Apply, so the player finishes it the same way.
+		rebuildPending = true
+		armApplyButton()
 	end
 end
 
@@ -956,14 +973,35 @@ local function registerNative()
 	-- the preset dropdown had nothing to tell it the settings had moved. The
 	-- Apply button changing state IS that signal, and hooking it is the only
 	-- place the information exists.
+	-- Pressing Apply after a Defaults reset commits nothing of ours -- the
+	-- values were already written -- so the changed-callback never runs and
+	-- the rebuild would be lost. Catch the commit itself.
+	if SettingsPanel and type(hooksecurefunc) == "function"
+		and type(SettingsPanel.CommitSettings) == "function" then
+		pcall(hooksecurefunc, SettingsPanel, "CommitSettings", function()
+			if rebuildPending then doRebuild() end
+		end)
+	end
+
 	if SettingsPanel and type(hooksecurefunc) == "function"
 		and type(SettingsPanel.SetApplyButtonEnabled) == "function" then
-		pcall(hooksecurefunc, SettingsPanel, "SetApplyButtonEnabled", function()
+		pcall(hooksecurefunc, SettingsPanel, "SetApplyButtonEnabled", function(_, on)
 			-- Blizzard calls this while committing our own writes too. Acting
 			-- on those is how the recursion started -- and mid-preset it would
 			-- also read the half-applied state as "Custom" and write that back
 			-- over the preset the player just chose.
 			if suppressed() or refreshing or applyingPreset then return end
+
+			-- A held rebuild has to outlast Blizzard turning the button off
+			-- again. Defaults writes several settings in a row and each write
+			-- re-evaluates the button, so arming it once during the reset is
+			-- not enough -- the last write would dark it again and the player
+			-- would have nothing to press.
+			if rebuildPending and on == false then
+				armApplyButton()
+				return
+			end
+
 			pcall(ns.RefreshOptions)
 		end)
 	end
@@ -984,6 +1022,13 @@ function ns.RefreshNative()
 
 	popSuppress()
 	refreshing = false
+
+	-- Writing values back re-evaluates the Apply button, and Blizzard darks it
+	-- because nothing is parked. A rebuild held over from Defaults still needs
+	-- a button to press, so put it back once the writing is finished -- the
+	-- hook cannot do it, since it stands down while we are the ones writing.
+	if rebuildPending then armApplyButton() end
+
 	-- An error inside must not leave the guards raised, or the panel would go
 	-- permanently deaf; report it once and carry on.
 	if not ok then ns:Warn("options:refresh", "could not refresh the panel: " .. tostring(err)) end

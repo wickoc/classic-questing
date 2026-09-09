@@ -2,11 +2,12 @@
 ## Title: Classic Questing
 ## Notes: Hides MoP's quest markers. Read the text, explore.
 ## Author: Wictor
-## Version: 0.12.1
+## Version: 0.13.0
 ## SavedVariables: ClassicQuestingMoPDB
 
 Core.lua
 CVars.lua
 Minimap.lua
 Tracker.lua
+Bags.lua
 Options.lua

@@ -70,9 +70,13 @@ local ACTIVE = {
 	             --   passed, so the hover text comes from
 	             --   SettingsListSectionHeaderMixin's own OnEnter
 
+	g18 = false, -- ANSWERED v0.19: no CVar exists; the highlight is the
+	             --   texture ContainerFrame<N>Item<M>IconQuestTexture
+	g19 = false, -- ANSWERED v0.19: the variable is instantQuestText, read off
+	             --   Blizzard's own registered setting
+
 	-- Still open.
-	g18 = true, -- the yellow quest-item border on bag slots
-	g19 = true, -- the variable behind Blizzard's Instant Quest Text option
+	g20 = true, -- why Blizzard's Defaults button does not light Apply
 }
 
 
@@ -1774,6 +1778,103 @@ local function sectionInstantQuestText()
 	for _, n in ipairs({ "GetCVar", "GetCVarInfo", "GetCVarDefault" }) do probe(n) end
 end
 
+-- [G20] Blizzard's Defaults button resets our settings, but does not light the
+-- Apply button the way a click does -- so a reload-needing option can be reset
+-- with nothing on screen saying the panel is not finished.
+--
+-- The likely reason is that Defaults writes through SetValueToDefault, which
+-- may ignore the Apply commit flag and write straight away. v0.13.0 works
+-- around it by lighting Apply itself and catching CommitSettings. This says
+-- whether the workaround is needed at all, or whether there is a cleaner
+-- switch that makes Defaults park like everything else.
+local function sectionDefaultsAndApply()
+	head("[G20] Does SetValueToDefault respect the Apply flag?")
+
+	if type(Settings) ~= "table" or type(Settings.RegisterAddOnSetting) ~= "function" then
+		add("   Settings API missing.")
+		return
+	end
+
+	local category
+	if type(Settings.RegisterVerticalLayoutCategory) == "function" then
+		local ok, cat = pcall(Settings.RegisterVerticalLayoutCategory, "Unmarked Recon Probe")
+		if ok then category = cat end
+	end
+	if not category then add("   could not make a test category."); return end
+
+	UnmarkedReconProbeVars = UnmarkedReconProbeVars or {}
+	local tbl = UnmarkedReconProbeVars
+	tbl.URPD = true
+
+	-- The signature settled by [G13c]: category, variable, variableKey,
+	-- variableTbl, variableType, name, default.
+	local ok, setting = pcall(Settings.RegisterAddOnSetting, category,
+		"URPDefaults", "URPD", tbl, Settings.VarType.Boolean, "Probe defaults", true)
+	if not ok or type(setting) ~= "table" then
+		add("   could not register a test setting: " .. tostring(setting):sub(1, 90))
+		return
+	end
+
+	local flags = Settings.CommitFlag
+	pcall(setting.AddCommitFlag, setting, flags.Apply)
+	pcall(setting.AddCommitFlag, setting, flags.Revertable)
+	if type(setting.HasCommitFlag) == "function" then
+		local okh, has = pcall(setting.HasCommitFlag, setting, flags.Apply)
+		mark(okh and has, "test setting carries CommitFlag.Apply")
+	end
+
+	local function state(label)
+		local mod, val, panelHas = "?", "?", "?"
+		pcall(function() mod = tostring(setting:IsModified()) end)
+		pcall(function() val = tostring(setting:GetValue()) end)
+		if SettingsPanel and type(SettingsPanel.HasUnappliedSettings) == "function" then
+			pcall(function() panelHas = tostring(SettingsPanel:HasUnappliedSettings()) end)
+		end
+		add(string.format("   %-26s IsModified=%-6s GetValue=%-6s backing=%-6s panel.HasUnapplied=%s",
+			label, mod, val, tostring(tbl.URPD), panelHas))
+	end
+
+	state("at registration")
+
+	-- A normal write: does the Apply flag park it?
+	pcall(setting.SetValue, setting, false)
+	state("after SetValue(false)")
+	add("   ^ IsModified true here means the Apply flag DOES park a click.")
+	add("")
+
+	-- Put it back, then the question that matters.
+	pcall(setting.SetValue, setting, true)
+	if type(setting.ClearPendingValue) == "function" then pcall(setting.ClearPendingValue, setting) end
+	tbl.URPD = false
+	state("backing forced to false")
+
+	if type(setting.SetValueToDefault) == "function" then
+		pcall(setting.SetValueToDefault, setting)
+		state("after SetValueToDefault()")
+		add("   ^ IsModified FALSE with backing back to true means Defaults")
+		add("     writes straight through and ignores the Apply flag, which is")
+		add("     exactly the behaviour v0.13.0 works around.")
+	else
+		add("   setting:SetValueToDefault is missing.")
+	end
+	add("")
+
+	-- Is there a switch that changes this?
+	add("   Related knobs on the setting object:")
+	for _, n in ipairs({
+		"SetIgnoreApplyOverride", "SetCommitOrder", "GetCommitOrder",
+		"LockPendingValue", "ClearPendingValue", "SetPendingValue",
+		"Revert", "Commit", "NotifyUpdate", "ApplyValue",
+	}) do probeMethod(setting, "   setting", n) end
+
+	add("")
+	add("   And on the panel, for the same question from the other side:")
+	for _, n in ipairs({
+		"HasUnappliedSettings", "CommitSettings", "SetApplyButtonEnabled",
+		"GetCurrentCategory", "Commit", "Cancel", "Revert",
+	}) do probeMethod(SettingsPanel, "   SettingsPanel", n) end
+end
+
 local function collect()
 	wipe(lines)
 
@@ -1865,6 +1966,7 @@ local function collect()
 	if ACTIVE.g17  then sectionHeaderTooltip()   end
 	if ACTIVE.g18  then sectionBagQuestBorder()  end
 	if ACTIVE.g19  then sectionInstantQuestText() end
+	if ACTIVE.g20  then sectionDefaultsAndApply() end
 
 	-- Any full method dumps collected via "/unrecon methods <global>" get
 	-- folded in here so they travel inside the readable report rather than

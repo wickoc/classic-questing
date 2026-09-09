@@ -20,6 +20,11 @@ commands.
 - Quest markers on the minimap
 - Boss and creature portrait pins on zone maps, which Classic never had
 
+**Quest text and bags**
+
+- Instant Quest Text, so quest text types out a line at a time as it did in Classic
+- The yellow highlight MoP puts on quest items in your bags
+
 **Quest tracker**
 
 - Clickable quest titles — no click-to-open-map, no right-click menu. Classic's tracker was text
@@ -65,11 +70,11 @@ MoP shows an exclamation mark on the minimap for nearby questgivers; Classic nev
 comes from a shared texture atlas the client packs many icons into, so it cannot be switched off
 without replacing the artwork. Parked rather than solved.
 
-### Instant Quest Text cannot be enforced
+### The `!` on quest-starting items goes too
 
-Classic-correct is *off*, so quest text types out rather than appearing at once. You can set this
-yourself in Blizzard's options, but the AddOn cannot enforce it: the console variable behind the
-option is not known, and this client has no way to enumerate the console.
+Hiding the bag quest highlight also hides the `!` on items that start a quest. Blizzard draws both
+with a single texture, swapping the image rather than using two objects, so they cannot be
+separated.
 
 ## Compatibility
 

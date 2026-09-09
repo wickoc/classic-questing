@@ -43,6 +43,28 @@ local RULES = {
 		desc    = "Accepting a quest no longer adds it to the tracker by itself. Quality of life rather than clutter, so it is yours to choose.",
 	},
 	{
+		-- The variable is not a guess. Probe v0.19 [G19] walked the settings
+		-- registry and read it off Blizzard's own control: the option labelled
+		-- "Instant Quest Text" is backed by the boolean `instantQuestText`.
+		-- Earlier passes failed because they searched the CONSOLE, which this
+		-- client cannot enumerate (C_Console.GetAllCommands is absent).
+		--
+		-- Classic-correct is OFF: quest text types out a line at a time rather
+		-- than landing all at once, which is half of why reading it felt like
+		-- reading rather than skipping.
+		key     = "questTextTypesOut",
+		cvar    = "instantQuestText",
+		wanted  = "0",
+		default = true,
+		label   = "instant quest text",
+		onText  = "quest text types out a line at a time",
+		offText = "quest text appears all at once again",
+		group   = "Quest text",
+		order   = 20,
+		title   = "Type quest text out",
+		desc    = "Quest text types out a line at a time instead of appearing at once, as it did in Classic. This is Blizzard's Instant Quest Text option, turned off.",
+	},
+	{
 		-- Tier 3, opt-in. The boss and creature portrait pins MoP puts on
 		-- zone maps, which Classic never had. Confirmed working in game.
 		-- Recon named the lever: provider 7 is EncounterJournalDataProvider

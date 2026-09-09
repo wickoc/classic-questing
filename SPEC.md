@@ -47,6 +47,8 @@ Tiers have stopped being useful. Work has landed across all three, so "Tier 3" n
 | World map boss/creature portraits | `mapCreaturePortraits` | v0.2.0 |
 | Tracker quest titles made plain text (no click-to-track, no context menu) | `trackerClickToTrack` | v0.12.0 |
 | Tracker quest item use buttons | `trackerItemButtons` | v0.12.0 |
+| Instant Quest Text, so quest text types out | `questTextTypesOut` | v0.13.0 |
+| Yellow quest-item highlight in bags | `bagQuestHighlight` | v0.13.0 |
 
 Plus the options panel itself: Blizzard's own vertical layout, real checkboxes, the real
 dropdown, the real Apply and Defaults buttons.
@@ -60,14 +62,10 @@ dropdown, the real Apply and Defaults buttons.
 
 ### In flight
 
-- **Yellow quest-item border on bag slots.** Not in Classic. Probe v0.19 `[G18]` checks both
-  plausible routes — a console variable, or a named texture per bag slot that can be hidden
-  after the container redraws.
-- **Instant Quest Text.** Classic-correct is *off*. The player can already set it in Blizzard's
-  options, which means it **is** a registered setting — so probe v0.19 `[G19]` walks the
-  settings registry to read the variable off Blizzard's own control rather than guessing CVar
-  names again. (`C_Console.GetAllCommands` does not exist on this client, so the console cannot
-  be enumerated directly.)
+- **Blizzard's Defaults button does not park values for Apply.** A reload-needing option can be
+  reset with nothing on screen saying the panel is unfinished. v0.13.0 works around it by
+  lighting Apply itself and catching `CommitSettings`; probe v0.20 `[G20]` asks whether
+  `SetValueToDefault` ignores the Apply flag, and whether a cleaner switch exists.
 
 ### Backlog
 
@@ -115,7 +113,7 @@ client will not let an AddOn do cleanly, not things left undone.
    should draw does not render, so it falls back to sparkles. `particleDensity` and `ffxGlow`
    were both tried and rejected. The same sparkle marks lootable corpses, which *is* Classic.
 3. **Questgiver `!` blips.** See Backlog.
-4. **Instant Quest Text cannot be enforced** until `[G19]` names the variable.
+4. **~~Instant Quest Text cannot be enforced.~~** Solved in v0.13.0 — see G19.
 
 ## Architecture
 
@@ -637,6 +635,67 @@ so there was nothing for v0.12.0's clearing to clear. The hover text comes from
 `SettingsListSectionHeaderMixin`'s own `OnEnter`, which has `SetTooltipFunc`,
 `InitDefaultTooltipScriptHandlers` and `SetCustomTooltipAnchoring` on it. Reachable in principle;
 parked behind the freeze and the two new probes.
+
+## Recon results — v0.19 probe
+
+### G19 — Instant Quest Text, solved
+
+The variable is **`instantQuestText`**, a boolean.
+
+Worth recording *why* this took so long: every earlier attempt searched the **console**, and this
+client cannot enumerate it (`C_Console.GetAllCommands` is absent). The option was reachable the
+whole time from the other direction — the player can set it in Blizzard's own options, which
+means Blizzard registered a setting for it, and a registered setting can be read. `[G19]` walked
+`SettingsPanel.categoryLayouts`, pulled `GetSetting()` off each initializer, and printed name
+against variable:
+
+```
+Instant Quest Text                variable=instantQuestText   [boolean]
+Automatic Quest Tracking          variable=autoQuestWatch     [boolean]
+```
+
+The second line is a free confirmation that `autoQuestWatch`, in use since v0.2.0, is the same
+variable Blizzard's own control drives.
+
+**Lesson worth keeping:** when the player can already do a thing in Blizzard's options, the
+answer is in the settings registry, not the console. Ask the UI what it is driving.
+
+Shipped as `questTextTypesOut`, driving `instantQuestText` to 0 — Classic-correct is *off*, so
+quest text types out a line at a time.
+
+### G18 — the bag quest highlight
+
+**No console variable exists.** All six plausible names came back absent. But every bag slot
+carries `ContainerFrame<N>Item<M>IconQuestTexture` — 468 of them on this client — and hiding it
+takes the highlight with it. Shipped as `bagQuestHighlight` in `Bags.lua`, off a
+`ContainerFrame_Update` post-hook since bags redraw constantly.
+
+One coupling, stated in the option's tooltip: that single texture draws both the yellow border on
+a quest item and the `!` on an item that *starts* a quest. Blizzard swaps the texture on one
+object rather than using two, so they cannot be separated. Both go, which is the Classic result.
+
+`IconBorder` is a different thing — the item-quality border — and is left alone.
+
+## v0.13.0 — Apply, corrected again
+
+**Apply never asks.** v0.12.1 raised a confirmation on commit. That was wrong twice over:
+pressing Apply *is* the confirmation, and Blizzard already asks its own question on **Cancel** —
+so one decision was drawing two dialogs. The confirmation is gone; committing rebuilds directly.
+
+**Defaults now leaves something to press.** Blizzard's Defaults writes values straight through
+without parking them, so the Apply button never lit and a reload-needing option could be reset
+with the panel looking finished. Three pieces, all built from methods `[G16]` confirmed:
+
+1. A `needsApply` change arriving outside a commit sets `rebuildPending` and lights Apply via
+   `SettingsPanel:SetApplyButtonEnabled`.
+2. The button is re-armed whenever Blizzard darks it while a rebuild is held — Defaults writes
+   several settings in a row and each write re-evaluates the button, so arming once is not
+   enough.
+3. `SettingsPanel:CommitSettings` is hooked, because pressing Apply after a Defaults reset
+   commits nothing of ours — the values were already written — so the changed-callback never runs
+   and the rebuild would otherwise be lost.
+
+This is a workaround, and is written up as one. `[G20]` asks whether it is necessary.
 
 ## Safety rules — non-negotiable
 
