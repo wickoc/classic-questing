@@ -780,25 +780,38 @@ the control's own list, not its tooltip.
 
 The slash handle is gone from these; on someone else's tooltip it read as clutter. Name only.
 
-### Close after Defaults — the AddOn asks, because Blizzard cannot
+### Defaults — two workarounds for a problem that was never there
 
-Blizzard was never going to show a confirmation here. The Apply button in this case is lit **by
-this AddOn**, so `HasUnappliedSettings()` is false as far as Blizzard is concerned and its own
-Close confirmation has nothing to fire on.
+Blizzard's Defaults button **reloads the UI by itself** when a setting it reset needs one. Tested
+in game, and it settles the whole thread.
 
-From that I argued no question was needed: Defaults has already written and applied the settings,
-so only the redraw is outstanding and nothing would be discarded. **That was my reasoning, not the
-player's, and it was wrong on the point that matters** — a UI reload is not a small thing to have
-happen unannounced. v0.14.2 raises the question Blizzard would have asked if it could see what
-was pending: *Reload now* or *Later*, with Later leaving the settings saved and the map correct
-the next time it opens.
+I built two workarounds on top of a guess about what that button does, without ever asking for it
+to be tested:
 
-**Apply still never asks.** Pressing Apply is the answer; a dialog on top of it would be two
-questions for one decision. The rule is: *Apply is a decision already made, Close is one still
-open.*
+1. **v0.13.0** lit the Apply button by hand and hooked `CommitSettings`, so a Defaults reset would
+   leave something to press.
+2. **v0.14.2** raised an AddOn dialog on close, because Blizzard's own Close confirmation could
+   never fire on a button the AddOn had lit.
 
-A change **parked** for Apply is a different path and is unaffected: Blizzard reverts it on Exit
-and asks its own question, and `rebuildPending` is never set for it.
+Both are gone. A `needsApply` change arriving outside a commit is Defaults writing straight
+through — `[G20]` confirmed `SetValueToDefault` ignores the Apply flag — and the player has
+already decided, in Blizzard's own dialog. So it rebuilds immediately. Roughly sixty lines
+removed, `rebuildPending` and `armApplyButton` with them.
+
+**The lesson, and it is the same one as `instantQuestText`:** the answer was in the client, not in
+reasoning about the client. One in-game test of a button neither of us had pressed would have
+saved two releases. Where a Blizzard control's behaviour matters, test it before designing around
+it.
+
+**What remains:** `rebuildBaseline`, so a reset that moves nothing does not reload for nothing,
+cleared on rebuild so one visit cannot ask twice.
+
+### One preset, one meaning
+
+Checking the experimental wording turned up a real inconsistency. The panel's **Full Classic
+experience** preset has always set experimental options to `false`; `/cq on` left them where they
+were. Same preset, two behaviours depending on whether it was clicked or typed. `/cq on` now turns
+them off too.
 
 ## Safety rules — non-negotiable
 
