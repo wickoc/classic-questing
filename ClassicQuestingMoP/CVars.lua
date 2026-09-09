@@ -230,33 +230,59 @@ end
 --   the player's back and putting it back is the whole job.
 --
 --   Blizzard HAS a control -- Instant Quest Text, Automatic Quest Tracking,
---   Outline Mode. Then a change is the player using their own interface, and
---   the AddOn YIELDS: it turns its own option off and stands down. Safety
---   rule 4 -- do not fight the player's UI. Re-asserting here produced the
---   desync that was reported: Blizzard's checkbox said one thing, this panel
---   said another, and neither would give.
+--   Outline Mode. Then the AddOn's option simply MIRRORS the variable, in both
+--   directions. Safety rule 4: do not fight the player's UI.
+--
+-- v0.14.0 got the second case half right and it showed. It only handled "our
+-- option is on and the variable moved away", so:
+--
+--   * Outline never responded at all -- that option ships OFF, so the branch
+--     was unreachable.
+--   * Automatic Quest Tracking yielded once and then went dead, because after
+--     yielding the option was off and the branch was unreachable again.
+--   * Turning a Blizzard control back to what this AddOn wants never turned
+--     the matching option back on.
+--
+-- One direction is not a sync. Mirroring both ways is.
 ns:RegisterEvent("CVAR_UPDATE", function()
 	if applying or not ns.db then return end
+
 	for i = 1, #RULES do
 		local rule = RULES[i]
-		if ns.db.settings[rule.key] and not refused[rule.cvar] then
+		if not refused[rule.cvar] then
 			local now = readCVar(rule.cvar)
-			if now ~= nil and now ~= rule.wanted then
-				if rule.blizzOption then
-					-- Yield. The setting is written straight rather than
-					-- through ns:Set, because Disable() would restore the
-					-- pre-AddOn value and undo the choice just made.
-					ns.db.settings[rule.key] = false
-					-- What the player has now IS what to restore later.
-					ns.db.state[rule.cvar] = now
+			local on = ns.db.settings[rule.key] and true or false
+
+			if now == nil then
+				-- nothing to compare against
+
+			elseif rule.blizzOption then
+				-- The player owns this one. Follow it, whichever way it went.
+				local shouldBeOn = (now == rule.wanted)
+				if shouldBeOn ~= on then
+					ns.db.settings[rule.key] = shouldBeOn
+
+					if shouldBeOn then
+						-- Adopted rather than applied: the player set this
+						-- themselves, so there is no pre-AddOn value to
+						-- remember that has not been remembered already.
+						ns:Print("|cffffd100" .. rule.blizzOption ..
+							"|r matches Classic, so |cffffd100" .. rule.key ..
+							"|r is now on.")
+					else
+						-- What the player has now IS what to restore later.
+						ns.db.state[rule.cvar] = now
+						ns:Print("|cffffd100" .. rule.blizzOption ..
+							"|r was changed in Blizzard's options, so |cffffd100" ..
+							rule.key .. "|r is now off.")
+					end
+
 					if ns.MarkCustomPreset then ns.MarkCustomPreset() end
 					if ns.RefreshOptions then ns.RefreshOptions() end
-					ns:Print("|cffffd100" .. rule.blizzOption ..
-						"|r was changed in Blizzard's options, so |cffffd100" ..
-						rule.key .. "|r is now off.")
-				else
-					writeCVar(rule, rule.wanted)
 				end
+
+			elseif on and now ~= rule.wanted then
+				writeCVar(rule, rule.wanted)
 			end
 		end
 	end

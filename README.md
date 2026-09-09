@@ -77,8 +77,9 @@ Three of these settings have a Blizzard checkbox of their own: **Instant Quest T
 **Automatic Quest Tracking** and **Outline Mode**. Their tooltips are annotated to say Classic
 Questing is driving them, so a checkbox that moves on its own is not a mystery.
 
-If you change one of those in Blizzard's options, **Classic Questing stands down** — it turns its
-matching option off, keeps what you chose, and says so in chat. Your interface wins.
+Change one of those in Blizzard's options and **Classic Questing follows you** — the matching
+option turns off, and turns back on if you put the setting back. Whichever window you use, the two
+agree, and the AddOn says in chat which way it went. Your interface wins.
 
 ## Compatibility
 

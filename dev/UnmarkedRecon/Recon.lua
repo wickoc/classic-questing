@@ -78,8 +78,10 @@ local ACTIVE = {
 	g20 = false, -- ANSWERED v0.20: SetValueToDefault writes straight through
 	             --   and leaves IsModified false, so it ignores the Apply flag
 
-	-- Still open.
-	g21 = true, -- are Blizzard's own option tooltips strings or functions?
+	g21 = false, -- ANSWERED v0.21: all three are strings, and all three took
+	             --   the annotation
+
+	-- Nothing open. The next section added here goes with the next question.
 }
 
 

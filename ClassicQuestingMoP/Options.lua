@@ -932,13 +932,15 @@ function ns.AnnotateBlizzardOptions()
 						local data = rawget(init, "data")
 						if type(data) == "table" then
 							local tip = data.tooltip
+							-- The note and nothing else. A slash handle was
+							-- tried here and read as clutter on someone
+							-- else's tooltip.
 							if type(tip) == "string" then
 								if not tip:find(ANNOTATION, 1, true) then
 									data.tooltip = tip .. "|n|n" .. ANNOTATION
-										.. "|n" .. GREY .. "/" .. m.key .. "|r"
 								end
 							elseif tip == nil then
-								data.tooltip = ANNOTATION .. "|n" .. GREY .. "/" .. m.key .. "|r"
+								data.tooltip = ANNOTATION
 							end
 							-- A tooltip that is a function is left alone: its
 							-- shape is unverified, and probe [G21] asks what
@@ -1086,13 +1088,23 @@ local function registerNative()
 			ns.RefreshOptions()
 			annotateBlizzardOptions()
 		end)
-		-- Closing the panel ends the visit, whichever button did it. A held
-		-- rebuild does not survive it: the player walked away from those
-		-- changes, and carrying the flag over is what made a later Close
-		-- rebuild the UI out of nowhere.
+		-- Closing the panel ends the visit, whichever button did it.
+		--
+		-- A rebuild held over from Defaults is FINISHED here rather than
+		-- dropped. Nothing is being discarded by doing so: Defaults has
+		-- already written and applied those settings, and the only thing left
+		-- is the redraw -- so Close and Apply have the same work to do, and
+		-- Blizzard has no reason to ask a question about it. It cannot ask
+		-- one anyway: the Apply button in this case was lit by the AddOn, and
+		-- HasUnappliedSettings() is false as far as Blizzard is concerned,
+		-- which is exactly why no confirmation appeared.
+		--
+		-- A change PARKED for Apply is a different thing and is not affected:
+		-- Blizzard reverts it on Exit and asks its own question, and
+		-- rebuildPending is never set for that path.
 		pcall(SettingsPanel.HookScript, SettingsPanel, "OnHide", function()
-			rebuildPending = false
 			wipe(rebuildBaseline)
+			if rebuildPending then doRebuild() end
 		end)
 	end
 

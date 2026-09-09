@@ -62,11 +62,7 @@ dropdown, the real Apply and Defaults buttons.
 
 ### In flight
 
-- **Annotating Blizzard's own controls.** v0.14.0 appends "Managed by Classic Questing" to the
-  tooltip of the Blizzard options this AddOn drives, by editing `data.tooltip` on their
-  initializers. It handles a tooltip that is a **string** or absent, and deliberately leaves a
-  tooltip that is a **function** alone rather than guessing what it is called with. Probe v0.21
-  `[G21]` reports which each one actually is.
+Nothing. The next probe section goes with the next question.
 
 ### Backlog
 
@@ -726,7 +722,7 @@ rule, not a wrong mechanism. There are now two, chosen by whether Blizzard shows
 | | Blizzard control | Behaviour on an outside change |
 | --- | --- | --- |
 | `questPOI`, `showBosses` | none | **Re-assert.** Nothing in the interface claims to own these, so something moved it behind the player's back and putting it back is the job. |
-| `instantQuestText`, `autoQuestWatch`, `Outline` | yes | **Yield.** The player used their own interface. The AddOn turns its option off, adopts the new value as what to restore later, and says so in chat. |
+| `instantQuestText`, `autoQuestWatch`, `Outline` | yes | **Mirror, both ways.** The player used their own interface. The option follows the variable — off when it moves away, back on when it returns — and says so in chat. |
 
 Safety rule 4 — do not fight the player's UI — decides it. Re-asserting against a control the
 player can see produces exactly the standoff that was reported: two checkboxes disagreeing, and
@@ -758,6 +754,44 @@ do.
 
 So lighting the button by hand and catching `CommitSettings` is not a guess to be tidied away
 later — it is the only route this client offers.
+
+## v0.14.1 — one direction is not a sync
+
+Three separate symptoms, one cause. v0.14.0's rule only fired when *our option was on and the
+variable had moved away*, so:
+
+- **Outline Mode never responded at all.** That option ships **off**, so the branch was
+  unreachable from the start.
+- **Automatic Quest Tracking yielded once, then went dead.** After yielding, the option was off —
+  and the branch was unreachable again.
+- **Putting a Blizzard control back to the Classic value never turned the option back on**, for
+  the same reason.
+
+Now the option simply **mirrors** the variable in both directions, and says which way it went.
+Guarded by tests that run three full round trips, plus one on an option that ships off, since a
+single yield is exactly what used to deafen it.
+
+### G21 — annotations confirmed
+
+All three tooltips are **strings**, all three carry the note. The function case that v0.14.0
+carefully avoided does not arise on this client — the caution cost nothing and the answer is now
+on record. `data.options` is a function for Outline Mode and a table for the other two, which is
+the control's own list, not its tooltip.
+
+The slash handle is gone from these; on someone else's tooltip it read as clutter. Name only.
+
+### Close after Defaults, resolved
+
+Blizzard could not show a confirmation, and it was never going to: the Apply button in that case
+is lit **by this AddOn**, and `HasUnappliedSettings()` is false as far as Blizzard is concerned,
+so there is nothing for it to ask about.
+
+So closing now **finishes** the held rebuild instead of dropping it. Nothing is discarded by
+doing so — Defaults has already written and applied those settings, and the only outstanding work
+is the redraw. Close and Apply therefore have the same job, and neither needs a question.
+
+A change **parked** for Apply is a different path and is unaffected: Blizzard reverts it on Exit
+and asks its own question, and `rebuildPending` is never set for it.
 
 ## Safety rules — non-negotiable
 
