@@ -32,112 +32,90 @@ See "Conclusions" below for the evidence behind each verdict.
 
 ---
 
-## Feature tiers
+## Work list
 
-### Tier 1 — MVP: map and minimap markers
+Tiers have stopped being useful. Work has landed across all three, so "Tier 3" no longer means
+"later" and the label was hiding what is actually left. What follows is by **state**.
 
-Default **on**.
+### Shipped
 
-- **Minimap quest area blobs.** The blue shaded objective area on the minimap.
-  > ✅ **Real, and already handled by the bullet below.** The `Minimap:SetQuestBlob*` widget
-  > methods named in the original spec do not exist on this client, but the blob does — and
-  > the *Track Quest POIs* tracking entry toggles it along with the pins. One lever covers
-  > both. No separate work. See G1.
-- **Minimap quest POI pins.** The numbered objective pins. Blizzard exposes a *Quest POIs*
-  entry in the minimap tracking dropdown; the addon should set it off and re-assert it, rather
-  than fight the frames. Re-assert on `PLAYER_ENTERING_WORLD` and `MINIMAP_UPDATE_TRACKING`.
-  > ✅ **Confirmed, and it is the single minimap lever.** Use `C_Minimap.SetTracking`; the
-  > bare globals do not exist. Toggling *Track Quest POIs* controls both the numbered pins
-  > **and** the blue area blob. It was already off on the test character, so the module
-  > enforces rather than changes. The index must be resolved **by name**, never hardcoded.
-  > See G2.
-- **World map quest pins** — the numbered markers.
-- **World map quest area highlights** — the shaded "objective is somewhere in here" regions.
-  > ✅ **Both covered by `questPOI 0`, observed in game.** No world map code is needed. The
-  > CVar also removes the *Track Quest* checkbox and the quest log panel inside the fullscreen
-  > map — bundled, not separable, and both are Classic-correct. See G5.
-- **CVar enforcement.** `questPOI` and friends set once at login and re-asserted on
-  `CVAR_UPDATE`, so the settings don't drift back after a patch or a UI reset.
-  > Narrowed to **`questPOI` alone**. `questHelper` exists but cannot be written — the write
-  > is silently refused. `autoQuestWatch` and `trackQuestSorting` are Tier 2 concerns. See G5.
+| Feature | Option | Since |
+| --- | --- | --- |
+| World map quest pins, shaded areas, Track Quest box, in-map quest list | `worldMapMarkers` | v0.1.0 |
+| Minimap quest markers | `minimapMarkers` | v0.1.0 |
+| Automatic tracking of newly accepted quests | `autoQuestTracking` | v0.2.0 |
+| World map boss/creature portraits | `mapCreaturePortraits` | v0.2.0 |
+| Tracker quest titles made plain text (no click-to-track, no context menu) | `trackerClickToTrack` | v0.12.0 |
+| Tracker quest item use buttons | `trackerItemButtons` | v0.12.0 |
 
-### Tier 2 — objective tracker
+Plus the options panel itself: Blizzard's own vertical layout, real checkboxes, the real
+dropdown, the real Apply and Defaults buttons.
 
-**Status: BUILT in v0.12.0.** `Tracker.lua` ships two options plus one experimental.
+### Shipped but unproven
 
-- **~~Hide the tracker entirely~~ — DROPPED.** Raised by me, rejected by the player, and the
-  player is right: Classic *has* a tracker. You shift-click a quest in the log and it appears.
-  Hiding it removes a Classic feature rather than a MoP one, which is the opposite of this
-  addon's job. It is also **redundant** — with `autoQuestWatch` off and nothing tracked by hand,
-  the frame is already empty and invisible. Not building it.
-- **Strip it to Classic form:** ✅ **Shipped v0.12.0**, both halves on by default.
-  - *Click-to-track* → `WATCHFRAME_LINKBUTTONS`, one Button per quest title, each with an
-    `OnClick`. Disable mouse on them after each `WatchFrame_Update`.
-  - *Quest item buttons* → `WatchFrameItem1..N`, parented to `WatchFrameLines`. Hide after each
-    update.
-  - *Auto-sort by distance* → **nothing to do.** This client has no proximity sort; the only
-    sort constants are manual and the two difficulty orders, and it is already on manual.
-  - Both are re-applied on a `WatchFrame_Update` post-hook, not once at login: the tracker
-    recycles its buttons, so a one-shot fix would pass a naive test and fail in play. Turning
-    either off hands the clicks and buttons back.
-  - Open question for the build: `WATCHFRAME_LINKBUTTONS` is a shared pool, so disabling it may
-    also silence the achievement tracker's clicks. Needs an in-game check.
-- **Disable auto-tracking of newly accepted quests (`autoQuestWatch`).** ✅ Shipped in
-  v0.2.0 as an **opt-in** setting, default off: this is genuine quality of life rather than
-  clutter, so the player chooses it instead of having it chosen for them.
-- **Instant Quest Text.** The Blizzard option. Classic-correct is *off*, so quest text types
-  out rather than appearing at once. **Blocked:** the CVar behind it is unknown, and
-  `C_Console.GetAllCommands` does not exist on this client, so the console cannot be
-  enumerated. Probe v0.6 walks the Settings registry instead — see G8.
-- **Suppress the "click to turn in" pop-up bubbles.** To ship **experimental**, at the player's
-  direction. The mechanism is named — `GetNumAutoQuestPopUps`, `GetAutoQuestPopUp`,
-  `RemoveAutoQuestPopUp`, and the `WatchFrameAutoQuest_*` display family — but the data shape
-  is not, and **it cannot be probed on demand**: `GetNumAutoQuestPopUps()` reads 0 unless a
-  pop-up is actually on screen. **Shipped experimental in v0.12.0 anyway**, with the one
-  unverified assumption stated in the file: the first return of `GetAutoQuestPopUp` is taken to
-  be the questID `RemoveAutoQuestPopUp` wants. If that is wrong the `pcall` swallows it and the
-  pop-ups keep appearing — which is exactly what "experimental" is for. `[G15]` stays in the
-  probe, switched off, ready for the moment a pop-up can be caught live.
+| Feature | Option | What is unproven |
+| --- | --- | --- |
+| Turn-in pop-up bubbles | `trackerTurnInPopups` | No pop-up has been seen in play, so the removal has never run. Ships **experimental and off**. The one unverified assumption is stated in `Tracker.lua`: the first return of `GetAutoQuestPopUp` is taken to be the questID `RemoveAutoQuestPopUp` wants. |
+| Quest object outline | `questObjectOutline` | The CVar writes fine and changes nothing, because the client cannot render the outline. Kept as an experiment in case a future build fixes it. |
 
-### Tier 3 — full Classic feel
+### In flight
 
-Default **off**. Individually toggleable, all on one options page.
+- **Yellow quest-item border on bag slots.** Not in Classic. Probe v0.19 `[G18]` checks both
+  plausible routes — a console variable, or a named texture per bag slot that can be hidden
+  after the container redraws.
+- **Instant Quest Text.** Classic-correct is *off*. The player can already set it in Blizzard's
+  options, which means it **is** a registered setting — so probe v0.19 `[G19]` walks the
+  settings registry to read the variable off Blizzard's own control rather than guessing CVar
+  names again. (`C_Console.GetAllCommands` does not exist on this client, so the console cannot
+  be enumerated directly.)
 
-- Kill the map's hover-highlight (mousing a quest in the list stops lighting up the map)
-- Kill click-to-pan (clicking a quest stops flying the map to its objective)
-- Remove pin numbers from the quest list column
-- **Hide questgiver `!` blips on the minimap.** Promoted in importance by live testing:
-  Classic never showed `!` for nearby questgivers, MoP does, and there is no obvious switch
-  for it. Mechanism unknown — the only plausible lever seen in recon is `Minimap:SetBlipTexture`
-  (present in the 205-method dump), which is untested and may affect more than quest blips.
-  Needs its own probe pass before it is designed.
-- **World map creature portraits.** ✅ Shipped in v0.2.0 as an **opt-in** setting
-  (`showBosses`), default off. Recon v0.4 named the lever — provider 7 is
-  `EncounterJournalDataProviderMixin` carrying `cvar=showBosses` — and setting it to 0 was
-  confirmed working in game. Note it appears to have **no checkbox in the Blizzard options
-  window**; it is a console variable only, which is why it could not be found there.
-  (`DigSiteDataProviderMixin` / `digSites` is the same shape if archaeology clutter is ever
-  worth an option; not shipped, not requested.)
-- **Turn-in markers: `?` versus the gold bullet.** The minimap shows a `?` plus a gold bullet
-  for nearby turn-ins. That is close enough to Classic to leave alone by default, but offer a
-  toggle for the purist option: gold bullet only, no `?`.
-- Disable supertracking (the concept of one "active" quest the UI points you toward)
+### Backlog
 
-**Note on the minimap tracking toggle.** Blizzard's tracking dropdown stays fully functional
-and is deliberately not touched: disabling one entry means reaching into Blizzard's menu code,
-which risks taint (safety rule 2) and fights the player's own UI (rule 4). Instead the addon
-**re-asserts** — flipping *Track Quest POIs* back on from the dropdown fires
-`MINIMAP_UPDATE_TRACKING` and the addon turns it off again, so the entry is effectively inert
-while the module is on, with no Blizzard code touched. The options panel is the real switch,
-and `Minimap:Status()` already reports the live tracking state (visible today via `/cq`) so the
-panel can show it and explain the interaction rather than leaving the player confused about a
-dropdown entry that will not stick.
+- **Questgiver `!` blips on the minimap.** Classic never showed them. Parked, not abandoned: the
+  mark lives in a shared texture atlas, so removing it means replacing artwork. Waiting on an
+  edited `ObjectIconsAtlas.blp`. Workflow written up in `dev/BLIP-TEXTURE-WORKFLOW.md`.
+- **Turn-in markers: `?` versus the gold bullet.** The minimap shows both for nearby turn-ins.
+  Close enough to Classic to leave alone by default; offer a purist toggle for gold-bullet-only.
+- **Quest progress tooltip on mouseover.** The matching rule is already settled (see G12): skip
+  line 1; a gold `1.00,0.82,0.00` line whose text equals an active quest title is the header;
+  following lines matching `^%s*%-%s.+:%s*%d+/%d+%s*$` are objectives. Nothing built.
 
-**Note on the "only show `?` when close" idea:** minimap range already *is* proximity, so
-there's no meaningful radius rule to add here. The real choice is keep-as-is versus remove.
-Ship it as a plain on/off toggle.
+### Dropped
 
----
+- **~~Hide the tracker entirely.~~** Classic *has* a tracker — you shift-click a quest in the log
+  and it appears. Hiding it removes a Classic feature rather than a MoP one, which is backwards
+  for this AddOn. Also redundant: with `autoQuestTracking` on and nothing tracked by hand, the
+  frame is already empty and invisible.
+- **~~Auto-sort by distance to objective.~~** Nothing to remove. The only sort constants this
+  client defines are `WATCHFRAME_SORT_MANUAL` (0), `_DIFFICULTY_HIGH` (1) and `_DIFFICULTY_LOW`
+  (2) — there is no proximity sort — and `WATCHFRAME_SORT_TYPE` already reads 0.
+- **~~Map hover-highlight~~, ~~click-to-pan~~, ~~pin numbers in the quest list column.~~** All
+  three were descriptions of the pin system's behaviour, and `questPOI 0` removes the pins, the
+  shaded areas and the in-map quest list outright. With nothing to hover, click or number, there
+  is nothing left to disable. Closed.
+- **~~Disable supertracking.~~** Supertracking is the client's idea of one "active" quest that
+  the UI points you toward — the quest whose objectives sit at the top of the tracker, whose
+  area is shaded on the map, and which the minimap arrow follows. `SetSuperTrackedQuestID` and
+  `GetSuperTrackedQuestID` both exist on this client. It is closed for the same reason as the
+  three above: with `worldMapMarkers` and `minimapMarkers` on there is no marker, no shaded area
+  and no arrow left for it to drive, so the concept has no visible expression. Reopen only if
+  something is spotted in play that still behaves as though one quest were special.
+
+### Known limitations
+
+Documented in `README.md` and to be repeated on the CurseForge page. These are things this
+client will not let an AddOn do cleanly, not things left undone.
+
+1. **Achievement tracker lines also stop being clickable** when `trackerClickToTrack` is on. The
+   tracker draws quest and achievement titles from one pool of buttons (`WATCHFRAME_LINKBUTTONS`)
+   and does not mark which is which. Accepted as a cost; stated in the option's own tooltip so
+   the player reads it where they decide. Worth another probe pass some day — if a button
+   carries a type field, they could be told apart — but not a priority.
+2. **Quest object sparkles cannot be removed.** A client rendering fault: the outline the client
+   should draw does not render, so it falls back to sparkles. `particleDensity` and `ffxGlow`
+   were both tried and rejected. The same sparkle marks lootable corpses, which *is* Classic.
+3. **Questgiver `!` blips.** See Backlog.
+4. **Instant Quest Text cannot be enforced** until `[G19]` names the variable.
 
 ## Architecture
 
@@ -146,14 +124,14 @@ ClassicQuestingMoP/
   ClassicQuestingMoP.toc
   Core.lua        -- addon table, event dispatch, saved variables, defaults, slash command
   CVars.lua       -- set + re-assert console variables
-  Minimap.lua     -- Tier 1 minimap
-  Options.lua     -- settings panel (built; see below)
-  Tracker.lua     -- Tier 2 (NOT BUILT)
-  QuestLog.lua    -- Tier 3
+  Minimap.lua     -- minimap quest markers
+  Tracker.lua     -- objective tracker
+  Options.lua     -- settings panel (loaded last: it reads every module)
 
-
-  (No WorldMap.lua. Recon showed the world map needs no code of its own -- the
-   questPOI CVar covers every Tier 1 world map target. See conclusion G5.)
+  (No WorldMap.lua, and no QuestLog.lua. Both were planned and neither is
+   needed. questPOI 0 covers every world map target on its own -- see G5 --
+   and it takes the in-map quest list with it, which is what QuestLog.lua was
+   for. Nothing has been found since that needs either file.)
 ```
 
 Every module exposes `Enable()` / `Disable()` and is driven from `Core.lua` off the saved
@@ -611,6 +589,54 @@ The Experimental heading renders orange but shows a tooltip on hover, which a he
 for. Only the name is passed in, so it is being defaulted from that somewhere inside the
 initializer. v0.12.0 clears the two fields it could plausibly be; probe v0.18 `[G17]` dumps the
 initializer to say which is real, or name a third.
+
+## v0.12.1 — the freeze
+
+**v0.12.0 locked the client solid** the moment any options panel opened — Blizzard's own, not
+just this AddOn's. Mine, and a plain bug.
+
+`suppress` was a boolean. The Apply-button hook added in v0.12.0 re-enters `RefreshNative`, and
+when the inner call finished it set `suppress = false` while the **outer** loop was still
+writing values. Every remaining `SetValue` then fired its changed-callback, which refreshed
+again, without bound.
+
+Three fixes, because one guard clearly was not enough:
+
+1. `suppress` is a **depth counter**. A count cannot be cleared by someone else's exit.
+2. `RefreshNative` refuses to run inside itself, whatever route the re-entry takes, and restores
+   both guards through a `pcall` so an error cannot leave the panel permanently deaf.
+3. The Apply-button hook stands down while the AddOn is the one writing, and while a preset is
+   being applied — mid-preset it would read the half-applied state as "Custom" and write that
+   back over the preset the player had just chosen.
+
+### A second bug the same investigation turned up
+
+The preset callback read its value with `GetValue()`. Blizzard signals the Apply button as soon
+as a value lands, which is **before** the changed-callback runs — so the hook refreshed and
+overwrote the value first, and choosing "Disabled" re-applied "Full Classic experience". The
+callback now takes the value from its own arguments, scanning the slots for a preset it knows
+rather than betting on which position carries it.
+
+### Why the suite did not catch it
+
+**It could not.** The harness had no `SettingsPanel` at all, so the hook it recursed through was
+never called — 345 checks passed on a build that froze the game. The harness now models
+`SettingsPanel`, and calls `SetApplyButtonEnabled` on **every** `SetValue`, including no-op
+writes, which is what the client does. Run against the v0.12.0 code, the new checks fail 7 times,
+including two that catch the Apply-button storm (90 and 110 calls where a healthy build makes
+fewer than 50).
+
+Honest limit: the harness does not literally hang, it detects the runaway signalling underneath
+the hang. The definitive test is still the client.
+
+### G17 — the section header's tooltip
+
+Answered, and my fix was aimed at the wrong thing. `CreateSettingsListSectionHeaderInitializer`
+puts the name in `data.name` and leaves `data.tooltip` **nil** when only one argument is passed —
+so there was nothing for v0.12.0's clearing to clear. The hover text comes from
+`SettingsListSectionHeaderMixin`'s own `OnEnter`, which has `SetTooltipFunc`,
+`InitDefaultTooltipScriptHandlers` and `SetCustomTooltipAnchoring` on it. Reachable in principle;
+parked behind the freeze and the two new probes.
 
 ## Safety rules — non-negotiable
 

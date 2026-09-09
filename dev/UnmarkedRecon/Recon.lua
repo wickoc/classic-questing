@@ -66,8 +66,13 @@ local ACTIVE = {
 	             --   CreateSettingsListSectionHeaderInitializer is a global;
 	             --   RegisterVerticalLayoutCategory returns category, layout
 
+	g17 = false, -- ANSWERED v0.18: data.tooltip is nil when only a name is
+	             --   passed, so the hover text comes from
+	             --   SettingsListSectionHeaderMixin's own OnEnter
+
 	-- Still open.
-	g17 = true, -- where the section header's unwanted tooltip comes from
+	g18 = true, -- the yellow quest-item border on bag slots
+	g19 = true, -- the variable behind Blizzard's Instant Quest Text option
 }
 
 
@@ -1611,6 +1616,164 @@ local function sectionHeaderTooltip()
 	end
 end
 
+-- [G18] Quest items get a yellow border in the bags. Classic had no such
+-- thing. Two ways it could be reachable, and this checks both rather than
+-- assuming either: a console variable, or a named texture on each bag slot
+-- that can be hidden after the container redraws.
+local function sectionBagQuestBorder()
+	head("[G18] Bag quest-item border")
+
+	add("   Candidate CVars (existence only -- nothing is written):")
+	for _, c in ipairs({
+		"questItemHighlight", "bagQuestItemHighlight", "highlightQuestItems",
+		"showQuestItemBorder", "containerQuestHighlight", "questItemBorder",
+		"displayFreeBagSlots", "bagsHighlight",
+	}) do probeCVar(c) end
+	add("")
+
+	-- The border is drawn per bag slot, so if it is a texture it has a name
+	-- built from the button's. Read one live button rather than guess.
+	add("   A live bag slot, region by region:")
+	local button = _G["ContainerFrame1Item1"]
+	if not button then
+		add("   ContainerFrame1Item1 does not exist. Open your bags and run this again.")
+	else
+		dumpRegions(button, "ContainerFrame1Item1")
+		add("")
+		dumpTable(button, "   ContainerFrame1Item1 keys", 40)
+		add("")
+		add("   Named children of that button:")
+		for _, suffix in ipairs({
+			"IconQuestTexture", "IconBorder", "IconOverlay", "IconOverlay2",
+			"NormalTexture", "Border", "questTexture", "IconTexture",
+		}) do
+			local r = _G["ContainerFrame1Item1" .. suffix] or rawget(button, suffix)
+			if r == nil then
+				add("   --   ContainerFrame1Item1" .. suffix)
+			else
+				local shown, tex = "?", ""
+				pcall(function() shown = r.IsShown and (r:IsShown() and "shown" or "hidden") or "?" end)
+				pcall(function() local t = r.GetTexture and r:GetTexture() if t then tex = "  tex=" .. tostring(t) end end)
+				add("   OK   ContainerFrame1Item1" .. suffix .. "  " .. shown .. tex)
+			end
+		end
+	end
+	add("")
+
+	add("   The functions that draw it:")
+	for _, n in ipairs({
+		"ContainerFrame_Update", "ContainerFrame_UpdateItemUpgradeIcons",
+		"GetContainerItemQuestInfo", "C_Container",
+		"SetItemButtonQuality", "SetItemButtonTexture",
+		"QuestItemHighlight_Update", "ContainerFrameItemButton_OnUpdate",
+	}) do probe(n) end
+	add("")
+	listGlobals("Globals containing 'questtexture'", "questtexture", 30)
+	add("")
+	listGlobals("Globals containing 'iconborder'", "iconborder", 30)
+end
+
+-- [G19] Instant Quest Text. The player can set it in Blizzard's own options,
+-- which means it IS a registered setting -- so rather than guessing CVar names
+-- a sixth time, find the setting Blizzard registered and read its variable off
+-- it. Settings.GetSetting takes a variable, so the trick is finding the name;
+-- the localised label is in a global string constant, and the registry can be
+-- walked from the layouts Blizzard's own categories carry.
+local function sectionInstantQuestText()
+	head("[G19] Instant Quest Text -- find the variable Blizzard uses")
+
+	add("   The label, as a global string constant:")
+	listGlobals("Globals containing 'instant'", "instant", 40)
+	add("")
+	listGlobals("Globals containing 'questtext'", "questtext", 40)
+	add("")
+
+	-- Walk every registered category's layout and read each initializer's
+	-- setting. This is the whole options tree, so it is filtered to anything
+	-- whose name or variable mentions quest.
+	add("   Registered settings whose name or variable mentions 'quest':")
+	local seen, found = {}, 0
+
+	local function inspect(setting, where)
+		if type(setting) ~= "table" or seen[setting] then return end
+		seen[setting] = true
+		local name, var, vtype
+		pcall(function() name = setting.GetName and setting:GetName() end)
+		pcall(function() var = setting.GetVariable and setting:GetVariable() end)
+		pcall(function() vtype = setting.GetVariableType and setting:GetVariableType() end)
+		local hay = (tostring(name) .. " " .. tostring(var)):lower()
+		if hay:find("quest") then
+			found = found + 1
+			add(string.format("      %-42s variable=%-32s [%s]  %s",
+				tostring(name), tostring(var), tostring(vtype), where))
+		end
+	end
+
+	local function walkLayout(layout, where)
+		if type(layout) ~= "table" then return end
+		local inits = rawget(layout, "initializers")
+		if type(inits) ~= "table" then
+			if type(layout.GetInitializers) == "function" then
+				local ok, r = pcall(layout.GetInitializers, layout)
+				if ok then inits = r end
+			end
+		end
+		if type(inits) ~= "table" then return end
+		for i = 1, #inits do
+			local init = inits[i]
+			if type(init) == "table" and type(init.GetSetting) == "function" then
+				local ok, setting = pcall(init.GetSetting, init)
+				if ok then inspect(setting, where) end
+			end
+		end
+	end
+
+	-- Categories live under Settings.GetCategory / the panel's own list; try
+	-- every container that might hold them rather than betting on one.
+	local containers = {}
+	if type(Settings) == "table" then
+		for _, k in ipairs({ "CategorySet" }) do
+			if type(Settings[k]) == "table" then containers[#containers + 1] = { Settings[k], "Settings." .. k } end
+		end
+	end
+	if SettingsPanel then
+		for k, v in pairs(SettingsPanel) do
+			if type(v) == "table" and (tostring(k):lower():find("categor") or tostring(k):lower():find("layout")) then
+				containers[#containers + 1] = { v, "SettingsPanel." .. tostring(k) }
+			end
+		end
+	end
+
+	for _, pair in ipairs(containers) do
+		local tbl, where = pair[1], pair[2]
+		for k, v in pairs(tbl) do
+			if type(v) == "table" then
+				walkLayout(v, where .. "." .. tostring(k))
+				local lay = rawget(v, "layout")
+				if lay then walkLayout(lay, where .. "." .. tostring(k) .. ".layout") end
+			end
+		end
+	end
+
+	if found == 0 then
+		add("      none found by walking. What was searched:")
+		for _, pair in ipairs(containers) do add("         " .. pair[2]) end
+		if #containers == 0 then add("         nothing -- no category container was reachable.") end
+		add("")
+		add("   Fallback: Settings.GetSetting against the constants above.")
+		if type(Settings) == "table" and type(Settings.GetSetting) == "function" then
+			for _, guess in ipairs({ "instantQuestText", "questTextInstant", "instantquesttext" }) do
+				local ok, st = pcall(Settings.GetSetting, guess)
+				mark(ok and type(st) == "table", "Settings.GetSetting(\"" .. guess .. "\")")
+			end
+		end
+	end
+	add("")
+	add("   (Set Instant Quest Text ON in Blizzard's options, /reload, then run")
+	add("    this again: whichever variable above changed value is the one.)")
+	for _, n in ipairs({ "GetCVar", "GetCVarInfo", "GetCVarDefault" }) do probe(n) end
+end
+
 local function collect()
 	wipe(lines)
 
@@ -1700,6 +1863,8 @@ local function collect()
 	if ACTIVE.g15  then sectionTrackerInternals() end
 	if ACTIVE.g16  then sectionNativePanel()     end
 	if ACTIVE.g17  then sectionHeaderTooltip()   end
+	if ACTIVE.g18  then sectionBagQuestBorder()  end
+	if ACTIVE.g19  then sectionInstantQuestText() end
 
 	-- Any full method dumps collected via "/unrecon methods <global>" get
 	-- folded in here so they travel inside the readable report rather than

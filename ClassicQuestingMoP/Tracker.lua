@@ -60,6 +60,7 @@ do
 	M.desc  = "Quest titles in the tracker stop being clickable, so there is no click-to-open-map and no right-click menu. Classic's tracker was text you read."
 	M.onText  = "tracker quest titles are plain text"
 	M.offText = "tracker quest titles are clickable again"
+	M.limitation = "Known limitation: achievement lines in the tracker stop being clickable too. The tracker draws both from one pool of buttons and does not mark which is which."
 	M.group = "Quest tracking"
 	M.order = 50
 
@@ -198,6 +199,7 @@ do
 	M.group = "Quest tracking"
 	M.order = 70
 	M.experimental = true
+	M.limitation = "Untested: no turn-in pop-up has been seen in play yet, so the removal has never actually run."
 
 	ns:RegisterDefaults({ trackerTurnInPopups = false })
 

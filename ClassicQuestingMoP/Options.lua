@@ -646,10 +646,23 @@ local nativeLayout
 local nativeSettings = {}   -- module key -> Blizzard setting object
 local nativePresetSetting
 
--- Writing a value back into a control fires its changed-callback again. Every
--- programmatic write goes through this flag so a refresh cannot be mistaken
--- for the player clicking something.
-local suppress = false
+-- Writing a value back into a control fires its changed-callback again, so
+-- every programmatic write is bracketed by these and the callbacks stand down
+-- while one is in flight.
+--
+-- A COUNTER, not a boolean. As a boolean this froze the game: the Apply-button
+-- hook re-enters RefreshNative, and when the inner call finished it cleared
+-- the flag while the OUTER loop was still writing -- so every remaining
+-- SetValue fired its callback, which refreshed again, without bound. A depth
+-- count cannot be cleared by someone else's exit.
+local suppressDepth = 0
+local function pushSuppress() suppressDepth = suppressDepth + 1 end
+local function popSuppress() suppressDepth = math.max(0, suppressDepth - 1) end
+local function suppressed() return suppressDepth > 0 end
+
+-- Second belt on the same trousers: RefreshNative never runs inside itself,
+-- whatever route the re-entry takes.
+local refreshing = false
 
 -- The dropdown gets its own backing table. ns.db.preset is legitimately nil
 -- after a Defaults reset, and handing a control a nil it must display is a
@@ -680,6 +693,11 @@ end
 -- cannot be resized, so the handle is set apart by colour instead.
 local function tooltipFor(m)
 	local tip = YELLOW .. (m.desc or "") .. "|r"
+	-- A known cost of the option, stated where the player decides rather than
+	-- only in a readme they may never open.
+	if m.limitation then
+		tip = tip .. "|n|n" .. ORANGE .. m.limitation .. "|r"
+	end
 	if m.experimental then
 		tip = tip .. "|n|n" .. ORANGE .. "Experimental: not enabled by the Full Classic preset." .. "|r"
 	end
@@ -734,7 +752,7 @@ local function askToReload()
 end
 
 local function onSettingChanged(m)
-	if suppress then return end
+	if suppressed() then return end
 	ns:ApplyAll()
 	if applyingPreset then return end
 
@@ -846,10 +864,29 @@ local function registerNative()
 	end)
 	if not okd then return false end
 
-	pcall(presetSetting.SetValueChangedCallback, presetSetting, function()
-		if suppress then return end
-		local okv, v = pcall(presetSetting.GetValue, presetSetting)
-		if okv and type(v) == "string" then applyPreset(v) end
+	-- Read the value from the ARGUMENTS, not back off the setting.
+	--
+	-- Blizzard tells the panel its Apply state may have moved as soon as a
+	-- value lands, which is BEFORE this callback runs -- and the hook further
+	-- down reacts by refreshing, which writes the derived preset back over the
+	-- one the player just picked. By the time this ran, GetValue() had already
+	-- been overwritten with the old value, so choosing "Disabled" re-applied
+	-- "Full Classic experience" instead.
+	--
+	-- Which argument slot carries the value is not documented on this client,
+	-- so take the first one that is a preset this AddOn knows.
+	pcall(presetSetting.SetValueChangedCallback, presetSetting, function(...)
+		if suppressed() then return end
+		local picked
+		for i = 1, select("#", ...) do
+			local a = select(i, ...)
+			if type(a) == "string" and PRESET_LABEL[a] then picked = a break end
+		end
+		if not picked then
+			local okv, v = pcall(presetSetting.GetValue, presetSetting)
+			picked = okv and type(v) == "string" and v or nil
+		end
+		if picked then applyPreset(picked) end
 	end)
 	nativePresetSetting = presetSetting
 
@@ -921,12 +958,13 @@ local function registerNative()
 	-- place the information exists.
 	if SettingsPanel and type(hooksecurefunc) == "function"
 		and type(SettingsPanel.SetApplyButtonEnabled) == "function" then
-		local reentering = false
 		pcall(hooksecurefunc, SettingsPanel, "SetApplyButtonEnabled", function()
-			if reentering then return end
-			reentering = true
+			-- Blizzard calls this while committing our own writes too. Acting
+			-- on those is how the recursion started -- and mid-preset it would
+			-- also read the half-applied state as "Custom" and write that back
+			-- over the preset the player just chose.
+			if suppressed() or refreshing or applyingPreset then return end
 			pcall(ns.RefreshOptions)
-			reentering = false
 		end)
 	end
 
@@ -938,8 +976,20 @@ end
 -- resolve to a nil global there -- the forward-reference trap that has already
 -- cost this project two silent failures.
 function ns.RefreshNative()
-	if not ns.db then return end
-	suppress = true
+	if not ns.db or refreshing then return end
+	refreshing = true
+	pushSuppress()
+
+	local ok, err = pcall(ns.RefreshNativeBody)
+
+	popSuppress()
+	refreshing = false
+	-- An error inside must not leave the guards raised, or the panel would go
+	-- permanently deaf; report it once and carry on.
+	if not ok then ns:Warn("options:refresh", "could not refresh the panel: " .. tostring(err)) end
+end
+
+function ns.RefreshNativeBody()
 	for key, setting in pairs(nativeSettings) do
 		-- A setting waiting on Apply holds a pending value. Writing over it
 		-- here would silently discard what the player just clicked.
@@ -956,7 +1006,6 @@ function ns.RefreshNative()
 		presetProxy.preset = displayPreset()
 		pcall(nativePresetSetting.SetValue, nativePresetSetting, presetProxy.preset)
 	end
-	suppress = false
 end
 
 ---------------------------------------------------------------------
