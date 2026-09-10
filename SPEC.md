@@ -68,31 +68,32 @@ Nothing. The next probe section goes with the next question.
 
 ### Backlog
 
-- **Questgiver `!` blips on the minimap.** Classic never showed them. Parked, not abandoned: the
-  mark lives in a shared texture atlas, so removing it means replacing artwork. Waiting on an
-  edited `ObjectIconsAtlas.blp`. Workflow written up in `dev/BLIP-TEXTURE-WORKFLOW.md`.
-- **Turn-in markers: `?` versus the gold bullet.** The minimap shows both for nearby turn-ins.
-  Close enough to Classic to leave alone by default; offer a purist toggle for gold-bullet-only.
-- **Cross-expansion support.** One AddOn across client versions, one CurseForge listing — which
-  is why the name carries no expansion suffix. **[RXPGuides](https://github.com/RestedXP/RXPGuides)**
-  ([CurseForge](https://www.curseforge.com/wow/addons/restedxp-guide)) is the reference to read
-  first: it has already solved this shape of problem — one codebase, one listing, many clients
-  with different APIs underneath. Worth studying specifically:
-  - **How it detects the client** and branches on it, rather than shipping a build per expansion.
-  - **How its `.toc` files are arranged.** Modern clients accept several versions in
-    `## Interface:`, and `-Mainline` / `-Classic` / `-Vanilla` `.toc` suffixes exist; which of
-    those this project needs depends on how far back it goes.
-  - **How it degrades** where a client lacks something — the same problem this AddOn already
-    solves per-feature with existence checks and a warning once, but at whole-expansion scale.
+**Tracked as GitHub Issues from v1.0.0 onwards.** A backlog item has a state and a
+conversation, the same argument that moved bugs out of `BUGS.md`. Kept here as an index only;
+the issue is the record.
 
-  Not a dependency and not a model to copy wholesale: a worked example of the packaging problem,
-  by someone who has been through it.
-- **A wiki of what this client actually exposes.** Twenty-two probe sections have established a
-  large amount about a client nobody has documented: which globals exist, which CVars are real,
-  what `Settings.RegisterAddOnSetting` wants, where Blizzard's own settings can be read from.
-  It lives as raw logs plus this file. Turning it into a reference — for this project, so nothing
-  has to be re-probed, and for anyone else writing for MoP Classic — is worth doing. Not yet;
-  the logs stay as they are until then.
+- [#3 — Questgiver `!` blips on the minimap](https://github.com/wickoc/vanilla-questing/issues/3).
+  Classic never showed them. Parked, not abandoned: the mark lives in a shared texture atlas, so
+  removing it means replacing artwork. Waiting on an edited `ObjectIconsAtlas.blp`; the workflow
+  is in `dev/BLIP-TEXTURE-WORKFLOW.md`.
+- [#4 — Turn-in markers: `?` versus the gold bullet](https://github.com/wickoc/vanilla-questing/issues/4).
+  Close enough to Classic to leave alone by default; offer a purist toggle for gold-bullet-only.
+- [#5 — Cross-expansion support](https://github.com/wickoc/vanilla-questing/issues/5). One AddOn
+  across client versions, one CurseForge listing — which is why the name carries no expansion
+  suffix. **[RXPGuides](https://github.com/RestedXP/RXPGuides)**
+  ([CurseForge](https://www.curseforge.com/wow/addons/restedxp-guide)) is the reference to read
+  first: one codebase, one listing, many clients with different APIs underneath. Worth studying
+  specifically how it detects the client, how its `.toc` files are arranged, and how it degrades
+  where a client lacks something.
+- [#6 — A wiki of what this client actually exposes](https://github.com/wickoc/vanilla-questing/issues/6).
+  Twenty-two probe sections have established a large amount about a client nobody has documented.
+  It lives as raw logs plus this file; turning it into a reference is worth doing. The logs stay
+  exactly as they are until then.
+- [#7 — Remove the live status readout from the canvas fallback rows](https://github.com/wickoc/vanilla-questing/issues/7).
+  Useful while developing, meaningless to a player. Left in for v1.0.0 because the canvas panel
+  only appears when the native registration fails, and the readout is the only diagnostic there.
+- [#8 — The CurseForge description, with a Known limitations section](https://github.com/wickoc/vanilla-questing/issues/8).
+
 
 ### Dropped
 
@@ -186,13 +187,13 @@ A `dbVersion` migration carries v1 saved settings across, and the old names stil
 handles.
 
 **Report the effect, not the switch.** `/vq on X` prints what actually changed
-("world map creature portraits hidden"), never the raw CVar transition.
+("world map boss portraits hidden"), never the raw CVar transition.
 
 **Versioning: stay below 1.0 until the AddOn is releasable.** Use `0.MINOR.PATCH`. Version
-`1.0.0` is reserved for the first genuinely releasable build — not for an iterative step that
-happens to follow `0.9`. (`0.9` is followed by `0.10`, not `1.0`.) What "releasable" means is
-tracked in the work list; as of v0.15.1 it is the CurseForge description, the name decision in
-`NAMING.md`, and removing the fallback panel's live status readout.
+`1.0.0` was reserved for the first genuinely releasable build — not for an iterative step that
+happens to follow `0.9`. (`0.9` is followed by `0.10`, not `1.0`.) **Reached at v1.0.0.** From
+here the same rule applies one level down: `1.0.1` for a fix, `1.1.0` for a feature, and `2.0.0`
+only for something that changes what the AddOn is.
 
 **Version numbers have one source of truth: the `.toc`.** Never hardcode a version string in
 Lua. Read it at runtime with `C_AddOns.GetAddOnMetadata(addonName, "Version")` (fall back to
@@ -269,8 +270,10 @@ The `(MoP)` suffix survives only in the folder name, the repository and the futu
 listing, where it identifies which build to download for which client. See `NAMING.md` — the name
 itself is under review.
 
-**TODO(v1.0):** remove the live status readout from each row of the canvas fallback. It is useful
-while developing and meaningless to a player. The native panel never had one.
+**Open — [issue #7](https://github.com/wickoc/vanilla-questing/issues/7).** Remove the live status
+readout from each row of the canvas fallback. It is useful while developing and meaningless to a
+player; the native panel never had one. It survives v1.0.0 because the canvas panel only appears
+when the native registration fails, and the readout is the only diagnostic on that path.
 
 ### The dropdown — resolved
 
@@ -349,8 +352,8 @@ the comments.
 
 ## Release notes — CurseForge listing
 
-**TODO before first release:** write the CurseForge description, and give it a **Known
-limitations** section. It must include, at minimum:
+**Open — [issue #8](https://github.com/wickoc/vanilla-questing/issues/8).** Write the CurseForge
+description, and give it a **Known limitations** section. It must include, at minimum:
 
 - **Quest object and gathering-node sparkles cannot be removed.** They appear because the
   client falls back to sparkles when it cannot render object outlines, and on affected clients
@@ -1196,6 +1199,55 @@ file — a `pcall` hiding a missing method rather than a failing one.
 
 **When a fix depends on when it runs, prove the moment before tuning the value.** Four rounds
 were spent improving the arithmetic while the arithmetic was already right.
+
+## v1.0.0 — release
+
+The version number stops being a progress bar. Everything on the work list that this client
+allows is shipped and confirmed in game; what is left is either a client fault that no AddOn can
+reach or a piece of work with its own issue.
+
+**The version lives in the `.toc` and nowhere else.** `Core.lua` reads it back through
+`GetAddOnMetadata`, the panels and the chat header print what it read, and the test harness stubs
+the same call. Bumping the `.toc` is the whole change — that rule exists because the recon probe
+once shipped announcing 0.4 in chat while its `.toc` still said 0.3.
+
+### The string removals
+
+Three player-facing lines went, all of them saying something the player did not need told:
+
+- `/vq on` no longer adds *"Experimental options must be activated manually."* The preset tooltip
+  no longer carries it either, in **both** panels. The experimental options are marked
+  experimental where they sit; a sentence explaining the marking is noise.
+- `/vq status` no longer ends with *"/vq help lists every command."* Its dead `example` local went
+  with it.
+- `hideBossPortraits` said "Creature portraits" in chat and "creature portraits" in warnings while
+  its title and description had already become "Boss". One name per feature, everywhere.
+
+`STRINGS.md` is updated for all of these, plus two rows that had drifted from the shipped text
+(`PRESET.TIP_CUSTOM`, `CHAT.STATUS_TITLE`) and the whole `hideBossPortraits` block, which was
+still keyed under the old `hideCreaturePortraits` name.
+
+### The tooltip stutter — [issue #2](https://github.com/wickoc/vanilla-questing/issues/2)
+
+v0.18.1 fixed the *height* and introduced a *stutter*, and the two have the same cause read from
+opposite ends. It fitted twice: immediately at the content-set script, and again next frame. On a
+tooltip coming up from hidden that is fine — the immediate fit runs at the `Show` hook, after the
+layout, and the deferred pass finds nothing to correct. On a **retarget**, where `Show` is never
+called again, the immediate fit lands on a height the client then replaces, and the deferred pass
+has to correct it: shrink, grow, shrink, one frame apart. The right height, arrived at twice.
+
+`scrub` now takes an `afterLayout` flag. Only the `Show` post-hook passes it, because only that
+hook can promise the client has already sized the frame; every content-set script defers. One
+resize per tooltip on both paths.
+
+**The harness had to learn to count.** Every check about this feature measured the final height,
+and the final height was correct both before and after this fix. A guard that counts
+`SetHeight` calls is the only thing that can see the difference — three new checks, and inverting
+the fix turns the retarget one red with `-> 2`.
+
+That is the same lesson as the freeze, the OnShow bug and the fit itself, in a fourth costume:
+**the harness only catches what it models.** Here it was not the client's timing that went
+unmodelled but the AddOn's own behaviour — doing the right thing twice.
 
 ## Safety rules — non-negotiable
 

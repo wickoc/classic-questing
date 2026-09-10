@@ -2,7 +2,7 @@
 ## Title: Vanilla Questing
 ## Notes: Turn off the quest helper and experience questing as in the original game.
 ## Author: Baoh
-## Version: 0.18.1
+## Version: 1.0.0
 ## SavedVariables: VanillaQuestingDB
 
 Core.lua

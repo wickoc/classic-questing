@@ -29,20 +29,19 @@ Every line is prefixed automatically. Do not repeat the name inside a message.
 | ID | Trigger | Text |
 | --- | --- | --- |
 | `CHAT.PREFIX` | Every chat line | `[Vanilla Questing] ` in `COLOR.BRAND`, trailing space |
-| `CHAT.ON_ALL` | `/vq on` | `Enabled all vanilla options.` + ` Experimental options must be activated manually.` in `COLOR.MUTED` |
+| `CHAT.ON_ALL` | `/vq on` | `Enabled all vanilla options.` |
 | `CHAT.OFF_ALL` | `/vq off` | `Disabled all options.` |
 | `CHAT.OPTION_CHANGED` | `/vq on <option>` / `/vq off <option>` | `<optionKey>` in `COLOR.HIGHLIGHT`, then ` on` in `COLOR.ON` or ` off` in `COLOR.OFF`, then `. <effect>.` — `<effect>` is the option's own `ON_*` / `OFF_*` text from section 5 |
 | `CHAT.RESET` | `/vq reset` | `Restored default options.` |
 | `CHAT.UNKNOWN_OPTION` | `/vq on wrongname` | `Unknown option '<option>'.` in `COLOR.WARNING` + ` Try ` + `/vq help` in `COLOR.HIGHLIGHT` + ` for list of commands.` |
 | `CHAT.UNKNOWN_COMMAND` | `/vq wrongword` | `Unknown command '<word>'.` in `COLOR.WARNING` + ` Try ` + `/vq help` in `COLOR.HIGHLIGHT` + ` for list of commands.` |
 | `CHAT.NO_PANEL` | `/vq` when the options panel could not be built | `Options panel unavailable.` in `COLOR.WARNING` + ` Use ` + `/vq on|off <option>` in `COLOR.HIGHLIGHT` + `.` |
-| `CHAT.HELP_HINT` | End of `/vq status` | two spaces, then `/vq help` in `COLOR.HIGHLIGHT` + ` lists every command.` |
 
 ### Chat: the two list headers
 
 | ID | Trigger | Text |
 | --- | --- | --- |
-| `CHAT.STATUS_TITLE` | `/vq status` | `<AddOn name> v<version> - Status` |
+| `CHAT.STATUS_TITLE` | `/vq status` | `<AddOn name> v<version> - Status and list of options` |
 | `CHAT.STATUS_ROW` | one per option | two spaces, then `on ` in `COLOR.ON` or `off ` in `COLOR.OFF`, two spaces, `<optionKey>` in `COLOR.HIGHLIGHT`, then ` (experimental)` in `COLOR.EXPERIMENTAL` where it applies |
 | `CHAT.HELP_TITLE` | `/vq help` | `<AddOn name> v<version> - List of commands` |
 | `CHAT.HELP_ROW` | one per command | two spaces, `<command>` in `COLOR.HIGHLIGHT`, then `  -  `, then the description below |
@@ -134,8 +133,8 @@ in `COLOR.BODY` on the same line. Rows separated by a blank line.
 
 | ID | Text | Notes |
 | --- | --- | |
-| `PRESET.TIP_VANILLA` | `Enable all vanilla options. Experimental options must be activated manually.` | Changed from `PRESET.TIP_CLASSIC` |
-| `PRESET.TIP_CUSTOM` | `Automatically set as soon as you change any option below.` | |
+| `PRESET.TIP_VANILLA` | `Enable all vanilla options.` | Changed from `PRESET.TIP_CLASSIC` |
+| `PRESET.TIP_CUSTOM` | `Automatically selected when you change any option below.` | |
 | `PRESET.TIP_DISABLED` | `Disable all options.` | |
 
 ### Option tooltips: the shape
@@ -194,7 +193,7 @@ Each option has five strings. `TITLE_*` is the checkbox label, `DESC_*` the tool
 `ON_*` and `OFF_*` the phrases chat uses to say what actually changed, and `LABEL_*` the phrase
 warnings use.
 
-**`ON_*` and `OFF_*` describe the effect, not the switch** — "world map creature portraits
+**`ON_*` and `OFF_*` describe the effect, not the switch** — "world map boss portraits
 hidden", never "showBosses set to 0". They are dropped into `CHAT.OPTION_CHANGED` after a period,
 so they should start uppercase.
 
@@ -266,11 +265,11 @@ The **key** column is what the player types after `/vq on` and what appears in t
 
 | ID | Text |
 | --- | --- |
-| `TITLE_hideCreaturePortraits` | `Hide Creature Portraits` |
-| `DESC_hideCreaturePortraits` | `Hides the portrait markers for bosses and creatures on the world map.` |
-| `ON_hideCreaturePortraits` | `Creature portraits removed from the world map.` |
-| `OFF_hideCreaturePortraits` | `Creature portraits restored.` |
-| `LABEL_hideCreaturePortraits` | `creature portraits` |
+| `TITLE_hideBossPortraits` | `Hide Boss Portraits` |
+| `DESC_hideBossPortraits` | `Hides the boss portraits on the world map.` |
+| `ON_hideBossPortraits` | `Boss portraits removed from the world map.` |
+| `OFF_hideBossPortraits` | `Boss portraits restored.` |
+| `LABEL_hideBossPortraits` | `boss portraits` |
 
 ### trackerClickToTrack -> trackerPlainText
 

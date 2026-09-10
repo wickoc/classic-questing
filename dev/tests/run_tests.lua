@@ -1324,9 +1324,18 @@ if scenario == "normal" then
 		line("Pie for Billy", GOLD),
 		line(" - Tender Boar Meat: 0/4", WHITE),
 	})
+	_G.__countResizes()
 	_G.__showTooltip()
 	local out = _G.__tooltipText()
 	check("the unit name survives", out[1] == "Stonetusk Boar", tostring(out[1]))
+	-- A tooltip coming up from hidden is fitted by the Show hook, which runs
+	-- after the client's layout -- so it is right on the first frame drawn,
+	-- and the deferred pass that follows finds nothing left to correct.
+	check("a fresh tooltip is fitted once, before it is drawn",
+		GameTooltip.__resizes == 1, tostring(GameTooltip.__resizes))
+	_G.__nextFrame()
+	check("and the deferred pass adds no second resize",
+		GameTooltip.__resizes == 1, tostring(GameTooltip.__resizes))
 	-- Two of four lines went. A correctly fitted tooltip ends one padding
 	-- below the last surviving line, so it should be the height a two-line
 	-- tooltip would have had -- and it must STAY that way after Show() has
@@ -1510,12 +1519,19 @@ if scenario == "normal" then
 		ln("Pie for Billy", GOLD2),
 		ln(" - Tender Boar Meat: 0/4", WHITE2),
 	})
+	_G.__countResizes()
 	_G.__retargetTooltip()
 	local out2 = _G.__tooltipText()
 	check("the re-used tooltip is still scrubbed", out2[3] == "" and out2[4] == "",
 		tostring(out2[3]) .. " / " .. tostring(out2[4]))
 	check("and the re-used tooltip is fitted to two lines",
 		math.abs(GameTooltip.__height - (4 + 2 * 12 + 2 + 4)) < 1, GameTooltip.__height)
+	-- The stutter guard. v0.18.1 fitted the height at the content-set script
+	-- AND again next frame; on a retarget the first fit was overruled by the
+	-- client's own resize, so the player saw shrink, grow, shrink. Right
+	-- height, wrong number of times. One resize per tooltip, or it stutters.
+	check("and gets there in a single resize", GameTooltip.__resizes == 1,
+		tostring(GameTooltip.__resizes))
 
 	-- And back to something clean: it must not stay cramped.
 	_G.__setTooltip({

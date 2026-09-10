@@ -68,9 +68,9 @@ What goes is everything MoP bolted onto it.
 
 - Asking the client for quest object outlines instead of sparkles — see Known limitations
 
-Every option is individually switchable. The **Full Classic experience** preset turns on every
-normal option and leaves the experimental ones exactly as you set them; **Disabled** turns
-everything off.
+Every option is individually switchable. The **Vanilla (Default)** preset turns on every normal
+option and leaves the experimental ones exactly as you set them; **Disabled** turns everything
+off.
 
 ## Known limitations
 
@@ -109,7 +109,7 @@ without replacing the artwork. Parked rather than solved.
 ## Where it overlaps Blizzard's own options
 
 Three of these settings have a Blizzard checkbox of their own: **Instant Quest Text**,
-**Automatic Quest Tracking** and **Outline Mode**. Their tooltips are annotated to say Classic
+**Automatic Quest Tracking** and **Outline Mode**. Their tooltips are annotated to say Vanilla
 Questing is driving them, so a checkbox that moves on its own is not a mystery.
 
 Change one of those in Blizzard's options and **Vanilla Questing follows you** — the matching

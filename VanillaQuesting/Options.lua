@@ -523,8 +523,7 @@ local function build()
 		-- Same text as the native panel's version, which is the one most
 		-- players see. It drifted once; both now read from the same wording.
 		return "\n" .. WHITE .. PRESET_LABEL.classic .. ":" .. C.close
-			.. " Enable all vanilla options. " .. GREY
-			.. "Experimental options must be activated manually." .. C.close .. "\n\n"
+			.. " Enable all vanilla options.\n\n"
 			.. WHITE .. PRESET_LABEL.custom .. ":" .. C.close
 			.. " Automatically selected when you change any option below.\n\n"
 			.. WHITE .. PRESET_LABEL.disabled .. ":" .. C.close
@@ -573,8 +572,10 @@ local function build()
 			label:SetPoint("LEFT", cb, "RIGHT", 4, 0)
 			label:SetText(m.title or m.key)
 
-			-- TODO(v1.0): remove the live status readout. Useful while
-			-- developing, meaningless to a player.
+			-- Issue #7: the live status readout is useful while developing
+			-- and meaningless to a player. It stays for now because this
+			-- panel only appears when the native registration fails, and
+			-- this readout is the only diagnostic on that path.
 			local status = fs(row, "GameFontDisableSmall", 0.45, 0.45, 0.45)
 			status:SetPoint("RIGHT", row, "RIGHT", -12, 0)
 			status:SetJustifyH("RIGHT")
@@ -721,8 +722,7 @@ local function presetTooltip()
 		return WHITE .. PRESET_LABEL[headingKey] .. ":|r " .. YELLOW .. body .. "|r"
 	end
 	return "|n"
-		.. row("classic", "Enable all vanilla options. " .. GREY ..
-			"Experimental options must be activated manually." .. C.close) .. "|n|n"
+		.. row("classic", "Enable all vanilla options.") .. "|n|n"
 		.. row("custom", "Automatically selected when you change any option below.") .. "|n|n"
 		.. row("disabled", "Disable all options.")
 end

@@ -137,7 +137,7 @@ _G.fire = fire
 _G.fireCount = fireCount
 _G.maxEventDepth = function() return maxDepth end
 
-C_AddOns = { GetAddOnMetadata = function(_, k) if k == "Version" then return "0.18.1" end end }
+C_AddOns = { GetAddOnMetadata = function(_, k) if k == "Version" then return "1.0.0" end end }
 
 Settings = {
 	RegisterCanvasLayoutCategory = function(frame, name)
@@ -377,7 +377,16 @@ GameTooltip.GetHeight = function(self) return self.__height end
 -- next one is built into it. That is why the padding looked right on a fresh
 -- tooltip and wrong on one hovered straight after something else -- and the
 -- harness could not show it while relayout() reset the height every time.
-GameTooltip.SetHeight = function(self, h) self.__height = h; self.__pinned = true end
+-- Counted, because the stutter this AddOn shipped in v0.18.1 was not a wrong
+-- height -- it was the RIGHT height arrived at twice, one frame apart. Only a
+-- count of the resizes can see that.
+GameTooltip.__resizes = 0
+GameTooltip.SetHeight = function(self, h)
+    self.__height = h
+    self.__pinned = true
+    self.__resizes = (self.__resizes or 0) + 1
+end
+_G.__countResizes = function() GameTooltip.__resizes = 0 end
 GameTooltip.IsShown = function(self) return self.__visible ~= false end
 GameTooltip.GetTop = function() return 1000 end
 GameTooltip.GetBottom = function(self) return 1000 - self.__height end

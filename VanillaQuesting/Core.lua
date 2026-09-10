@@ -342,9 +342,7 @@ SlashCmdList["VANILLAQUESTING"] = function(msg)
 				end
 			end
 			ns:ApplyAll()
-			ns:Print(want
-				and ("Enabled all vanilla options." .. " " .. C.muted ..
-					"Experimental options must be activated manually." .. C.close)
+			ns:Print(want and "Enabled all vanilla options."
 				or "Disabled all options.")
 		else
 			local key = resolveSetting(arg)
@@ -380,8 +378,6 @@ SlashCmdList["VANILLAQUESTING"] = function(msg)
 
 	elseif cmd == "status" then
 		status()
-		local example = ns.modules[1] and ns.modules[1].key or "hideMapQuestHelper"
-		ns:Print("  " .. C.highlight .. "/vq help" .. C.close .. " lists every command.")
 
 	elseif cmd == "" then
 		-- Only a bare /vq opens the panel. An unrecognised word is a mistake,
