@@ -1333,6 +1333,19 @@ if scenario == "normal" then
 	check("a gold node name on line 1 is never touched", out[1] == "Silverleaf", tostring(out[1]))
 	check("and its profession line survives", out[2] == "Herbalism", tostring(out[2]))
 
+	-- Moving straight from one creature to the next never fires OnShow again.
+	-- v0.16.0 hooked only OnShow, so in play it removed nothing at all.
+	_G.__setTooltip({
+		line("Another Boar", { r = 0.90, g = 0.70, b = 0.00 }),
+		line("Pie for Billy", GOLD),
+		line(" - Tender Boar Meat: 1/4", WHITE),
+	})
+	_G.__retargetTooltip()
+	out = _G.__tooltipText()
+	check("a retargeted tooltip is scrubbed without a fresh OnShow",
+		out[2] == "" and out[3] == "",
+		tostring(out[2]) .. " / " .. tostring(out[3]))
+
 	-- Sample 3: the same quest, one line further down. A fixed index fails here.
 	_G.__setTooltip({
 		line("Stonetusk Boar", { r = 0.90, g = 0.70, b = 0.00 }),

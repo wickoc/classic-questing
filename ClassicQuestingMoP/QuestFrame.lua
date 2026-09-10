@@ -5,12 +5,15 @@
 -- panel. It is the same widget in both places. Classic had no such thing --
 -- you read the text and looked at the NPC.
 --
--- HONEST NOTE ON THE NAMES USED HERE. Unlike the rest of this AddOn, the
--- globals below have NOT been confirmed by a probe run on this client; the
--- feature was asked for and the probe goes out in the same build. Everything
--- is therefore existence-checked before use and the module reports what it
--- actually found through Status(), so a wrong guess disables the option
--- loudly rather than erroring. Probe [G22] settles it.
+-- CONFIRMED by probe [G22] on this client: the frame is QuestModelScene, a
+-- ModelScene, and QuestFrame_ShowQuestPortrait / _HideQuestPortrait are both
+-- present. QuestNPCModel does NOT exist here as a frame -- only as a prefix on
+-- its own regions (QuestNPCModelBg, QuestNPCModelNameText and so on), which is
+-- exactly the sort of near-miss that makes guessing a name so unreliable.
+--
+-- The other candidates are kept, after the confirmed one, so this file still
+-- works on a client that names it differently. Status() reports which was
+-- found, so a client where none exist says so rather than failing quietly.
 
 local ADDON_NAME, ns = ...
 
@@ -27,15 +30,15 @@ ns:RegisterDefaults({ questGiverPortrait = true })
 -- Every frame this might be, in the order worth trying. The first that exists
 -- is used; the rest cost nothing.
 local CANDIDATE_FRAMES = {
-	"QuestNPCModel",          -- the 5.x name
-	"QuestModelScene",        -- what later clients renamed it to
+	"QuestModelScene",        -- confirmed on 5.5.4 build 69585
+	"QuestNPCModel",          -- other 5.x builds
 	"QuestFrameNPCModel",
 }
 
 -- And the functions that put it on screen, so it can be re-hidden after
 -- Blizzard shows it rather than only once at login.
 local CANDIDATE_SHOWERS = {
-	"QuestFrame_ShowQuestPortrait",
+	"QuestFrame_ShowQuestPortrait",              -- confirmed
 	"QuestLogPopupDetailFrame_ShowQuestPortrait",
 }
 

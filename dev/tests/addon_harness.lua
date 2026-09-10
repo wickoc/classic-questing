@@ -126,7 +126,7 @@ _G.fire = fire
 _G.fireCount = fireCount
 _G.maxEventDepth = function() return maxDepth end
 
-C_AddOns = { GetAddOnMetadata = function(_, k) if k == "Version" then return "0.16.0" end end }
+C_AddOns = { GetAddOnMetadata = function(_, k) if k == "Version" then return "0.16.1" end end }
 
 Settings = {
 	RegisterCanvasLayoutCategory = function(frame, name)
@@ -236,9 +236,14 @@ ContainerFrame1 = {
 _G.__bagRedraws = 0
 
 local postHooks = {}
+local hookedShow = {}
 hooksecurefunc = function(a, b, c)
 	if type(a) == "table" then
 		-- Object form: hooksecurefunc(frame, "Method", fn).
+		if a == GameTooltip and b == "Show" then
+			hookedShow[#hookedShow + 1] = c
+			return
+		end
 		if a == SettingsPanel then
 			if b == "SetApplyButtonEnabled" and _G.__hookApply then _G.__hookApply(c) end
 			if b == "CommitSettings" and _G.__hookCommit then _G.__hookCommit(c) end
@@ -382,8 +387,24 @@ _G.__setTooltip = function(lines)
     local i = #lines + 1
     while _G["GameTooltipTextLeft" .. i] do _G["GameTooltipTextLeft" .. i] = nil; i = i + 1 end
 end
+-- The client's real order, which is the thing v0.16.0 got wrong: the tooltip
+-- becomes VISIBLE first, with no lines in it yet, and the content-set script
+-- fires afterwards once the lines exist. A hook on OnShow alone therefore sees
+-- an empty tooltip and removes nothing.
 _G.__showTooltip = function()
+    local pending = tipLines
+    tipLines = {}                                    -- OnShow: nothing in it yet
     for _, fn in ipairs(GameTooltip.scripts.OnShow or {}) do fn(GameTooltip) end
+    tipLines = pending                               -- now the lines arrive
+    for _, fn in ipairs(GameTooltip.scripts.OnTooltipSetUnit or {}) do fn(GameTooltip) end
+    for _, fn in ipairs(hookedShow or {}) do fn(GameTooltip) end
+end
+
+-- Moving from one creature straight to the next: the tooltip never hides, so
+-- OnShow does not fire again. Only the content-set script does.
+_G.__retargetTooltip = function()
+    for _, fn in ipairs(GameTooltip.scripts.OnTooltipSetUnit or {}) do fn(GameTooltip) end
+    for _, fn in ipairs(hookedShow or {}) do fn(GameTooltip) end
 end
 _G.__tooltipText = function()
     local out = {}

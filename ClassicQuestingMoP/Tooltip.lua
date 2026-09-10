@@ -126,7 +126,8 @@ local function scrub(tooltip)
 	-- Blanked lines still take up their height, so the tooltip would keep a
 	-- gap where the quest block was. Shrinking by one line height each is
 	-- cosmetic; if it ever misjudges, the text is still gone, which is the
-	-- part that matters.
+	-- part that matters. Only the pass that actually blanked something
+	-- shrinks, so running twice on one tooltip does not shrink it twice.
 	if removed > 0 and type(tooltip.GetHeight) == "function" and type(tooltip.SetHeight) == "function" then
 		pcall(function()
 			local perLine = _G[name .. "TextLeft2"]
@@ -140,6 +141,23 @@ end
 
 local hooked = false
 
+-- WHEN to run, which is the whole difficulty.
+--
+-- v0.16.0 hooked OnShow alone and removed nothing at all. OnShow fires when
+-- the tooltip becomes VISIBLE, which is before its lines have been filled in
+-- -- NumLines() is still zero or still showing the last tooltip -- and it does
+-- not fire again when the mouse moves from one creature to the next without
+-- the tooltip hiding in between. So the scrub ran, found nothing, and left.
+--
+-- The lines exist by the time the content-set scripts fire, so those are the
+-- real moment. Several are hooked because the quest block is appended to
+-- creature tooltips AND to world object tooltips, and those arrive by
+-- different routes. A script name this client does not have makes HookScript
+-- throw, which the pcall absorbs -- so listing one that turns out not to exist
+-- costs nothing. Running twice on one tooltip costs nothing either: the second
+-- pass finds the lines already blank.
+local SCRIPTS = { "OnTooltipSetUnit", "OnTooltipSetItem", "OnTooltipSetDefaultAnchor", "OnShow" }
+
 local function ensureHook()
 	if hooked then return end
 	if type(GameTooltip) ~= "table" or type(GameTooltip.HookScript) ~= "function" then
@@ -147,9 +165,24 @@ local function ensureHook()
 		return
 	end
 	hooked = true
-	-- OnShow rather than OnTooltipSetUnit: the quest block is appended to
-	-- object tooltips too, and those are not units.
-	pcall(GameTooltip.HookScript, GameTooltip, "OnShow", scrub)
+
+	local any = false
+	for i = 1, #SCRIPTS do
+		if pcall(GameTooltip.HookScript, GameTooltip, SCRIPTS[i], scrub) then
+			any = true
+		end
+	end
+
+	-- Catch-all. Blizzard calls Show() after building a tooltip, whatever
+	-- built it, so this covers any route the scripts above miss. scrub never
+	-- calls Show itself, so there is nothing to recurse into.
+	if type(hooksecurefunc) == "function" and type(GameTooltip.Show) == "function" then
+		if pcall(hooksecurefunc, GameTooltip, "Show", scrub) then any = true end
+	end
+
+	if not any then
+		ns:Warn("tooltip:nohook", "could not hook GameTooltip; skipping quest progress tooltips.")
+	end
 end
 
 function M:Enable()

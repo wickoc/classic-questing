@@ -101,6 +101,11 @@ Nothing. The next probe section goes with the next question.
   and no arrow left for it to drive, so the concept has no visible expression. Reopen only if
   something is spotted in play that still behaves as though one quest were special.
 
+### Open bugs
+
+**GitHub Issues.** `BUGS.md` was tried and removed — a bug has a state and a conversation, and a
+markdown file gives it neither.
+
 ### Known limitations
 
 Documented in `README.md` and to be repeated on the CurseForge page. These are things this
@@ -868,8 +873,9 @@ to `dev/tests/` with a `run.sh`, and the harness's hardcoded absolute path made 
 
 ### Added
 
-- **`BUGS.md`** — open faults with enough detail to pick up cold. B1 is the slash-commands-while-
-  the-panel-is-open bug.
+- **~~`BUGS.md`~~** — open faults, with enough detail to pick one up cold. **Removed in v0.16.1**:
+  bugs belong in GitHub Issues, where they have a state and a conversation. Its one entry is now
+  [issue #1](https://github.com/wickoc/classic-questing/issues/1).
 - **`STRINGS.md`** — every player-visible string, labelled, with the colour palette.
 - **`NAMING.md`** — the name decision, with everything a rename touches.
 - **`dev/README.md`** — what the probe is, why the old logs are kept, how to run the tests.
@@ -943,6 +949,54 @@ The test harness guarded against the v0.12.0 freeze with a **running total** of
 `SetApplyButtonEnabled` calls. Once there were enough modules, ordinary use crossed the limit and
 the harness reported a recursion that was not happening. It counts **depth** now, which is what
 the real fault looked like. A guard that measures the wrong quantity eventually lies.
+
+## v0.16.1 — the tooltip hook was at the wrong moment
+
+`questProgressTooltips` shipped in v0.16.0 and **removed nothing at all in play**, while passing
+its tests. Both halves of that are worth recording.
+
+**The fault.** It hooked `GameTooltip`'s `OnShow`. That fires when the tooltip becomes *visible*,
+which is **before its lines have been filled in** — so `NumLines()` was zero or still showing the
+previous tooltip, the scrub found nothing, and left. Worse, moving the mouse from one creature
+straight to the next never fires `OnShow` again at all, because the tooltip never hides.
+
+It now hooks the content-set scripts, where the lines exist by definition:
+`OnTooltipSetUnit`, `OnTooltipSetItem`, `OnTooltipSetDefaultAnchor`, and `Show` via
+`hooksecurefunc` as a catch-all for any route those miss. A script name this client lacks makes
+`HookScript` throw, which the `pcall` absorbs, so listing one that turns out not to exist costs
+nothing.
+
+**Why the suite missed it.** The harness fired `OnShow` *with the lines already in place*. That
+is not what the client does, and a harness that models a convenient order rather than the real
+one will confirm anything. `__showTooltip` now empties the tooltip, fires `OnShow`, then puts the
+lines in and fires the content-set script — and there is a `__retargetTooltip` for the
+creature-to-creature case that fires no `OnShow` at all. Against v0.16.0 the new checks fail five
+times.
+
+**The pattern, since this is the second one:** the freeze got through because the harness had no
+`SettingsPanel`; this got through because the harness had the wrong *order*. Both are the same
+mistake — modelling what is easy to model rather than what the client does.
+
+### G22 — the portrait frame, and a switch that does not exist
+
+- **The frame is `QuestModelScene`**, a ModelScene parented to `QuestLogDetailFrame`.
+  `QuestNPCModel` does **not** exist here as a frame — only as a prefix on its own regions
+  (`QuestNPCModelBg`, `QuestNPCModelNameText`, and 25 more), which is exactly the near-miss that
+  makes guessing a name unreliable. `QuestFrame_ShowQuestPortrait` and `_HideQuestPortrait` are
+  both present. The candidate list is reordered with the confirmed name first.
+- **There is no registered setting for quest progress in tooltips.** The whole registry offers
+  only `showNewbieTips` and `PROXY_TARGET_TOOLTIP` on the tooltip side. So blanking the lines is
+  not a stopgap for a switch that exists — it is the only route, and the question is closed.
+- **Every colour code the palette prefers exists**: `NORMAL_FONT_COLOR_CODE` is `|cffffd100`,
+  confirming the yellow that had been assumed. The literals in `Core.lua` are dead fallbacks and
+  can stay dead.
+
+### "No objective arrows" — a claim I should not have made
+
+It was in the draft CurseForge summary. **There is no objective arrow in this client**, and
+Blizzard's quest helper has never drawn one; on-screen arrows are Carbonite and TomTom, which are
+third-party. It sounded like part of a quest helper, which is why it went in unchallenged.
+Removed. Nothing in a public listing should describe something the AddOn does not do.
 
 ## Safety rules — non-negotiable
 

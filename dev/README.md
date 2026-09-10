@@ -56,6 +56,11 @@ succeeds and the panel must fall back rather than half-work.
 412 checks on a build that froze the game, because it had no `SettingsPanel` and so never called
 the hook the freeze recursed through. When a bug gets through, the harness gets the fix too.
 
+## Where bugs live
+
+**GitHub Issues**, not a file in the repository. `BUGS.md` existed briefly and was the wrong
+place: a bug is a conversation with a state, and a markdown file has neither.
+
 ## `BLIP-TEXTURE-WORKFLOW.md`
 
 The manual texture-edit workflow for the questgiver `!` blips, including the UV-to-pixel formula
