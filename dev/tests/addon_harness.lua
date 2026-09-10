@@ -126,7 +126,7 @@ _G.fire = fire
 _G.fireCount = fireCount
 _G.maxEventDepth = function() return maxDepth end
 
-C_AddOns = { GetAddOnMetadata = function(_, k) if k == "Version" then return "0.17.0" end end }
+C_AddOns = { GetAddOnMetadata = function(_, k) if k == "Version" then return "0.17.1" end end }
 
 Settings = {
 	RegisterCanvasLayoutCategory = function(frame, name)
@@ -362,6 +362,20 @@ GameTooltip.GetName = function() return "GameTooltip" end
 GameTooltip.NumLines = function() return #tipLines end
 GameTooltip.GetHeight = function(self) return self.__height end
 GameTooltip.SetHeight = function(self, h) self.__height = h end
+GameTooltip.GetTop = function() return 1000 end
+GameTooltip.GetBottom = function(self) return 1000 - self.__height end
+
+-- What the client does and the harness did not: Show() re-lays the tooltip
+-- out from its line count, which puts the height back. Two attempts at the
+-- trailing pad were undone by exactly this, invisibly, because the harness
+-- had no re-layout to undo them.
+local function relayout()
+    local n = #tipLines
+    -- padding + text + the gaps BETWEEN lines + padding. The trailing gap
+    -- does not exist, which is the detail a per-line estimate gets wrong.
+    GameTooltip.__height = (n > 0) and (4 + n * 12 + (n - 1) * 2 + 4) or 0
+end
+_G.__tooltipRelayout = relayout
 -- The canvas panel uses SetText for a tooltip's first line, so it has to be
 -- recorded like AddLine or that panel's tooltip tests see a headless body.
 GameTooltip.SetText = function(_, text)
@@ -380,10 +394,10 @@ _G.__setTooltip = function(lines)
         function fs:SetText(t) self.__text = t end
         function fs:GetTextColor() return self.__r, self.__g, self.__b end
         function fs:GetHeight() return 12 end
-        -- Laid out top-down: 12px of text and 2px of spacing per line. The
-        -- spacing is the part v0.16.1's per-line estimate never counted.
-        function fs:GetBottom() return 1000 - (i * 14) end
-        function fs:GetTop() return 1000 - (i * 14) + 12 end
+        -- Laid out top-down from the frame's top: 4px of padding, then 12px
+        -- of text per line with 2px of spacing between lines.
+        function fs:GetTop() return 1000 - 4 - ((i - 1) * 14) end
+        function fs:GetBottom() return self:GetTop() - 12 end
         tipLines[i] = fs
         _G["GameTooltipTextLeft" .. i] = fs
     end
@@ -400,14 +414,20 @@ _G.__showTooltip = function()
     tipLines = {}                                    -- OnShow: nothing in it yet
     for _, fn in ipairs(GameTooltip.scripts.OnShow or {}) do fn(GameTooltip) end
     tipLines = pending                               -- now the lines arrive
+    relayout()
     for _, fn in ipairs(GameTooltip.scripts.OnTooltipSetUnit or {}) do fn(GameTooltip) end
+    -- Show() re-lays out FIRST, then the post-hooks run. That ordering is the
+    -- whole reason a one-shot SetHeight never survived.
+    relayout()
     for _, fn in ipairs(hookedShow or {}) do fn(GameTooltip) end
 end
 
 -- Moving from one creature straight to the next: the tooltip never hides, so
 -- OnShow does not fire again. Only the content-set script does.
 _G.__retargetTooltip = function()
+    relayout()
     for _, fn in ipairs(GameTooltip.scripts.OnTooltipSetUnit or {}) do fn(GameTooltip) end
+    relayout()
     for _, fn in ipairs(hookedShow or {}) do fn(GameTooltip) end
 end
 _G.__tooltipText = function()

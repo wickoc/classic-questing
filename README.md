@@ -10,7 +10,28 @@ is planned — the AddOn is deliberately named without one.
 adds quest data of its own, never tells you where anything is, and leaves no trace when turned
 off — every value it changes is remembered first and put back.
 
-Type `/vq` for the options panel, `/vq help` for the commands.
+## Commands
+
+| Command | What it does |
+| --- | --- |
+| `/vq` | Open the options panel |
+| `/vq on` | Turn on the full Classic experience |
+| `/vq off` | Disable the AddOn |
+| `/vq on <option>` | Turn one option on |
+| `/vq off <option>` | Turn one option off |
+| `/vq status` | Show every option and its state |
+| `/vq reset` | Restore the default settings |
+| `/vq help` | List the commands |
+
+`/vanillaquesting` works anywhere `/vq` does, if something else has claimed the short form.
+
+`<option>` is one of the names below — `/vq status` lists them in game:
+
+`worldMapMarkers` · `minimapMarkers` · `mapCreaturePortraits` · `questTextTypesOut` ·
+`questGiverPortrait` · `questProgressTooltips` · `autoQuestTracking` · `trackerClickToTrack` ·
+`trackerItemButtons` · `bagQuestHighlight` · `questObjectOutline` · `trackerTurnInPopups`
+
+Every option is individually switchable, and each has a description in the options panel.
 
 ## What it removes
 
@@ -99,16 +120,3 @@ Built and tested against interface **50504**, client 5.5.4 build 69585. It reads
 from the `.toc` rather than carrying it in code, and every Blizzard function it touches is checked
 for existence before use — a missing one disables that feature and says so, rather than breaking
 the UI.
-
-## Commands
-
-| Command | What it does |
-| --- | --- |
-| `/vq` | Open the options panel |
-| `/vq on` | Turn on the full Classic experience |
-| `/vq off` | Disable the AddOn |
-| `/vq on <option>` | Turn one option on |
-| `/vq off <option>` | Turn one option off |
-| `/vq status` | Show what each option is doing |
-| `/vq reset` | Restore the default settings |
-| `/vq help` | List the commands |

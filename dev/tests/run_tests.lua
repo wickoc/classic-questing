@@ -1315,14 +1315,21 @@ if scenario == "normal" then
 		line("Pie for Billy", GOLD),
 		line(" - Tender Boar Meat: 0/4", WHITE),
 	})
-	GameTooltip.__height = 4 * 14
 	_G.__showTooltip()
 	local out = _G.__tooltipText()
 	check("the unit name survives", out[1] == "Stonetusk Boar", tostring(out[1]))
-	-- Two lines went, at 14px each including the spacing between them. The
-	-- estimate this replaced counted only the 12px of text and left a pad.
-	check("the tooltip shrinks by the whole removed block, spacing included",
-		GameTooltip.__height == 2 * 14, GameTooltip.__height)
+	-- Two of four lines went. A correctly fitted tooltip ends one padding
+	-- below the last surviving line, so it should be the height a two-line
+	-- tooltip would have had -- and it must STAY that way after Show() has
+	-- re-laid it out, which is what defeated the two previous attempts.
+	check("the tooltip ends just under its last surviving line",
+		math.abs(GameTooltip.__height - (4 + 2 * 12 + 2 + 4)) < 1, GameTooltip.__height)
+
+	-- Show() again, as the client does on any refresh. The fit must survive.
+	_G.__tooltipRelayout()
+	_G.__retargetTooltip()
+	check("and the fit survives a re-layout",
+		math.abs(GameTooltip.__height - (4 + 2 * 12 + 2 + 4)) < 1, GameTooltip.__height)
 	check("the level line survives", out[2] == "Level 6 Beast", tostring(out[2]))
 	check("the quest title goes", out[3] == "", tostring(out[3]))
 	check("the objective goes", out[4] == "", tostring(out[4]))

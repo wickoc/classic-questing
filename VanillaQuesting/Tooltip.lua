@@ -73,6 +73,56 @@ end
 
 local scanning = false
 
+-- Shrink the tooltip to end just under its last surviving line.
+--
+-- Two earlier attempts at this both failed, and for the same underlying
+-- reason. Subtracting a line height per removed line ignored the spacing
+-- between lines and left a pad. Measuring the removed block was correct
+-- arithmetic, but it was applied once and then thrown away: Blizzard re-lays
+-- the tooltip out on Show(), which puts the height back.
+--
+-- So this measures the FINISHED tooltip and corrects it, on every pass,
+-- including the one that runs after Show(). Once the height is right the
+-- correction computes as zero, so repeating it costs nothing.
+--
+-- Nothing here assumes a line height or a padding value. The padding above
+-- line 1 is measured and reused as the padding below the last line, because a
+-- tooltip is symmetrical -- which is a fact about the frame in front of us
+-- rather than a number to be guessed.
+local function fitHeight(tooltip, name, lines)
+	if type(tooltip.GetHeight) ~= "function" or type(tooltip.SetHeight) ~= "function" then
+		return
+	end
+
+	-- The last line with anything in it. Anything after it is dead space.
+	local lastKept
+	for i = lines, 1, -1 do
+		local fs = _G[name .. "TextLeft" .. i]
+		local text = fs and fs.GetText and fs:GetText()
+		if type(text) == "string" and text ~= "" then lastKept = fs break end
+	end
+	if not lastKept then return end
+
+	local first = _G[name .. "TextLeft1"]
+	if not first or type(first.GetTop) ~= "function" then return end
+
+	local ok = pcall(function()
+		local frameTop, frameBottom = tooltip:GetTop(), tooltip:GetBottom()
+		local firstTop, keptBottom = first:GetTop(), lastKept:GetBottom()
+		if not (frameTop and frameBottom and firstTop and keptBottom) then return end
+
+		local padding = frameTop - firstTop
+		local wantBottom = keptBottom - padding
+		local excess = wantBottom - frameBottom
+		-- Half a pixel of rounding is not worth a resize.
+		if excess > 0.5 then
+			tooltip:SetHeight(tooltip:GetHeight() - excess)
+		end
+	end)
+	if not ok then return end
+end
+
+
 local function scrub(tooltip)
 	if scanning then return end
 	if not ns.db or not ns.db.settings.questProgressTooltips then return end
@@ -85,14 +135,8 @@ local function scrub(tooltip)
 	if not okn or type(lines) ~= "number" or lines < 2 then return end
 
 	local titles
-	local removed, inQuestBlock = 0, false
-	-- The last line that SURVIVES, and the last that goes. The tooltip should
-	-- end where the first of those ends, and the gap between them is exactly
-	-- what has to come off the height.
-	-- Line 1 always survives, so it is the starting answer for "the last line
-	-- that stays" -- otherwise a tooltip whose entire body is a quest block
-	-- would fall through to the estimate.
-	local lastKept, lastBlanked = _G[name .. "TextLeft1"], nil
+	local inQuestBlock = false
+	local blankedHere = 0
 
 	scanning = true
 	-- Line 1 is always the name; never touch it.
@@ -126,47 +170,27 @@ local function scrub(tooltip)
 				end
 
 				if blank then
-					-- Measured BEFORE clearing: an empty font string reports a
-					-- different height, and the layout does not re-run.
-					lastBlanked = fs
 					fs:SetText("")
-					removed = removed + 1
-				else
-					lastKept = fs
+					blankedHere = blankedHere + 1
 				end
 			end
 		end
 	end
-	scanning = false
 
-	-- Blanked lines still occupy their space, so without this the tooltip
-	-- keeps a gap where the quest block was.
-	--
-	-- v0.16.1 subtracted one line height per removed line, which left a
-	-- trailing pad: a tooltip line is its text height PLUS the spacing between
-	-- lines, and the spacing was never counted. Rather than guess at the gap,
-	-- measure the block: the distance from the bottom of the last surviving
-	-- line to the bottom of the last blanked one is exactly what is now empty,
-	-- spacing included.
-	if removed > 0 and lastBlanked and type(tooltip.SetHeight) == "function" then
-		pcall(function()
-			local bottomKept = lastKept and lastKept:GetBottom()
-			local bottomGone = lastBlanked:GetBottom()
-			local shrink
-			if bottomKept and bottomGone then
-				shrink = bottomKept - bottomGone
-			else
-				-- The tooltip is not laid out yet, so positions are not
-				-- readable. Fall back to counting whole lines.
-				local perLine = _G[name .. "TextLeft2"]
-				local h = perLine and perLine.GetHeight and perLine:GetHeight()
-				shrink = h and (h * removed) or nil
-			end
-			if shrink and shrink > 0 then
-				tooltip:SetHeight(math.max(1, tooltip:GetHeight() - shrink))
-			end
-		end)
+	-- Remember that THIS tooltip, at this line count, has had lines taken out
+	-- of it. A later pass over the same tooltip finds only empty strings and
+	-- would otherwise have no way to know they were ever anything.
+	if blankedHere > 0 then
+		tooltip.__vqBlankedAt = lines
+	elseif tooltip.__vqBlankedAt ~= lines then
+		-- Different content: whatever was blanked belonged to another tooltip.
+		tooltip.__vqBlankedAt = nil
 	end
+
+	if tooltip.__vqBlankedAt == lines then
+		fitHeight(tooltip, name, lines)
+	end
+	scanning = false
 end
 
 local hooked = false

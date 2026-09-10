@@ -318,6 +318,11 @@ read as modal.
 
 ### Consistency rules
 
+**Work lands on `main`.** The repository had no `main` at all — its default branch was the
+working branch, which is why nothing was ever merged anywhere. From v0.17.1 the default is
+`main` and changes go there directly. Once `1.0.0` ships, that changes to asking first.
+
+
 **The slash path says nothing about reloading; the panel asks.** These are not inconsistent —
 they are two different situations, and I had the reasoning backwards until it was corrected:
 
@@ -1064,6 +1069,38 @@ It measures the block now instead of estimating it: the distance from the bottom
 surviving line to the bottom of the last blanked one is exactly what is now empty, spacing
 included. Line 1 counts as a survivor, so a tooltip whose entire body is a quest block still
 measures rather than falling through to the estimate.
+
+## v0.17.1 — the trailing pad, third attempt and the reason the first two failed
+
+Two attempts at this both looked correct and both left the pad. The screenshots settle it: the
+text was gone and the box was still four lines tall — the full, unshrunk height.
+
+- **v0.16.1** subtracted one line height per removed line. Wrong arithmetic: a line is its text
+  height *plus* the spacing between lines, and the spacing was never counted.
+- **v0.17.0** measured the removed block exactly. Correct arithmetic, applied **once** — and
+  Blizzard re-lays the tooltip out on `Show()`, which puts the height straight back. The
+  measurement was right and the moment was wrong.
+
+**What ships now measures the finished tooltip and corrects it on every pass**, including the one
+that runs after `Show()`. Once the height is right the correction computes as zero, so repeating
+it costs nothing.
+
+Nothing in it assumes a line height or a padding value. The padding above line 1 is measured and
+reused as the padding below the last line, because a tooltip is symmetrical — a fact about the
+frame in front of us rather than a number to guess. A `__vqBlankedAt` marker records that *this*
+tooltip at *this* line count had lines taken out, so a later pass, which finds only empty
+strings, still knows they were once something.
+
+**Why the suite missed it twice.** The harness had no re-layout at all: `Show()` did not resize
+anything, so a one-shot `SetHeight` survived in the harness and nowhere else. Its stub layout was
+also internally inconsistent — a claimed 4px padding that the line positions did not agree with,
+and a per-line height that counted a gap after the last line that does not exist. Both are fixed,
+and the harness now re-lays out before *and* after the post-hooks, in the client's order.
+
+**Third time on the same feature, and the pattern is the same one as the freeze and the OnShow
+bug:** the harness modelled what was convenient rather than what the client does. Every one of
+those three got through green tests. Where a fix depends on the client's *timing* or *layout*,
+the harness has to reproduce it or the test proves nothing.
 
 ## Safety rules — non-negotiable
 
