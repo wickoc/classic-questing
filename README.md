@@ -1,5 +1,7 @@
 # Vanilla Questing
 
+*Turn off the quest helper and experience questing as in the original game. Read the quest, explore, and immerse yourself in the World of Warcraft. You have full control, disable as much or as little as you like: no map/minimap markers, no progress in tooltips, instant quest text, vanilla quest tracker, and much more.*
+
 A World of Warcraft AddOn that turns off the quest helper, so questing feels like the original
 game again: you read the quest text and go and look, instead of following a marker.
 
