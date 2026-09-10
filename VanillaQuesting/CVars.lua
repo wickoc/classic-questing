@@ -13,24 +13,24 @@ local RULES = {
 		-- Tier 1. Removes the numbered quest pins, the blue quest area
 		-- highlights, the "Track Quest" checkbox and the quest log panel
 		-- inside the fullscreen map. Verified in game.
-		key     = "worldMapMarkers",
+		key     = "hideMapQuestHelper",
 		cvar       = "questPOI",
 		wanted     = "0",
 		needsApply = true,
 		default = true,
-		label   = "world map quest markers",
-		onText  = "world map quest markers, blue areas and map quest log hidden",
-		offText = "world map quest markers shown again",
+		label   = "world map quest helper",
+		onText  = "World map quest markers, blue areas and quest list removed.",
+		offText = "World map quest helper restored.",
 		group   = "Map and minimap",
 		order   = 10,
-		title   = "Hide world map quest markers",
-		desc    = "Removes the numbered quest pins, the shaded objective areas, the Track Quest checkbox and the quest list inside the full-screen map.",
+		title   = "Hide World Map Quest Helper",
+		desc    = "Removes the quest markers, the blue objective areas, the Track Quest checkbox and the quest list in the world map pane.",
 	},
 	{
 		-- Tier 2, opt-in. Newly accepted quests stop auto-tracking. This is
 		-- real quality of life, not clutter, so it ships off and the player
 		-- chooses it rather than having it chosen for them.
-		key     = "autoQuestTracking",
+		key     = "noAutoQuestTracking",
 		cvar    = "autoQuestWatch",
 		-- Blizzard shows this one as "Automatic Quest Tracking". Confirmed by
 		-- [G19], which read the variable off Blizzard's own control.
@@ -40,12 +40,12 @@ local RULES = {
 		-- AddOn for, so a fresh install gives exactly that.
 		default = true,
 		label   = "automatic tracking of new quests",
-		onText  = "newly accepted quests are no longer tracked automatically",
-		offText = "newly accepted quests are tracked automatically again",
-		group   = "Quest tracking",
-		order   = 70,
-		title   = "Disable automatic quest tracking",
-		desc    = "Accepting a quest no longer adds it to the tracker by itself. Quality of life rather than clutter, so it is yours to choose.",
+		onText  = "Newly accepted quests are no longer tracked automatically.",
+		offText = "Newly accepted quests are tracked automatically.",
+		group   = "Quest Tracker",
+		order   = 60,
+		title   = "No Automatic Quest Tracking",
+		desc    = "Stops quests from instantly appearing in the quest tracker when accepted.",
 	},
 	{
 		-- The variable is not a guess. Probe v0.19 [G19] walked the settings
@@ -57,36 +57,36 @@ local RULES = {
 		-- Classic-correct is OFF: quest text types out a line at a time rather
 		-- than landing all at once, which is half of why reading it felt like
 		-- reading rather than skipping.
-		key     = "questTextTypesOut",
+		key     = "noInstantQuestText",
 		cvar    = "instantQuestText",
 		blizzOption = "Instant Quest Text",
 		wanted  = "0",
 		default = true,
 		label   = "instant quest text",
-		onText  = "quest text types out a line at a time",
-		offText = "quest text appears all at once again",
-		group   = "Quest text",
+		onText  = "quest text appear slowly",
+		offText = "quest text appear instantly",
+		group   = "Quests",
 		order   = 40,
-		title   = "Type quest text out",
-		desc    = "Quest text types out a line at a time instead of appearing at once, as it did in Classic. This is Blizzard's Instant Quest Text option, turned off.",
+		title   = "No Instant Quest Text",
+		desc    = "Quest text appear slowly, accompanied by the sound of a quill writing.",
 	},
 	{
 		-- Tier 3, opt-in. The boss and creature portrait pins MoP puts on
 		-- zone maps, which Classic never had. Confirmed working in game.
 		-- Recon named the lever: provider 7 is EncounterJournalDataProvider
 		-- carrying cvar=showBosses.
-		key     = "mapCreaturePortraits",
+		key     = "hideCreaturePortraits",
 		cvar       = "showBosses",
 		wanted     = "0",
 		needsApply = true,
 		default = true,
-		label   = "world map creature portraits",
-		onText  = "world map creature portraits hidden",
-		offText = "world map creature portraits shown again",
-		group   = "World map clutter",
+		label   = "creature portraits",
+		onText  = "Creature portraits removed from the world map.",
+		offText = "Creature portraits restored.",
+		group   = "Map and minimap",
 		order   = 30,
-		title   = "Hide world map creature portraits",
-		desc    = "Hides the boss and creature portrait pins MoP puts on zone maps. Classic never had them.",
+		title   = "Hide Creature Portraits",
+		desc    = "Hides the portrait markers for bosses and creatures on the world map.",
 	},
 	{
 		-- Tier 3, opt-in, EXPERIMENTAL and off by default.
@@ -99,7 +99,7 @@ local RULES = {
 		-- Blizzard's own options window, so this is a graphics-side fault
 		-- rather than anything an AddOn can fix. Offered as a maybe, never
 		-- promised, and never part of "turn everything on".
-		key          = "questObjectOutline",
+		key          = "outlineMode",
 		cvar         = "Outline",
 		-- Not a boolean. Outline has four settings on this client, and 1, 2
 		-- and 3 are all "outlines are on", differing in what they apply to.
@@ -113,13 +113,13 @@ local RULES = {
 		wanted       = "2",
 		default      = false,
 		experimental = true,
-		label        = "quest object outline",
-		onText       = "outline requested instead of sparkles (experimental; many clients cannot render it)",
-		offText      = "outline setting returned to what it was",
+		label        = "outline mode",
+		onText       = "Rendering outlines on quest objects.",
+		offText      = "Rendering sparkles on quest objects.",
 		group        = "Experimental",
 		order        = 110,
-		title        = "Request quest object outline",
-		desc         = "Quest objects show either an outline or sparkles, never both, so asking for the outline suppresses the glimmer. Many clients cannot render outlines at all, in which case this does nothing.",
+		title        = "Outline Mode",
+		desc         = "Quest objects show either an outline or sparkles. If the outline fails to render, sparkles are shown automatically.",
 	},
 }
 
@@ -288,14 +288,14 @@ ns:RegisterEvent("CVAR_UPDATE", function()
 						-- themselves, so there is no pre-AddOn value to
 						-- remember that has not been remembered already.
 						ns:Print(C.highlight .. rule.blizzOption .. C.close ..
-							" matches Classic, so " .. C.highlight .. rule.key ..
-							C.close .. " is now on.")
+							" was changed in Blizzard's options, so " .. C.highlight ..
+							rule.key .. C.close .. " is now " .. C.on .. "on " .. C.close .. ".")
 					else
 						-- What the player has now IS what to restore later.
 						ns.db.state[rule.cvar] = now
 						ns:Print(C.highlight .. rule.blizzOption .. C.close ..
 							" was changed in Blizzard's options, so " .. C.highlight ..
-							rule.key .. C.close .. " is now off.")
+							rule.key .. C.close .. " is now " .. C.off .. "off " .. C.close .. ".")
 					end
 
 					if ns.RefreshOptions then ns.RefreshOptions() end

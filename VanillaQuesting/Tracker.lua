@@ -55,16 +55,16 @@ end
 -- them. EnableMouse(false) takes the click without moving anything.
 
 do
-	local M = ns:RegisterModule("trackerClickToTrack", {})
-	M.title = "Make tracker quests plain text"
-	M.desc  = "Quest titles in the tracker stop being clickable, so there is no click-to-open-map and no right-click menu. Classic's tracker was text you read."
-	M.onText  = "tracker quest titles are plain text"
-	M.offText = "tracker quest titles are clickable again"
-	M.limitation = "Known limitation: achievement lines in the tracker stop being clickable too. The tracker draws both from one pool of buttons and does not mark which is which."
-	M.group = "Quest tracking"
-	M.order = 80
+	local M = ns:RegisterModule("trackerPlainText", {})
+	M.title = "Plain Text Quest Tracker"
+	M.desc  = "Quest titles in the tracker stop being clickable."
+	M.onText  = "Tracker quest titles are now plain text."
+	M.offText = "Tracker quest titles are clickable."
+	M.limitation = "Known limitation: tracked achievements stop being clickable too."
+	M.group = "Quest Tracker"
+	M.order = 70
 
-	ns:RegisterDefaults({ trackerClickToTrack = true })
+	ns:RegisterDefaults({ trackerPlainText = true })
 
 	-- Remembered so Disable can hand the clicks back rather than guessing
 	-- that they were on. A subtractive AddOn leaves no trace when off.
@@ -116,15 +116,15 @@ end
 -- from your bags.
 
 do
-	local M = ns:RegisterModule("trackerItemButtons", {})
-	M.title = "Hide tracker quest item buttons"
-	M.desc  = "Removes the use buttons MoP puts beside tracked quests. Quest items are used from your bags, as they were in Classic."
-	M.onText  = "tracker quest item buttons hidden"
-	M.offText = "tracker quest item buttons shown again"
-	M.group = "Quest tracking"
-	M.order = 90
+	local M = ns:RegisterModule("hideTrackerItemButtons", {})
+	M.title = "Hide Quest Item Buttons"
+	M.desc  = "Removes the quest item buttons next to tracked quests."
+	M.onText  = "Tracker quest item buttons removed."
+	M.offText = "Tracker quest item buttons restored."
+	M.group = "Quest Tracker"
+	M.order = 80
 
-	ns:RegisterDefaults({ trackerItemButtons = true })
+	ns:RegisterDefaults({ hideTrackerItemButtons = true })
 
 	local hiddenOnes = {}
 
@@ -191,17 +191,16 @@ end
 -- swallows it and the pop-ups simply keep appearing.
 
 do
-	local M = ns:RegisterModule("trackerTurnInPopups", {})
-	M.title = "Suppress turn-in pop-ups"
-	M.desc  = "Stops the bubble that slides out of the tracker to tell you a quest can be handed in."
-	M.onText  = "turn-in pop-ups suppressed"
-	M.offText = "turn-in pop-ups shown again"
-	M.group = "Quest tracking"
+	local M = ns:RegisterModule("noCompleteQuestPopup", {})
+	M.title = "No Complete Quest Popup"
+	M.desc  = "Removes the popup that tells you a quest can be completed."
+	M.onText  = "Complete quest popup removed."
+	M.offText = "Complete quest popup restored."
+	M.group = "Experimental"
 	M.order = 120
 	M.experimental = true
-	M.limitation = "Untested: no turn-in pop-up has been seen in play yet, so the removal has never actually run."
 
-	ns:RegisterDefaults({ trackerTurnInPopups = false })
+	ns:RegisterDefaults({ noCompleteQuestPopup = false })
 
 	local removed = 0
 

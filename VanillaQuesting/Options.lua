@@ -81,8 +81,8 @@ local function promptReload(before, many)
 	end
 	StaticPopupDialogs["VANILLAQUESTING_RELOAD"] = {
 		text = many
-			and "The UI needs to reload for some of these settings to take effect."
-			or "The UI needs to reload for this setting to take effect.",
+			and "The UI needs to reload for some of these options to take effect."
+			or "The UI needs to reload for this option to take effect.",
 		button1 = "Reload",
 		button2 = CANCEL or "Cancel",
 		OnAccept = function()
@@ -216,7 +216,7 @@ end
 -- behaviour without a stored flag that could drift out of step with reality.
 local PRESET_LABEL = {
 	disabled = "Disabled",
-	classic  = "Full Classic experience",
+	classic  = "Vanilla (Default)",
 	custom   = "Custom",
 }
 
@@ -387,7 +387,7 @@ local function build()
 		defaults:SetScript("OnClick", function()
 			local reload = needsReloadToReset()
 			if type(StaticPopupDialogs) == "table" and type(StaticPopup_Show) == "function" then
-				local text = "Do you want to reset " .. ns.title .. " settings to their defaults?"
+				local text = "Do you want to reset " .. ns.title .. " options to their defaults?"
 				if reload then
 					text = text .. "\n\nNote: The UI will reload."
 				end
@@ -420,8 +420,7 @@ local function build()
 		attachTooltip(defaults,
 			function() return "Defaults" end,
 			function()
-				return "Returns every option to the state a fresh install has: "
-					.. "the full Classic experience, with experimental options off."
+				return "Restore default options."
 			end)
 	end
 
@@ -523,12 +522,12 @@ local function build()
 		-- white tooltip title.
 		-- Same text as the native panel's version, which is the one most
 		-- players see. It drifted once; both now read from the same wording.
-		return "\n" .. WHITE .. "Full Classic experience:" .. C.close
-			.. " Every normal option on. Experimental ones are left exactly as you set them.\n\n"
-			.. WHITE .. "Custom:" .. C.close
-			.. " Your own mix. It cannot be selected; it is chosen automatically as soon as you change any option below.\n\n"
-			.. WHITE .. "Disabled:" .. C.close
-			.. " Every option off, experimental ones included: the game as Blizzard ships it."
+		return "\n" .. WHITE .. PRESET_LABEL.classic .. ":" .. C.close
+			.. " Enable all vanilla options. Experimental options must be activated manually.\n\n"
+			.. WHITE .. PRESET_LABEL.custom .. ":" .. C.close
+			.. " Automatically set as soon as you change any option below.\n\n"
+			.. WHITE .. PRESET_LABEL.disabled .. ":" .. C.close
+			.. " Disable all options."
 	end
 	attachTooltip(value, function() return "Preset" end, presetBody)
 	if left then attachTooltip(left, function() return "Preset" end, presetBody) end
@@ -595,13 +594,10 @@ local function build()
 				local text = m.desc or ""
 				if m.experimental then
 					text = text .. "\n\n" .. ORANGE
-						.. "Experimental: not part of the Full Classic experience, which leaves it exactly as you set it. Switch it on by hand."
+						.. "Experimental: untested and potentially unstable. Use at your own discretion."
 						.. C.close
 				end
-				-- Tooltip lines cannot be resized -- AddLine has no font
-				-- argument and the body font is Blizzard-wide -- so the slash
-				-- handle is set apart by colour instead.
-				return text .. "\n\n" .. GREY .. "/" .. m.key .. C.close
+				return text
 			end
 			attachTooltip(row, function() return m.title or m.key end, body)
 			attachTooltip(cb, function() return m.title or m.key end, body)
@@ -709,9 +705,12 @@ local function tooltipFor(m)
 		tip = tip .. "|n|n" .. ORANGE .. m.limitation .. "|r"
 	end
 	if m.experimental then
-		tip = tip .. "|n|n" .. ORANGE .. "Experimental: not part of the Full Classic experience, which leaves it exactly as you set it. Switch it on by hand." .. "|r"
+		tip = tip .. "|n|n" .. ORANGE ..
+			"Experimental: untested and potentially unstable. Use at your own discretion." .. C.close
 	end
-	return tip .. "|n|n" .. GREY .. "/" .. m.key .. "|r"
+	-- No slash handle. It was here, and was removed: on a Blizzard-styled
+	-- option row it read as clutter rather than help.
+	return tip
 end
 
 -- White heading, a white colon, then the yellow body on the same row. The
@@ -721,10 +720,9 @@ local function presetTooltip()
 		return WHITE .. PRESET_LABEL[headingKey] .. ":|r " .. YELLOW .. body .. "|r"
 	end
 	return "|n"
-		.. row("classic", "Every normal option on. Experimental ones are left exactly as you set them.") .. "|n|n"
-		.. row("custom", "Your own mix. It cannot be selected; it is chosen automatically as soon as you change any option below.") .. "|n|n"
-		.. row("disabled", "Every option off, experimental ones included: the game as Blizzard ships it.") .. "|n|n"
-		.. GREY .. "/vq on, /vq off" .. "|r"
+		.. row("classic", "Enable all vanilla options. Experimental options must be activated manually.") .. "|n|n"
+		.. row("custom", "Automatically set as soon as you change any option below.") .. "|n|n"
+		.. row("disabled", "Disable all options.")
 end
 
 -- What happens when a control's value moves. Shared by every checkbox.
@@ -1012,14 +1010,8 @@ local function registerNative()
 	nativePresetSetting = presetSetting
 
 	-- One checkbox per module, in the single ordering ns:SortedModules owns,
-	-- so this panel and /vq status cannot drift apart. The experiments come
-	-- last so a heading can be put in front of them.
+	-- so this panel and /vq status cannot drift apart.
 	local ordered = ns:SortedModules()
-	local plain, experiments = {}, {}
-	for i = 1, #ordered do
-		local m = ordered[i]
-		if m.experimental then experiments[#experiments + 1] = m else plain[#plain + 1] = m end
-	end
 
 	local function addCheckbox(m)
 		local oks, setting = pcall(Settings.RegisterAddOnSetting,
@@ -1036,14 +1028,17 @@ local function registerNative()
 		return true
 	end
 
-	for i = 1, #plain do
-		if not addCheckbox(plain[i]) then return false end
-	end
-	if #experiments > 0 then
-		addSectionHeader("Experimental", ORANGE)
-		for i = 1, #experiments do
-			if not addCheckbox(experiments[i]) then return false end
+	-- A heading whenever the group changes. The ordering already puts a
+	-- group's options together, so this needs no second list to walk -- and
+	-- it cannot fall out of step with the panel it is heading.
+	local lastGroup
+	for i = 1, #ordered do
+		local m = ordered[i]
+		if m.group and m.group ~= lastGroup then
+			lastGroup = m.group
+			addSectionHeader(m.group, m.experimental and ORANGE or WHITE)
 		end
+		if not addCheckbox(m) then return false end
 	end
 
 	-- The version, which the native layout has nowhere else to put.

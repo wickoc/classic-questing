@@ -16,15 +16,15 @@
 
 local ADDON_NAME, ns = ...
 
-local M = ns:RegisterModule("bagQuestHighlight", {})
-M.title = "Hide quest item highlight in bags"
-M.desc  = "Quest items in your bags stop being outlined in yellow, and items that start a quest lose their exclamation mark. Both are drawn by the same texture, and neither was in Classic: a quest item looked like any other item."
-M.onText  = "bag quest item highlight hidden"
-M.offText = "bag quest item highlight shown again"
-M.group = "Bags"
+local M = ns:RegisterModule("noBagItemHighlight", {})
+M.title = "No Quest Item Highlight In Bags"
+M.desc  = "Quest items in your bags stop being outlined in yellow, and items that start a quest lose their exclamation mark."
+M.onText  = "Bag quest item highlight removed."
+M.offText = "Bag quest item highlight restored."
+M.group = "UI"
 M.order = 100
 
-ns:RegisterDefaults({ bagQuestHighlight = true })
+ns:RegisterDefaults({ noBagItemHighlight = true })
 
 -- Bags redraw constantly, and each redraw puts the highlight back, so this
 -- runs off a post-hook rather than once at login.
@@ -33,7 +33,7 @@ local hooked = false
 -- The frame is passed in, so its own slots can be walked rather than sweeping
 -- all 468 textures on every bag update.
 local function scrub(frame)
-	if not ns.db or not ns.db.settings.bagQuestHighlight then return end
+	if not ns.db or not ns.db.settings.noBagItemHighlight then return end
 
 	local name
 	if type(frame) == "table" and type(frame.GetName) == "function" then

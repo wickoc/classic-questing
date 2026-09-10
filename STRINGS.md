@@ -17,8 +17,8 @@ a colour there to change it everywhere it is used, or override it on a single ro
 | ID | Where | Text | Notes |
 | --- | --- | --- | --- |
 | `ID.NAME` | Everywhere in game: chat prefix, options category, tooltips | `Vanilla Questing` | One variable, `ns.title`. Changing it here changes every use. |
-| `ID.NOTES` | The AddOn list, under the name | `Turn off the quest helper and quest as if it were the original game.` | From the `.toc`. Kept short: long values were suspected in the tooltip layout bug. |
-| `ID.AUTHOR` | The AddOn list | `Wictor` | From the `.toc`. |
+| `ID.NOTES` | The AddOn list, under the name | `Turn off the quest helper and experience questing as in the original game.` | From the `.toc`. Kept short: long values were suspected in the tooltip layout bug. |
+| `ID.AUTHOR` | The AddOn list | `Baoh` | From the `.toc`. |
 
 ---
 
@@ -29,22 +29,22 @@ Every line is prefixed automatically. Do not repeat the name inside a message.
 | ID | Trigger | Text |
 | --- | --- | --- |
 | `CHAT.PREFIX` | Every chat line | `[Vanilla Questing] ` in `COLOR.BRAND`, trailing space |
-| `CHAT.ON_ALL` | `/vq on` | `The Full Classic Experience has been enabled. Experimental features must be activated manually.` |
-| `CHAT.OFF_ALL` | `/vq off` | `AddOn disabled.` |
-| `CHAT.OPTION_CHANGED` | `/vq on <name>` / `/vq off <name>` | `<optionKey>` in `COLOR.HIGHLIGHT`, then ` on` or ` off`, then ` -- <effect>.` — `<effect>` is the option's own `ON_*` / `OFF_*` text from section 5 |
-| `CHAT.RESET` | `/vq reset` | `Settings restored to defaults.` |
-| `CHAT.UNKNOWN_OPTION` | `/vq on wrongname` | `Unknown setting '<name>'. Try /vq for the list.` |
-| `CHAT.UNKNOWN_COMMAND` | `/vq wrongword` | `Unknown command '<word>'. Try ` + `/vq help` in `COLOR.HIGHLIGHT` + ` for the list.` |
-| `CHAT.NO_PANEL` | `/vq` when the options panel could not be built | `Options panel unavailable; use ` + `/vq on|off <name>` in `COLOR.HIGHLIGHT` + `.` |
-| `CHAT.HELP_HINT` | End of `/vq status` | `/vq help` in `COLOR.HIGHLIGHT` + ` lists every command.` |
+| `CHAT.ON_ALL` | `/vq on` | `Enabled all vanilla options.` + ` Experimental options must be activated manually.` in `COLOR.MUTED` |
+| `CHAT.OFF_ALL` | `/vq off` | `Disabled all options.` |
+| `CHAT.OPTION_CHANGED` | `/vq on <option>` / `/vq off <option>` | `<optionKey>` in `COLOR.HIGHLIGHT`, then ` on` in `COLOR.ON` or ` off` in `COLOR.OFF`, then `. <effect>.` — `<effect>` is the option's own `ON_*` / `OFF_*` text from section 5 |
+| `CHAT.RESET` | `/vq reset` | `Restored default options.` |
+| `CHAT.UNKNOWN_OPTION` | `/vq on wrongname` | `Unknown option '<option>'.` in `COLOR.WARNING` + ` Try ` + `/vq help` in `COLOR.HIGHLIGHT` + ` for list of commands.` |
+| `CHAT.UNKNOWN_COMMAND` | `/vq wrongword` | `Unknown command '<word>'.` in `COLOR.WARNING` + ` Try ` + `/vq help` in `COLOR.HIGHLIGHT` + ` for list of commands.` |
+| `CHAT.NO_PANEL` | `/vq` when the options panel could not be built | `Options panel unavailable.` in `COLOR.WARNING` + ` Use ` + `/vq on|off <option>` in `COLOR.HIGHLIGHT` + `.` |
+| `CHAT.HELP_HINT` | End of `/vq status` | two spaces, then `/vq help` in `COLOR.HIGHLIGHT` + ` lists every command.` |
 
 ### Chat: the two list headers
 
 | ID | Trigger | Text |
 | --- | --- | --- |
 | `CHAT.STATUS_TITLE` | `/vq status` | `<AddOn name> v<version> - Status` |
-| `CHAT.STATUS_ROW` | one per option | two spaces, then `on ` in `COLOR.ON` or `off` in `COLOR.OFF`, two spaces, `<optionKey>` in `COLOR.HIGHLIGHT`, then ` (experimental)` in `COLOR.EXPERIMENTAL` where it applies |
-| `CHAT.HELP_TITLE` | `/vq help` | `<AddOn name> v<version> - Commands` |
+| `CHAT.STATUS_ROW` | one per option | two spaces, then `on ` in `COLOR.ON` or `off ` in `COLOR.OFF`, two spaces, `<optionKey>` in `COLOR.HIGHLIGHT`, then ` (experimental)` in `COLOR.EXPERIMENTAL` where it applies |
+| `CHAT.HELP_TITLE` | `/vq help` | `<AddOn name> v<version> - List of commands` |
 | `CHAT.HELP_ROW` | one per command | two spaces, `<command>` in `COLOR.HIGHLIGHT`, then `  -  `, then the description below |
 
 ### Chat: the command list
@@ -55,13 +55,12 @@ is not monospaced, so padding to a column comes out ragged.
 | ID | Command | Description |
 | --- | --- | --- |
 | `HELP.OPEN` | `/vq` | `Open the options panel` |
-| `HELP.ON` | `/vq on` | `Turn on the full Classic experience` |
-| `HELP.OFF` | `/vq off` | `Disable the AddOn` |
-| `HELP.STATUS` | `/vq status` | `List every option and its state` |
-| `HELP.ON_ONE` | `/vq on <name>` | `Turn one option on` |
-| `HELP.OFF_ONE` | `/vq off <name>` | `Turn one option off` |
-| `HELP.RESET` | `/vq reset` | `Restore default settings` |
-| `HELP.NAMES` | (foot of the list, in `COLOR.MUTED`) | `Option names for the two commands above are listed by /vq status.` |
+| `HELP.ON` | `/vq on` | `Enable all vanilla options` |
+| `HELP.OFF` | `/vq off` | `Disable all options` |
+| `HELP.STATUS` | `/vq status` | `List every option and its current state` |
+| `HELP.ON_ONE` | `/vq on <option>` | `Turn one option on` |
+| `HELP.OFF_ONE` | `/vq off <option>` | `Turn one option off` |
+| `HELP.RESET` | `/vq reset` | `Restore default options` |
 
 ### Chat: when a Blizzard control is changed instead
 
@@ -69,14 +68,14 @@ Fires when the player moves one of Blizzard's own checkboxes that this AddOn als
 
 | ID | Trigger | Text |
 | --- | --- | --- |
-| `CHAT.BLIZZ_YIELD` | Blizzard's control moved away from Classic | `<Blizzard option name>` in `COLOR.HIGHLIGHT` + ` was changed in Blizzard's options, so ` + `<optionKey>` in `COLOR.HIGHLIGHT` + ` is now off.` |
-| `CHAT.BLIZZ_ADOPT` | Blizzard's control moved to what this AddOn wants | `<Blizzard option name>` in `COLOR.HIGHLIGHT` + ` matches Classic, so ` + `<optionKey>` in `COLOR.HIGHLIGHT` + ` is now on.` |
+| `CHAT.BLIZZ_YIELD` | Blizzard's control moved away from this AddOn | `<Blizzard option name>` in `COLOR.HIGHLIGHT` + ` was changed in Blizzard's options, so ` + `<optionKey>` in `COLOR.HIGHLIGHT` + ` is now `+ `off ` in `COLOR.OFF` + `.` |
+| `CHAT.BLIZZ_ADOPT` | Blizzard's control moved to what this AddOn wants | `<Blizzard option name>` in `COLOR.HIGHLIGHT` + ` was changed in Blizzard's options, so ` + `<optionKey>` in `COLOR.HIGHLIGHT` + ` is now `+ `on ` in `COLOR.ON` + `.` |
 
 ### Chat: minimap tracking
 
 | ID | Trigger | Text |
 | --- | --- | --- |
-| `CHAT.TRACKING_REASSERTED` | The player switches *Track Quest POIs* on and the AddOn switches it back. Throttled to once every 10 seconds. | `Track Quest POIs` in `COLOR.HIGHLIGHT` + ` was switched back off automatically. To allow it, use ` + `/vq off minimapMarkers` in `COLOR.HIGHLIGHT` + `.` |
+| `CHAT.TRACKING_REASSERTED` | The player switches *Track Quest POIs* on and the AddOn switches it back. Throttled to once every 10 seconds. | `Track Quest POIs` in `COLOR.HIGHLIGHT` + ` was disabled automatically. To allow it, use ` + `/vq off hideMinimapQuestHelper` in `COLOR.HIGHLIGHT` + `.` |
 
 ---
 
@@ -91,17 +90,17 @@ only when this client lacks something the AddOn expected, so most players never 
 | `WARN.CVAR_REFUSED` | The write was accepted and silently ignored | `<cvar> would not change (asked for <value>, still <value>). Skipping <label>.` |
 | `WARN.CVAR_MISSING` | `GetCVar`/`SetCVar` absent | `GetCVar/SetCVar missing; skipping <label>.` |
 | `WARN.CVAR_ABSENT` | The variable does not exist here | `<cvar> does not exist on this client; skipping <label>.` |
-| `WARN.MM_API` | `C_Minimap` absent | `C_Minimap tracking API missing; skipping minimap markers.` |
-| `WARN.MM_NAME` | The tracking-name constant is absent | `MINIMAP_TRACKING_QUEST_POIS missing; skipping minimap markers.` |
-| `WARN.MM_COUNT` | The tracking list could not be read | `could not read the tracking list; skipping minimap markers.` |
-| `WARN.MM_NOTFOUND` | No entry by that name | `no '<name>' entry in the tracking list; skipping minimap markers.` |
-| `WARN.MM_SET` | The tracking entry would not change | `could not change quest POI tracking; skipping minimap markers.` |
-| `WARN.MM_REFUSED` | It changed back by itself | `quest POI tracking would not turn off; skipping minimap markers.` |
+| `WARN.MM_API` | `C_Minimap` absent | `C_Minimap tracking API missing; minimap markers are untouched.` |
+| `WARN.MM_NAME` | The tracking-name constant is absent | `MINIMAP_TRACKING_QUEST_POIS missing; minimap markers are untouched.` |
+| `WARN.MM_COUNT` | The tracking list could not be read | `could not read the tracking list; minimap markers are untouched.` |
+| `WARN.MM_NOTFOUND` | No entry by that name | `no '<option>' entry in the tracking list; minimap markers are untouched.` |
+| `WARN.MM_SET` | The tracking entry would not change | `could not change quest POI tracking; minimap markers are untouched.` |
+| `WARN.MM_REFUSED` | It changed back by itself | `quest POI tracking would not turn off; minimap markers are untouched.` |
 | `WARN.MM_TOOLTIP` | The tracking button was not found | `tracking button not found; using chat notices instead of a tooltip.` |
 | `WARN.QUESTFRAME_MISSING` | The portrait frame was not found | `could not find the questgiver portrait on this client; skipping that option.` |
 | `WARN.TOOLTIP_MISSING` | `GameTooltip` is not hookable | `GameTooltip is not hookable here; skipping quest progress tooltips.` |
-| `WARN.BAGS_MISSING` | `ContainerFrame_Update` absent | `ContainerFrame_Update is not present on this client; skipping the bag quest highlight.` |
-| `WARN.OPTIONS_REGISTER` | The panel could not be added to Blizzard's settings | `could not add the panel to Blizzard's settings; /vq opens it as its own window instead.` |
+| `WARN.BAGS_MISSING` | `ContainerFrame_Update` absent | `ContainerFrame_Update is not present on this client; bag quest highlight is untouched.` |
+| `WARN.OPTIONS_REGISTER` | The panel could not be added to Blizzard's settings | `could not add the panel to Blizzard's settings; /vq opens as its own window instead.` |
 | `WARN.OPTIONS_REFRESH` | The panel failed to refresh | `could not refresh the panel: <error>` |
 | `WARN.EVENT` | A handler errored | `error handling <event>: <error>` |
 | `WARN.APPLY` | An option failed to apply | `could not <enable/disable> <optionKey>: <error>` |
@@ -119,11 +118,11 @@ only when this client lacks something the AddOn expected, so most players never 
 
 ### Preset choices
 
-| ID | Text |
-| --- | --- |
-| `PRESET.CLASSIC` | `Full Classic experience` |
-| `PRESET.CUSTOM` | `Custom` |
-| `PRESET.DISABLED` | `Disabled` |
+| ID | Text | Notes |
+| --- | --- | |
+| `PRESET.VANILLA` | `Vanilla (Default)` | Changed from `PRESET.CLASSIC` |
+| `PRESET.CUSTOM` | `Custom` | |
+| `PRESET.DISABLED` | `Disabled` | |
 
 Listed in that order. `Custom` is shown but never chosen — it is what the control reports when
 the settings match neither of the others.
@@ -133,12 +132,11 @@ the settings match neither of the others.
 Opens with a blank line. Each row is the preset name and a colon in `COLOR.TITLE`, then the body
 in `COLOR.BODY` on the same line. Rows separated by a blank line.
 
-| ID | Text |
-| --- | --- |
-| `PRESET.TIP_CLASSIC` | `Every normal option on. Experimental ones are left exactly as you set them.` |
-| `PRESET.TIP_CUSTOM` | `Your own mix. It cannot be selected; it is chosen automatically as soon as you change any option below.` |
-| `PRESET.TIP_DISABLED` | `Every option off, experimental ones included: the game as Blizzard ships it.` |
-| `PRESET.TIP_COMMANDS` | `/vq on, /vq off` in `COLOR.MUTED`, at the foot |
+| ID | Text | Notes |
+| --- | --- | |
+| `PRESET.TIP_VANILLA` | `Enable all vanilla options. Experimental options must be activated manually.` | Changed from `PRESET.TIP_CLASSIC` |
+| `PRESET.TIP_CUSTOM` | `Automatically set as soon as you change any option below.` | |
+| `PRESET.TIP_DISABLED` | `Disable all options.` | |
 
 ### Option tooltips: the shape
 
@@ -151,7 +149,7 @@ Blizzard paints the first line — the option's name — white by itself. Everyt
 
 | ID | Text |
 | --- | --- |
-| `TIP.EXPERIMENTAL_NOTE` | `Experimental: not part of the Full Classic experience, which leaves it exactly as you set it. Switch it on by hand.` |
+| `TIP.EXPERIMENTAL_NOTE` | `Experimental: untested and potentially unstable. Use at your own discretion.` |
 
 ### On Blizzard's own controls
 
@@ -168,10 +166,7 @@ Appended to Blizzard's tracking-button tooltip while the minimap option is on.
 
 | ID | Text | Colour |
 | --- | --- | --- |
-| `TIP.TRACK_HEADER` | `<AddOn name>` | `COLOR.BRAND` |
-| `TIP.TRACK_LINE1` | `Track Quest POIs` in `COLOR.HIGHLIGHT` + ` is kept off automatically.` | white body |
-| `TIP.TRACK_LINE2` | `Switching it on here will not stick.` | light grey |
-| `TIP.TRACK_LINE3` | `To allow it: ` + `/vq off minimapMarkers` in `COLOR.HIGHLIGHT` | grey |
+| `TIP.TRACK_HEADER` | `Track Quest POIs` in `COLOR.HIGHLIGHT` + `is managed by <AddOn name>.` | `COLOR.BRAND` |
 
 ### Dialogs
 
@@ -180,16 +175,16 @@ On a normal client Blizzard's own dialogs do this work.
 
 | ID | Where | Text |
 | --- | --- | --- |
-| `DLG.RELOAD_ONE` | After changing one option that needs a rebuild | `The UI needs to reload for this setting to take effect.` |
-| `DLG.RELOAD_MANY` | After a preset moves several | `The UI needs to reload for some of these settings to take effect.` |
+| `DLG.RELOAD_ONE` | After changing one option that needs a rebuild | `The UI needs to reload for this option to take effect.` |
+| `DLG.RELOAD_MANY` | After a preset moves several | `The UI needs to reload for some of these options to take effect.` |
 | `DLG.RELOAD_YES` | button 1 | `Reload` |
 | `DLG.RELOAD_NO` | button 2 | `Cancel` — uses the game's own translation where available |
-| `DLG.DEFAULTS` | Confirming a reset | `Do you want to reset <AddOn name> settings to their defaults?` |
+| `DLG.DEFAULTS` | Confirming a reset | `Do you want to reset <AddOn name> options to their defaults?` |
 | `DLG.DEFAULTS_NOTE` | Added when the reset needs a rebuild, after a blank line | `Note: The UI will reload.` |
 | `DLG.DEFAULTS_YES` | button 1 | `Yes` — game translation where available |
 | `DLG.DEFAULTS_NO` | button 2 | `No` — game translation where available |
 | `BTN.DEFAULTS` | The fallback panel's own button | `Defaults` |
-| `BTN.DEFAULTS_TIP` | Its tooltip body | `Returns every option to the state a fresh install has: the full Classic experience, with experimental options off.` |
+| `BTN.DEFAULTS_TIP` | Its tooltip body | `Restore default options.` |
 
 ---
 
@@ -200,127 +195,133 @@ Each option has five strings. `TITLE_*` is the checkbox label, `DESC_*` the tool
 warnings use.
 
 **`ON_*` and `OFF_*` describe the effect, not the switch** — "world map creature portraits
-hidden", never "showBosses set to 0". They are dropped into `CHAT.OPTION_CHANGED` after a dash,
-so they should read as a continuation and start lowercase.
+hidden", never "showBosses set to 0". They are dropped into `CHAT.OPTION_CHANGED` after a period,
+so they should start uppercase.
 
 `LABEL_*` appears only inside warnings, in the middle of a sentence, so it too starts lowercase.
 
 The **key** column is what the player types after `/vq on` and what appears in tooltips.
 
-### worldMapMarkers
+### worldMapMarkers -> hideMapQuestHelper
 
 | ID | Text |
 | --- | --- |
-| `TITLE_worldMapMarkers` | `Hide world map quest markers` |
-| `DESC_worldMapMarkers` | `Removes the numbered quest pins, the shaded objective areas, the Track Quest checkbox and the quest list inside the full-screen map.` |
-| `ON_worldMapMarkers` | `world map quest markers, blue areas and map quest log hidden` |
-| `OFF_worldMapMarkers` | `world map quest markers shown again` |
-| `LABEL_worldMapMarkers` | `world map quest markers` |
+| `TITLE_hideMapQuestHelper` | `Hide World Map Quest Helper` |
+| `DESC_hideMapQuestHelper` | `Removes the quest markers, the blue objective areas, the Track Quest checkbox and the quest list in the world map pane.` |
+| `ON_hideMapQuestHelper` | `World map quest markers, blue areas and quest list removed.` |
+| `OFF_hideMapQuestHelper` | `World map quest helper restored.` |
+| `LABEL_hideMapQuestHelper` | `world map quest helper` |
 
-### minimapMarkers
-
-| ID | Text |
-| --- | --- |
-| `TITLE_minimapMarkers` | `Hide minimap quest markers` |
-| `DESC_minimapMarkers` | `Keeps the Track Quest POIs tracking entry switched off, which removes both the numbered pins and the blue objective area from the minimap.` |
-| `ON_minimapMarkers` | `minimap quest pins and the blue quest area hidden` |
-| `OFF_minimapMarkers` | `minimap quest pins and the blue quest area shown again` |
-
-### questTextTypesOut
+### minimapMarkers -> hideMinimapQuestHelper
 
 | ID | Text |
 | --- | --- |
-| `TITLE_questTextTypesOut` | `Type quest text out` |
-| `DESC_questTextTypesOut` | `Quest text types out a line at a time instead of appearing at once, as it did in Classic. This is Blizzard's Instant Quest Text option, turned off.` |
-| `ON_questTextTypesOut` | `quest text types out a line at a time` |
-| `OFF_questTextTypesOut` | `quest text appears all at once again` |
-| `LABEL_questTextTypesOut` | `instant quest text` |
+| `TITLE_hideMinimapQuestHelper` | `Hide Minimap Quest Helper` |
+| `DESC_hideMinimapQuestHelper` | `Keeps the ` + `Track Quest POIs` in `COLOR.TITLE` + ` tracking switched off, removing both the markers and the blue objective areas from the minimap.` |
+| `ON_hideMinimapQuestHelper` | `Minimap quest markers and the blue quest areas removed.` |
+| `OFF_hideMinimapQuestHelper` | `Minimap quest helper restored.` |
+| `LABEL_hideMinimapQuestHelper` | `minimap quest helper` |
 
-### autoQuestTracking
-
-| ID | Text |
-| --- | --- |
-| `TITLE_autoQuestTracking` | `Disable automatic quest tracking` |
-| `DESC_autoQuestTracking` | `Accepting a quest no longer adds it to the tracker by itself. Quality of life rather than clutter, so it is yours to choose.` |
-| `ON_autoQuestTracking` | `newly accepted quests are no longer tracked automatically` |
-| `OFF_autoQuestTracking` | `newly accepted quests are tracked automatically again` |
-| `LABEL_autoQuestTracking` | `automatic tracking of new quests` |
-
-### questGiverPortrait
+### questTextTypesOut -> noInstantQuestText
 
 | ID | Text |
 | --- | --- |
-| `TITLE_questGiverPortrait` | `Hide the questgiver portrait` |
-| `DESC_questGiverPortrait` | `Removes the framed character box MoP puts beside quest text, both when a quest is offered and in the quest log. Classic showed the text and nothing else.` |
-| `ON_questGiverPortrait` | `questgiver portrait hidden` |
-| `OFF_questGiverPortrait` | `questgiver portrait shown again` |
+| `TITLE_noInstantQuestText` | `No Instant Quest Text` |
+| `DESC_noInstantQuestText` | `Quest text appear slowly, accompanied by the sound of a quill writing.` |
+| `ON_noInstantQuestText` | `quest text appear slowly` |
+| `OFF_noInstantQuestText` | `quest text appear instantly` |
+| `LABEL_noInstantQuestText` | `instant quest text` |
 
-### questProgressTooltips
-
-| ID | Text |
-| --- | --- |
-| `TITLE_questProgressTooltips` | `Hide quest progress in tooltips` |
-| `DESC_questProgressTooltips` | `Mousing over a creature or object stops telling you which quest it belongs to and how many you still need. Classic expected you to remember what you were looking for.` |
-| `ON_questProgressTooltips` | `quest progress no longer appended to tooltips` |
-| `OFF_questProgressTooltips` | `quest progress shown in tooltips again` |
-
-### mapCreaturePortraits
+### autoQuestTracking -> noAutoQuestTracking
 
 | ID | Text |
 | --- | --- |
-| `TITLE_mapCreaturePortraits` | `Hide world map creature portraits` |
-| `DESC_mapCreaturePortraits` | `Hides the boss and creature portrait pins MoP puts on zone maps. Classic never had them.` |
-| `ON_mapCreaturePortraits` | `world map creature portraits hidden` |
-| `OFF_mapCreaturePortraits` | `world map creature portraits shown again` |
-| `LABEL_mapCreaturePortraits` | `world map creature portraits` |
+| `TITLE_noAutoQuestTracking` | `No Automatic Quest Tracking` |
+| `DESC_noAutoQuestTracking` | `Stops quests from instantly appearing in the quest tracker when accepted.` |
+| `ON_noAutoQuestTracking` | `Newly accepted quests are no longer tracked automatically.` |
+| `OFF_noAutoQuestTracking` | `Newly accepted quests are tracked automatically.` |
+| `LABEL_noAutoQuestTracking` | `automatic tracking of new quests` |
 
-### trackerClickToTrack
-
-| ID | Text |
-| --- | --- |
-| `TITLE_trackerClickToTrack` | `Make tracker quests plain text` |
-| `DESC_trackerClickToTrack` | `Quest titles in the tracker stop being clickable, so there is no click-to-open-map and no right-click menu. Classic's tracker was text you read.` |
-| `ON_trackerClickToTrack` | `tracker quest titles are plain text` |
-| `OFF_trackerClickToTrack` | `tracker quest titles are clickable again` |
-| `LIMIT_trackerClickToTrack` | `Known limitation: achievement lines in the tracker stop being clickable too. The tracker draws both from one pool of buttons and does not mark which is which.` |
-
-### trackerItemButtons
+### questGiverPortrait -> hideCharacterFrame
 
 | ID | Text |
 | --- | --- |
-| `TITLE_trackerItemButtons` | `Hide tracker quest item buttons` |
-| `DESC_trackerItemButtons` | `Removes the use buttons MoP puts beside tracked quests. Quest items are used from your bags, as they were in Classic.` |
-| `ON_trackerItemButtons` | `tracker quest item buttons hidden` |
-| `OFF_trackerItemButtons` | `tracker quest item buttons shown again` |
+| `TITLE_hideCharacterFrame` | `Hide Character Frame` |
+| `DESC_hideCharacterFrame` | `Removes the character frame next to quests, both when a quest is offered and in the quest log.` |
+| `ON_hideCharacterFrame` | `Character frame removed.` |
+| `OFF_hideCharacterFrame` | `Character frame restored.` |
+| `LABEL_hideCharacterFrame` | `character frame` |
 
-### bagQuestHighlight
-
-| ID | Text |
-| --- | --- |
-| `TITLE_bagQuestHighlight` | `Hide quest item highlight in bags` |
-| `DESC_bagQuestHighlight` | `Quest items in your bags stop being outlined in yellow, and items that start a quest lose their exclamation mark. Both are drawn by the same texture, and neither was in Classic: a quest item looked like any other item.` |
-| `ON_bagQuestHighlight` | `bag quest item highlight hidden` |
-| `OFF_bagQuestHighlight` | `bag quest item highlight shown again` |
-
-### trackerTurnInPopups  *(experimental)*
+### questProgressTooltips -> hideTooltipsQuestProgress
 
 | ID | Text |
 | --- | --- |
-| `TITLE_trackerTurnInPopups` | `Suppress turn-in pop-ups` |
-| `DESC_trackerTurnInPopups` | `Stops the bubble that slides out of the tracker to tell you a quest can be handed in.` |
-| `ON_trackerTurnInPopups` | `turn-in pop-ups suppressed` |
-| `OFF_trackerTurnInPopups` | `turn-in pop-ups shown again` |
-| `LIMIT_trackerTurnInPopups` | `Untested: no turn-in pop-up has been seen in play yet, so the removal has never actually run.` |
+| `TITLE_hideTooltipsQuestProgress` | `Hide Quest Progress In Tooltips` |
+| `DESC_hideTooltipsQuestProgress` | `Hovering a creature or object no longer tells you which quest it belongs to and your progress.` |
+| `ON_hideTooltipsQuestProgress` | `Quest progress removed from tooltips.` |
+| `OFF_hideTooltipsQuestProgress` | `Quest progress in tooltips restored.` |
+| `LABEL_hideTooltipsQuestProgress` | `quest progress in tooltips` |
 
-### questObjectOutline  *(experimental)*
+### mapCreaturePortraits -> hideCreaturePortraits
 
 | ID | Text |
 | --- | --- |
-| `TITLE_questObjectOutline` | `Request quest object outline` |
-| `DESC_questObjectOutline` | `Quest objects show either an outline or sparkles, never both, so asking for the outline suppresses the glimmer. Many clients cannot render outlines at all, in which case this does nothing.` |
-| `ON_questObjectOutline` | `outline requested instead of sparkles (experimental; many clients cannot render it)` |
-| `OFF_questObjectOutline` | `outline setting returned to what it was` |
-| `LABEL_questObjectOutline` | `quest object outline` |
+| `TITLE_hideCreaturePortraits` | `Hide Creature Portraits` |
+| `DESC_hideCreaturePortraits` | `Hides the portrait markers for bosses and creatures on the world map.` |
+| `ON_hideCreaturePortraits` | `Creature portraits removed from the world map.` |
+| `OFF_hideCreaturePortraits` | `Creature portraits restored.` |
+| `LABEL_hideCreaturePortraits` | `creature portraits` |
+
+### trackerClickToTrack -> trackerPlainText
+
+| ID | Text |
+| --- | --- |
+| `TITLE_trackerPlainText` | `Plain Text Quest Tracker` |
+| `DESC_trackerPlainText` | `Quest titles in the tracker stop being clickable.` |
+| `ON_trackerPlainText` | `Tracker quest titles are now plain text.` |
+| `OFF_trackerPlainText` | `Tracker quest titles are clickable.` |
+| `LABEL_trackerPlainText` | `plain text quest tracker` |
+| `LIMIT_trackerPlainText` | `Known limitation: tracked achievements stop being clickable too.` |
+
+### trackerItemButtons -> hideTrackerItemButtons
+
+| ID | Text |
+| --- | --- |
+| `TITLE_hideTrackerItemButtons` | `Hide Quest Item Buttons` |
+| `DESC_hideTrackerItemButtons` | `Removes the quest item buttons next to tracked quests.` |
+| `ON_hideTrackerItemButtons` | `Tracker quest item buttons removed.` |
+| `OFF_hideTrackerItemButtons` | `Tracker quest item buttons restored.` |
+| `LABEL_hideTrackerItemButtons` | `quest item buttons` |
+
+### bagQuestHighlight -> noBagItemHighlight
+
+| ID | Text |
+| --- | --- |
+| `TITLE_noBagItemHighlight` | `No Quest Item Highlight In Bags` |
+| `DESC_noBagItemHighlight` | `Quest items in your bags stop being outlined in yellow, and items that start a quest lose their exclamation mark.` |
+| `ON_noBagItemHighlight` | `Bag quest item highlight removed.` |
+| `OFF_noBagItemHighlight` | `Bag quest item highlight restored.` |
+| `LABEL_noBagItemHighlight` | `quest item highlight` |
+
+### trackerTurnInPopups  *(experimental)* -> noCompleteQuestPopup  *(experimental)*
+
+| ID | Text |
+| --- | --- |
+| `TITLE_noCompleteQuestPopup` | `No Complete Quest Popup` |
+| `DESC_noCompleteQuestPopup` | `Removes the popup that tells you a quest can be completed.` |
+| `ON_noCompleteQuestPopup` | `Complete quest popup removed.` |
+| `OFF_noCompleteQuestPopup` | `Complete quest popup restored.` |
+| `LABEL_noCompleteQuestPopup` | `complete quest popup` |
+
+### questObjectOutline  *(experimental)* -> outlineMode  *(experimental)*
+
+| ID | Text |
+| --- | --- |
+| `TITLE_outlineMode` | `Outline Mode` |
+| `DESC_outlineMode` | `Quest objects show either an outline or sparkles. If the outline fails to render, sparkles are shown automatically.` |
+| `ON_outlineMode` | `Rendering outlines on quest objects.` |
+| `OFF_outlineMode` | `Rendering sparkles on quest objects.` |
+| `LABEL_outlineMode` | `outline mode` |
 
 ### Group names
 

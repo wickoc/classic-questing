@@ -126,7 +126,7 @@ _G.fire = fire
 _G.fireCount = fireCount
 _G.maxEventDepth = function() return maxDepth end
 
-C_AddOns = { GetAddOnMetadata = function(_, k) if k == "Version" then return "0.17.1" end end }
+C_AddOns = { GetAddOnMetadata = function(_, k) if k == "Version" then return "0.18.0" end end }
 
 Settings = {
 	RegisterCanvasLayoutCategory = function(frame, name)
@@ -361,7 +361,12 @@ GameTooltip.__height = 100
 GameTooltip.GetName = function() return "GameTooltip" end
 GameTooltip.NumLines = function() return #tipLines end
 GameTooltip.GetHeight = function(self) return self.__height end
-GameTooltip.SetHeight = function(self, h) self.__height = h end
+-- Calling SetHeight on a tooltip PINS it: the frame stops sizing itself from
+-- its lines, so the height set for one tooltip is still on the frame when the
+-- next one is built into it. That is why the padding looked right on a fresh
+-- tooltip and wrong on one hovered straight after something else -- and the
+-- harness could not show it while relayout() reset the height every time.
+GameTooltip.SetHeight = function(self, h) self.__height = h; self.__pinned = true end
 GameTooltip.GetTop = function() return 1000 end
 GameTooltip.GetBottom = function(self) return 1000 - self.__height end
 
@@ -370,6 +375,7 @@ GameTooltip.GetBottom = function(self) return 1000 - self.__height end
 -- trailing pad were undone by exactly this, invisibly, because the harness
 -- had no re-layout to undo them.
 local function relayout()
+    if GameTooltip.__pinned then return end
     local n = #tipLines
     -- padding + text + the gaps BETWEEN lines + padding. The trailing gap
     -- does not exist, which is the detail a per-line estimate gets wrong.
@@ -410,6 +416,7 @@ end
 -- fires afterwards once the lines exist. A hook on OnShow alone therefore sees
 -- an empty tooltip and removes nothing.
 _G.__showTooltip = function()
+    GameTooltip.__pinned = nil                       -- hidden and shown again
     local pending = tipLines
     tipLines = {}                                    -- OnShow: nothing in it yet
     for _, fn in ipairs(GameTooltip.scripts.OnShow or {}) do fn(GameTooltip) end

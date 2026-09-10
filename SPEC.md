@@ -41,16 +41,16 @@ Tiers have stopped being useful. Work has landed across all three, so "Tier 3" n
 
 | Feature | Option | Since |
 | --- | --- | --- |
-| World map quest pins, shaded areas, Track Quest box, in-map quest list | `worldMapMarkers` | v0.1.0 |
-| Minimap quest markers | `minimapMarkers` | v0.1.0 |
-| Automatic tracking of newly accepted quests | `autoQuestTracking` | v0.2.0 |
-| World map boss/creature portraits | `mapCreaturePortraits` | v0.2.0 |
-| Tracker quest titles made plain text (no click-to-track, no context menu) | `trackerClickToTrack` | v0.12.0 |
-| Tracker quest item use buttons | `trackerItemButtons` | v0.12.0 |
-| Instant Quest Text, so quest text types out | `questTextTypesOut` | v0.13.0 |
-| The framed questgiver portrait beside quest text | `questGiverPortrait` | v0.16.0 |
-| Quest progress appended to tooltips | `questProgressTooltips` | v0.16.0 |
-| Yellow quest-item highlight in bags | `bagQuestHighlight` | v0.13.0 |
+| World map quest pins, shaded areas, Track Quest box, in-map quest list | `hideMapQuestHelper` | v0.1.0 |
+| Minimap quest markers | `hideMinimapQuestHelper` | v0.1.0 |
+| Automatic tracking of newly accepted quests | `noAutoQuestTracking` | v0.2.0 |
+| World map boss/creature portraits | `hideCreaturePortraits` | v0.2.0 |
+| Tracker quest titles made plain text (no click-to-track, no context menu) | `trackerPlainText` | v0.12.0 |
+| Tracker quest item use buttons | `hideTrackerItemButtons` | v0.12.0 |
+| Instant Quest Text, so quest text types out | `noInstantQuestText` | v0.13.0 |
+| The framed questgiver portrait beside quest text | `hideCharacterFrame` | v0.16.0 |
+| Quest progress appended to tooltips | `hideTooltipsQuestProgress` | v0.16.0 |
+| Yellow quest-item highlight in bags | `noBagItemHighlight` | v0.13.0 |
 
 Plus the options panel itself: Blizzard's own vertical layout, real checkboxes, the real
 dropdown, the real Apply and Defaults buttons.
@@ -59,8 +59,8 @@ dropdown, the real Apply and Defaults buttons.
 
 | Feature | Option | What is unproven |
 | --- | --- | --- |
-| Turn-in pop-up bubbles | `trackerTurnInPopups` | No pop-up has been seen in play, so the removal has never run. Ships **experimental and off**. The one unverified assumption is stated in `Tracker.lua`: the first return of `GetAutoQuestPopUp` is taken to be the questID `RemoveAutoQuestPopUp` wants. |
-| Quest object outline | `questObjectOutline` | The CVar writes fine and changes nothing, because the client cannot render the outline. Kept as an experiment in case a future build fixes it. |
+| Turn-in pop-up bubbles | `noCompleteQuestPopup` | No pop-up has been seen in play, so the removal has never run. Ships **experimental and off**. The one unverified assumption is stated in `Tracker.lua`: the first return of `GetAutoQuestPopUp` is taken to be the questID `RemoveAutoQuestPopUp` wants. |
+| Quest object outline | `outlineMode` | The CVar writes fine and changes nothing, because the client cannot render the outline. Kept as an experiment in case a future build fixes it. |
 
 ### In flight
 
@@ -98,7 +98,7 @@ Nothing. The next probe section goes with the next question.
 
 - **~~Hide the tracker entirely.~~** Classic *has* a tracker — you shift-click a quest in the log
   and it appears. Hiding it removes a Classic feature rather than a MoP one, which is backwards
-  for this AddOn. Also redundant: with `autoQuestTracking` on and nothing tracked by hand, the
+  for this AddOn. Also redundant: with `noAutoQuestTracking` on and nothing tracked by hand, the
   frame is already empty and invisible.
 - **~~Auto-sort by distance to objective.~~** Nothing to remove. The only sort constants this
   client defines are `WATCHFRAME_SORT_MANUAL` (0), `_DIFFICULTY_HIGH` (1) and `_DIFFICULTY_LOW`
@@ -111,7 +111,7 @@ Nothing. The next probe section goes with the next question.
   the UI points you toward — the quest whose objectives sit at the top of the tracker, whose
   area is shaded on the map, and which the minimap arrow follows. `SetSuperTrackedQuestID` and
   `GetSuperTrackedQuestID` both exist on this client. It is closed for the same reason as the
-  three above: with `worldMapMarkers` and `minimapMarkers` on there is no marker, no shaded area
+  three above: with `hideMapQuestHelper` and `hideMinimapQuestHelper` on there is no marker, no shaded area
   and no arrow left for it to drive, so the concept has no visible expression. Reopen only if
   something is spotted in play that still behaves as though one quest were special.
 
@@ -125,7 +125,7 @@ markdown file gives it neither.
 Documented in `README.md` and to be repeated on the CurseForge page. These are things this
 client will not let an AddOn do cleanly, not things left undone.
 
-1. **Achievement tracker lines also stop being clickable** when `trackerClickToTrack` is on. The
+1. **Achievement tracker lines also stop being clickable** when `trackerPlainText` is on. The
    tracker draws quest and achievement titles from one pool of buttons (`WATCHFRAME_LINKBUTTONS`)
    and does not mark which is which. Accepted as a cost; stated in the option's own tooltip so
    the player reads it where they decide. Worth another probe pass some day — if a button
@@ -176,7 +176,7 @@ v0.3 tests the version format by changing only that. If it still overflows, shor
 next. Do not keep guessing past that without a screenshot.
 
 **One name per feature — no second name anywhere.** v1 gave each feature a display key
-(`mapCreaturePortraits`) *and* a saved-setting name mirroring the CVar (`showBosses`). That
+(`hideCreaturePortraits`) *and* a saved-setting name mirroring the CVar (`showBosses`). That
 duplication was not good practice and it caused two separate bugs: `/vq on|off` rejected every
 name `/vq` itself printed, and `"showBosses turned on"` read as though the portraits were being
 *shown* when they were being hidden. As of v2 the module key, the saved-settings key and the
@@ -355,7 +355,7 @@ limitations** section. It must include, at minimum:
 - **Quest object and gathering-node sparkles cannot be removed.** They appear because the
   client falls back to sparkles when it cannot render object outlines, and on affected clients
   the outline does not render at any setting — including through Blizzard's own options window.
-  This is a client rendering fault and no addon can reach it. The `questObjectOutline` option is
+  This is a client rendering fault and no addon can reach it. The `outlineMode` option is
   offered as an **experimental** semi-fix: if your client *can* render outlines, turning it on
   replaces the sparkles with an outline. It does nothing on clients that cannot.
 - Anything else discovered to be unreachable gets listed here rather than quietly omitted.
@@ -676,14 +676,14 @@ variable Blizzard's own control drives.
 **Lesson worth keeping:** when the player can already do a thing in Blizzard's options, the
 answer is in the settings registry, not the console. Ask the UI what it is driving.
 
-Shipped as `questTextTypesOut`, driving `instantQuestText` to 0 — Classic-correct is *off*, so
+Shipped as `noInstantQuestText`, driving `instantQuestText` to 0 — Classic-correct is *off*, so
 quest text types out a line at a time.
 
 ### G18 — the bag quest highlight
 
 **No console variable exists.** All six plausible names came back absent. But every bag slot
 carries `ContainerFrame<N>Item<M>IconQuestTexture` — 468 of them on this client — and hiding it
-takes the highlight with it. Shipped as `bagQuestHighlight` in `Bags.lua`, off a
+takes the highlight with it. Shipped as `noBagItemHighlight` in `Bags.lua`, off a
 `ContainerFrame_Update` post-hook since bags redraw constantly.
 
 One coupling, stated in the option's tooltip: that single texture draws both the yellow border on
@@ -914,7 +914,7 @@ to `dev/tests/` with a `run.sh`, and the harness's hardcoded absolute path made 
 ### The questgiver portrait
 
 MoP frames a character box beside quest text, in the offer window and again in the quest log.
-Shipped as `questGiverPortrait`.
+Shipped as `hideCharacterFrame`.
 
 **This is the first feature in this project built on names that have not been probed on this
 client**, which is a departure worth flagging rather than hiding. Three candidate frame names and
@@ -971,7 +971,7 @@ the real fault looked like. A guard that measures the wrong quantity eventually 
 
 ## v0.16.1 — the tooltip hook was at the wrong moment
 
-`questProgressTooltips` shipped in v0.16.0 and **removed nothing at all in play**, while passing
+`hideTooltipsQuestProgress` shipped in v0.16.0 and **removed nothing at all in play**, while passing
 its tests. Both halves of that are worth recording.
 
 **The fault.** It hooked `GameTooltip`'s `OnShow`. That fires when the tooltip becomes *visible*,
@@ -1101,6 +1101,63 @@ and the harness now re-lays out before *and* after the post-hooks, in the client
 bug:** the harness modelled what was convenient rather than what the client does. Every one of
 those three got through green tests. Where a fix depends on the client's *timing* or *layout*,
 the harness has to reproduce it or the test proves nothing.
+
+## v0.18.0 — the strings pass
+
+`STRINGS.md` came back rewritten and is applied in full: every option key renamed, every title,
+description, chat line, warning, preset label and dialog replaced with the version in that file.
+**`STRINGS.md` is the authority for player-facing text from here on.** Anything new added to the
+AddOn needs a human pass through that file before the version it lands in can go public.
+
+### Categories
+
+Five, in both panels, replacing the old ad-hoc groups:
+
+| | |
+| --- | --- |
+| 10–30 | Map and minimap |
+| 40–50 | Quests |
+| 60–80 | Quest Tracker |
+| 90–100 | UI |
+| 110–120 | Experimental |
+
+The native panel adds a heading whenever the group changes as it walks `ns:SortedModules()`,
+rather than keeping a second list — so a heading cannot drift out of step with what sits under
+it. Tests assert every option sits beneath its own heading. `/vq status` keeps the same order and
+shows no headings.
+
+### Turning the minimap option off restores Blizzard's default
+
+`M:Disable()` used to hand back whatever *Track Quest POIs* was when the AddOn was installed.
+It now switches it **on**, because that is the game's default and a player turning the option off
+is asking for the minimap quest helper — being handed back an entry that happened to be off would
+look like the option had failed.
+
+This is the one place the AddOn restores a Blizzard **default** rather than the exact value it
+found, and it is a deliberate exception to leave-no-trace.
+
+### The tooltip fit, fourth pass — and this time the harness found the gap first
+
+The pad was right on a fresh tooltip and wrong on one hovered straight after something else.
+Two causes, both from the same fact:
+
+**`SetHeight` pins the frame.** A tooltip that has been given an explicit height stops sizing
+itself from its lines, and that height is still on the frame when the next tooltip is built into
+it. So:
+
+1. The marker recording "this tooltip had lines removed" was keyed on the **line count alone**,
+   so a two-line herb node and a two-line creature looked like the same tooltip. It is keyed on
+   the count *and* the first line's text now.
+2. The fit could only **shrink**. A tooltip arriving on a pinned frame that was too short stayed
+   too short forever. It corrects in both directions.
+3. And once the frame is pinned, this AddOn owns its height — including for tooltips it has
+   nothing to remove from. Those are fitted too, or they keep the last scrubbed one's size.
+
+**The harness reproduced the client this time, and the fix was incomplete when it did.** Modelling
+`SetHeight` as pinning made the third point fail immediately — a clean tooltip after a scrubbed
+one, still cramped. That is the first time on this feature that the suite found the gap instead of
+the player. Three previous rounds went out green and broken because the harness modelled what was
+convenient; this one modelled the awkward part first.
 
 ## Safety rules — non-negotiable
 
@@ -1530,7 +1587,7 @@ Tested and rejected as fixes:
 **kept** on lootable bodies. Nothing found so far separates those three, and the one CVar that
 would cannot render here.
 
-**Shipped anyway as `questObjectOutline`, experimental, default off.** Turning `Outline` *on* is
+**Shipped anyway as `outlineMode`, experimental, default off.** Turning `Outline` *on* is
 a semi-fix for anyone whose client can render outlines (1 is enough; 2 and 3 also work). It is
 the one rule in `CVars.lua` that turns something **on** rather than off. It is never enabled by
 default and is deliberately skipped by a bare `/vq on`, which enables the Classic set but leaves

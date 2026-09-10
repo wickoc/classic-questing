@@ -17,21 +17,21 @@ off — every value it changes is remembered first and put back.
 | Command | What it does |
 | --- | --- |
 | `/vq` | Open the options panel |
-| `/vq on` | Turn on the full Classic experience |
-| `/vq off` | Disable the AddOn |
+| `/vq on` | Enable all vanilla options |
+| `/vq off` | Disable all options |
 | `/vq on <option>` | Turn one option on |
 | `/vq off <option>` | Turn one option off |
-| `/vq status` | Show every option and its state |
-| `/vq reset` | Restore the default settings |
+| `/vq status` | List every option and its current state |
+| `/vq reset` | Restore default options |
 | `/vq help` | List the commands |
 
 `/vanillaquesting` works anywhere `/vq` does, if something else has claimed the short form.
 
 `<option>` is one of the names below — `/vq status` lists them in game:
 
-`worldMapMarkers` · `minimapMarkers` · `mapCreaturePortraits` · `questTextTypesOut` ·
-`questGiverPortrait` · `questProgressTooltips` · `autoQuestTracking` · `trackerClickToTrack` ·
-`trackerItemButtons` · `bagQuestHighlight` · `questObjectOutline` · `trackerTurnInPopups`
+`hideMapQuestHelper` · `hideMinimapQuestHelper` · `hideCreaturePortraits` · `noInstantQuestText` ·
+`hideCharacterFrame` · `hideTooltipsQuestProgress` · `noAutoQuestTracking` · `trackerPlainText` ·
+`hideTrackerItemButtons` · `noBagItemHighlight` · `outlineMode` · `noCompleteQuestPopup`
 
 Every option is individually switchable, and each has a description in the options panel.
 
@@ -113,7 +113,7 @@ Three of these settings have a Blizzard checkbox of their own: **Instant Quest T
 Questing is driving them, so a checkbox that moves on its own is not a mystery.
 
 Change one of those in Blizzard's options and **Vanilla Questing follows you** — the matching
-option turns off, and turns back on if you put the setting back. Whichever window you use, the two
+option turns off, and turns back on if you put the option back. Whichever window you use, the two
 agree, and the AddOn says in chat which way it went. Your interface wins.
 
 ## Compatibility

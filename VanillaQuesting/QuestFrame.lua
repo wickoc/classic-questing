@@ -17,15 +17,15 @@
 
 local ADDON_NAME, ns = ...
 
-local M = ns:RegisterModule("questGiverPortrait", {})
-M.title = "Hide the questgiver portrait"
-M.desc  = "Removes the framed character box MoP puts beside quest text, both when a quest is offered and in the quest log. Classic showed the text and nothing else."
-M.onText  = "questgiver portrait hidden"
-M.offText = "questgiver portrait shown again"
-M.group = "Quest text"
+local M = ns:RegisterModule("hideCharacterFrame", {})
+M.title = "Hide Character Frame"
+M.desc  = "Removes the character frame next to quests, both when a quest is offered and in the quest log."
+M.onText  = "Character frame removed."
+M.offText = "Character frame restored."
+M.group = "Quests"
 M.order = 50
 
-ns:RegisterDefaults({ questGiverPortrait = true })
+ns:RegisterDefaults({ hideCharacterFrame = true })
 
 -- Every frame this might be, in the order worth trying. The first that exists
 -- is used; the rest cost nothing.
@@ -58,7 +58,7 @@ local function findFrame()
 end
 
 local function hidePortrait()
-	if not ns.db or not ns.db.settings.questGiverPortrait then return end
+	if not ns.db or not ns.db.settings.hideCharacterFrame then return end
 	local f = findFrame()
 	if f then pcall(f.Hide, f) end
 end

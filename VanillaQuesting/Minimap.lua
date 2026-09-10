@@ -12,17 +12,17 @@ local ADDON_NAME, ns = ...
 
 local C = ns.color
 
-local M = ns:RegisterModule("minimapMarkers", {})
-M.onText = "minimap quest pins and the blue quest area hidden"
-M.offText = "minimap quest pins and the blue quest area shown again"
+local M = ns:RegisterModule("hideMinimapQuestHelper", {})
+M.onText = "Minimap quest markers and the blue quest areas removed."
+M.offText = "Minimap quest helper restored."
 M.group = "Map and minimap"
-M.title = "Hide minimap quest markers"
+M.title = "Hide Minimap Quest Helper"
 M.order = 20
-M.desc = "Keeps the Track Quest POIs tracking entry switched off, which removes both the numbered pins and the blue objective area from the minimap."
+M.desc = "Keeps the " .. C.title .. "Track Quest POIs" .. C.close .. " tracking switched off, removing both the markers and the blue objective areas from the minimap."
 
 -- One name: module key, saved-settings key and typed handle are all the same.
 ns:RegisterDefaults({
-	minimapMarkers = true,
+	hideMinimapQuestHelper = true,
 })
 
 local applying = false
@@ -59,19 +59,19 @@ end
 local function findEntry()
 	local C = api()
 	if not C then
-		ns:Warn("mm:api", "C_Minimap tracking API missing; skipping minimap markers.")
+		ns:Warn("mm:api", "C_Minimap tracking API missing; minimap markers are untouched.")
 		return nil
 	end
 
 	local wanted = MINIMAP_TRACKING_QUEST_POIS
 	if type(wanted) ~= "string" then
-		ns:Warn("mm:name", "MINIMAP_TRACKING_QUEST_POIS missing; skipping minimap markers.")
+		ns:Warn("mm:name", "MINIMAP_TRACKING_QUEST_POIS missing; minimap markers are untouched.")
 		return nil
 	end
 
 	local ok, count = pcall(C.GetNumTrackingTypes)
 	if not ok or type(count) ~= "number" then
-		ns:Warn("mm:count", "could not read the tracking list; skipping minimap markers.")
+		ns:Warn("mm:count", "could not read the tracking list; minimap markers are untouched.")
 		return nil
 	end
 
@@ -83,7 +83,7 @@ local function findEntry()
 	end
 
 	ns:Warn("mm:notfound",
-		"no '" .. wanted .. "' entry in the tracking list; skipping minimap markers.")
+		"no '" .. wanted .. "' entry in the tracking list; minimap markers are untouched.")
 	return nil
 end
 
@@ -107,8 +107,8 @@ local function notice()
 	-- glance, and say "automatically" so it reads as the AddOn acting rather
 	-- than the click failing.
 	ns:Print(C.highlight .. "Track Quest POIs" .. C.close ..
-		" was switched back off automatically. To allow it, use " ..
-		C.highlight .. "/vq off minimapMarkers" .. C.close .. ".")
+		" was disabled automatically. To allow it, use " ..
+		C.highlight .. "/vq off hideMinimapQuestHelper" .. C.close .. ".")
 end
 
 local function enforce()
@@ -124,7 +124,7 @@ local function enforce()
 
 	if not setTracking(index, false) then
 		refused = true
-		ns:Warn("mm:set", "could not change quest POI tracking; skipping minimap markers.")
+		ns:Warn("mm:set", "could not change quest POI tracking; minimap markers are untouched.")
 		return
 	end
 
@@ -133,7 +133,7 @@ local function enforce()
 	if after and after.active then
 		refused = true
 		ns:Warn("mm:refused",
-			"quest POI tracking would not turn off; skipping minimap markers.")
+			"quest POI tracking would not turn off; minimap markers are untouched.")
 	end
 end
 
@@ -164,13 +164,8 @@ local function attachTooltip()
 			-- AddOn's chat blue, which stands clear of Blizzard's white body
 			-- text and yellow highlights.
 			GameTooltip:AddLine(" ")
-			GameTooltip:AddLine(C.brand .. ns.title .. C.close)
 			GameTooltip:AddLine(C.highlight .. "Track Quest POIs" .. C.close ..
-				" is kept off automatically.", 1, 1, 1)
-			GameTooltip:AddLine("Switching it on here will not stick.", 0.9, 0.9, 0.9)
-			-- TODO(Options): replace with a pointer to the options panel.
-			GameTooltip:AddLine("To allow it: " .. C.highlight .. "/vq off minimapMarkers" .. C.close,
-				0.8, 0.8, 0.8)
+				" is managed by " .. C.brand .. ns.title .. C.close .. ".")
 			GameTooltip:Show()
 		end)
 	end)
@@ -192,14 +187,23 @@ function M:Enable()
 	settled = true
 end
 
+-- Switching this option OFF turns Track Quest POIs back ON.
+--
+-- Not "back to what the player had", which is what it used to do. Track Quest
+-- POIs is on by default in the game, so a player who turns this option off is
+-- asking for the minimap quest helper -- and handing them back an entry that
+-- happened to be off when they installed the AddOn would look like the option
+-- had failed.
+--
+-- This is the one place the AddOn restores a Blizzard DEFAULT rather than the
+-- exact value it found. The remembered value is still kept, and is what a full
+-- Disable() at logout or on unload would want if that ever becomes a thing.
 function M:Disable()
 	settled = false
-	local original = ns.db and ns.db.state.minimapMarkersTracking
-	if original == nil then return end
 	local index, info = findEntry()
 	if not index then return end
-	if info.active ~= original then
-		setTracking(index, original)
+	if not info.active then
+		setTracking(index, true)
 	end
 end
 

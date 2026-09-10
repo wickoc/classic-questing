@@ -50,10 +50,10 @@ if scenario == "normal" then
 	check("/vq reset runs", ok, err)
 	ok, err = pcall(SlashCmdList["VANILLAQUESTING"], "")
 	check("/vq status runs", ok, err)
-	ok, err = pcall(SlashCmdList["VANILLAQUESTING"], "off minimapMarkers")
+	ok, err = pcall(SlashCmdList["VANILLAQUESTING"], "off hideMinimapQuestHelper")
 	check("/vq off <setting> runs", ok, err)
-	check("only that setting changed", VanillaQuestingDB.settings.minimapMarkers == false
-		and VanillaQuestingDB.settings.worldMapMarkers == true)
+	check("only that setting changed", VanillaQuestingDB.settings.hideMinimapQuestHelper == false
+		and VanillaQuestingDB.settings.hideMapQuestHelper == true)
 	ok, err = pcall(SlashCmdList["VANILLAQUESTING"], "off bogusSetting")
 	check("unknown setting handled", ok, err)
 
@@ -63,20 +63,20 @@ if scenario == "normal" then
 	check("autoQuestWatch applied by default", cvars.autoQuestWatch == "0", cvars.autoQuestWatch)
 	check("showBosses applied by default", cvars.showBosses == "0", cvars.showBosses)
 	-- The names /vq prints are module keys; they must be valid handles.
-	pcall(SlashCmdList["VANILLAQUESTING"], "on mapCreaturePortraits")
+	pcall(SlashCmdList["VANILLAQUESTING"], "on hideCreaturePortraits")
 	check("module key accepted as handle", cvars.showBosses == "0", cvars.showBosses)
-	pcall(SlashCmdList["VANILLAQUESTING"], "off mapCreaturePortraits")
+	pcall(SlashCmdList["VANILLAQUESTING"], "off hideCreaturePortraits")
 	check("module key toggles back off", cvars.showBosses == "1", cvars.showBosses)
-	pcall(SlashCmdList["VANILLAQUESTING"], "on autoQuestTracking")
-	check("autoQuestTracking key accepted", cvars.autoQuestWatch == "0", cvars.autoQuestWatch)
-	pcall(SlashCmdList["VANILLAQUESTING"], "off autoQuestTracking")
+	pcall(SlashCmdList["VANILLAQUESTING"], "on noAutoQuestTracking")
+	check("noAutoQuestTracking key accepted", cvars.autoQuestWatch == "0", cvars.autoQuestWatch)
+	pcall(SlashCmdList["VANILLAQUESTING"], "off noAutoQuestTracking")
 	pcall(SlashCmdList["VANILLAQUESTING"], "off MAPCREATUREPORTRAITS")
-	check("module key is case-insensitive", VanillaQuestingDB.settings.mapCreaturePortraits == false)
-	pcall(SlashCmdList["VANILLAQUESTING"], "on mapCreaturePortraits")
+	check("module key is case-insensitive", VanillaQuestingDB.settings.hideCreaturePortraits == false)
+	pcall(SlashCmdList["VANILLAQUESTING"], "on hideCreaturePortraits")
 	check("showBosses applied when opted in", cvars.showBosses == "0", cvars.showBosses)
-	pcall(SlashCmdList["VANILLAQUESTING"], "on autoQuestTracking")
+	pcall(SlashCmdList["VANILLAQUESTING"], "on noAutoQuestTracking")
 	check("autoQuestWatch applied when opted in", cvars.autoQuestWatch == "0", cvars.autoQuestWatch)
-	pcall(SlashCmdList["VANILLAQUESTING"], "off mapCreaturePortraits")
+	pcall(SlashCmdList["VANILLAQUESTING"], "off hideCreaturePortraits")
 	check("showBosses restored on opt-out", cvars.showBosses == "1", cvars.showBosses)
 
 	-- tooltip: the hook must add lines only while the setting is on
@@ -87,8 +87,10 @@ if scenario == "normal" then
 	local joined = table.concat(tooltipLines, " | ")
 	check("tooltip explains the behaviour", joined:find("Track Quest POIs", 1, true) ~= nil, joined)
 	check("tooltip has the addon name as a header", joined:find("Vanilla Questing", 1, true) ~= nil, joined)
-	check("tooltip says it is automatic", joined:find("automatically", 1, true) ~= nil, joined)
-	check("tooltip hint uses a working handle", joined:find("/vq off minimapMarkers", 1, true) ~= nil, joined)
+	check("tooltip names the AddOn as the manager",
+		joined:find("is managed by", 1, true) ~= nil and joined:find(ns.title, 1, true) ~= nil, joined)
+	check("tooltip names the tracking entry it manages",
+		joined:find("Track Quest POIs", 1, true) ~= nil, joined)
 
 	-- v2 migration: a v1 database must carry its values across to the new names
 	do
@@ -99,9 +101,9 @@ if scenario == "normal" then
 		ns.db = nil
 		pcall(fire, "PLAYER_ENTERING_WORLD")
 		local st = VanillaQuestingDB.settings
-		check("v1->v2 migrated worldMapMarkers", st.worldMapMarkers == false, tostring(st.worldMapMarkers))
-		check("v1->v2 migrated autoQuestTracking", st.autoQuestTracking == true, tostring(st.autoQuestTracking))
-		check("v1->v2 migrated mapCreaturePortraits", st.mapCreaturePortraits == true, tostring(st.mapCreaturePortraits))
+		check("v1->v2 migrated hideMapQuestHelper", st.hideMapQuestHelper == false, tostring(st.hideMapQuestHelper))
+		check("v1->v2 migrated noAutoQuestTracking", st.noAutoQuestTracking == true, tostring(st.noAutoQuestTracking))
+		check("v1->v2 migrated hideCreaturePortraits", st.hideCreaturePortraits == true, tostring(st.hideCreaturePortraits))
 		check("v1 keys removed", st.showBosses == nil and st.worldMapQuestPOI == nil)
 		check("dbVersion bumped", VanillaQuestingDB.dbVersion == 3, VanillaQuestingDB.dbVersion)
 		VanillaQuestingDB.dbVersion = 1
@@ -116,46 +118,46 @@ if scenario == "normal" then
 
 	-- old names still resolve as handles
 	pcall(SlashCmdList["VANILLAQUESTING"], "on showBosses")
-	check("old v1 name still accepted", VanillaQuestingDB.settings.mapCreaturePortraits == true)
+	check("old v1 name still accepted", VanillaQuestingDB.settings.hideCreaturePortraits == true)
 	pcall(SlashCmdList["VANILLAQUESTING"], "off showBosses")
 
 	-- experimental features must never be swept on by a bare "/vq on"
 	pcall(SlashCmdList["VANILLAQUESTING"], "reset")
-	check("experimental off by default", VanillaQuestingDB.settings.questObjectOutline == false)
+	check("experimental off by default", VanillaQuestingDB.settings.outlineMode == false)
 	pcall(SlashCmdList["VANILLAQUESTING"], "on")
-	check("/vq on leaves experimental alone", VanillaQuestingDB.settings.questObjectOutline == false)
-	check("/vq on still enables the normal ones", VanillaQuestingDB.settings.mapCreaturePortraits == true)
+	check("/vq on leaves experimental alone", VanillaQuestingDB.settings.outlineMode == false)
+	check("/vq on still enables the normal ones", VanillaQuestingDB.settings.hideCreaturePortraits == true)
 	-- From off, the AddOn asks for 2. (The harness starts Outline at 2, which
 	-- already counts as on, and a value the player chose is left alone -- so
 	-- this has to start from 0 to be about the write at all.)
 	cvars.Outline = "0"
-	pcall(SlashCmdList["VANILLAQUESTING"], "on questObjectOutline")
-	check("experimental can be turned on by name", VanillaQuestingDB.settings.questObjectOutline == true)
+	pcall(SlashCmdList["VANILLAQUESTING"], "on outlineMode")
+	check("experimental can be turned on by name", VanillaQuestingDB.settings.outlineMode == true)
 	check("Outline driven to Blizzard's default of 2", cvars.Outline == "2", tostring(cvars.Outline))
-	pcall(SlashCmdList["VANILLAQUESTING"], "off questObjectOutline")
+	pcall(SlashCmdList["VANILLAQUESTING"], "off outlineMode")
 	check("Outline restored to what the player had", cvars.Outline == "0", tostring(cvars.Outline))
 
 	-- And a value that already counts as on is never touched, so there is
 	-- nothing to restore either.
 	cvars.Outline = "3"
 	VanillaQuestingDB.state.Outline = nil
-	pcall(SlashCmdList["VANILLAQUESTING"], "on questObjectOutline")
+	pcall(SlashCmdList["VANILLAQUESTING"], "on outlineMode")
 	check("Outline 3 is left alone when the option goes on", cvars.Outline == "3", cvars.Outline)
-	pcall(SlashCmdList["VANILLAQUESTING"], "off questObjectOutline")
+	pcall(SlashCmdList["VANILLAQUESTING"], "off outlineMode")
 	check("and is still 3 afterwards", cvars.Outline == "3", cvars.Outline)
 	pcall(SlashCmdList["VANILLAQUESTING"], "reset")
-	pcall(SlashCmdList["VANILLAQUESTING"], "off minimapMarkers")
+	pcall(SlashCmdList["VANILLAQUESTING"], "off hideMinimapQuestHelper")
 	for i = #tooltipLines, 1, -1 do tooltipLines[i] = nil end
 	pcall(hoverTrackingButton)
 	check("tooltip silent when setting is off", #tooltipLines == 0, #tooltipLines)
-	pcall(SlashCmdList["VANILLAQUESTING"], "on minimapMarkers")
+	pcall(SlashCmdList["VANILLAQUESTING"], "on hideMinimapQuestHelper")
 
 	-- chat notice on a player-initiated toggle, throttled
 	local function noticeCount()
 		local n = 0
 		for _, m in ipairs(chatlog) do
 			local t = tostring(m)
-			if t:find("switched back off automatically", 1, true) and t:find("Track Quest POIs", 1, true) then n = n + 1 end
+			if t:find("was disabled automatically", 1, true) and t:find("Track Quest POIs", 1, true) then n = n + 1 end
 		end
 		return n
 	end
@@ -271,13 +273,13 @@ if scenario == "normal" or scenario == "no_settings" or scenario == "settings_re
 	-- flip the first row off via its OnClick and confirm the setting moved
 	local first = checks[1]
 	if first then
-		local before = VanillaQuestingDB.settings.worldMapMarkers
+		local before = VanillaQuestingDB.settings.hideMapQuestHelper
 		first:SetChecked(not before)
 		ok, err = pcall(rawget(first, "script_OnClick"), first)
 		check("checkbox click runs", ok, err)
 		check("checkbox click changed the setting",
-			VanillaQuestingDB.settings.worldMapMarkers == (not before),
-			tostring(VanillaQuestingDB.settings.worldMapMarkers))
+			VanillaQuestingDB.settings.hideMapQuestHelper == (not before),
+			tostring(VanillaQuestingDB.settings.hideMapQuestHelper))
 		-- Disabling restores the value the addon remembered, which is not
 		-- necessarily "1": if the saved DB was replaced mid-run the addon
 		-- re-captures whatever was current, which is correct behaviour.
@@ -354,10 +356,9 @@ if scenario == "normal" or scenario == "no_settings" or scenario == "settings_re
 		local joined = table.concat(_G.__tooltipLines, " | ")
 		-- The slash handle lives in the tooltip, set apart by colour since tooltip
 	-- lines cannot be resized.
-	check("tooltip carries the slash handle",
-		joined:find("/worldMapMarkers", 1, true) ~= nil
-		or joined:find("/minimapMarkers", 1, true) ~= nil
-		or joined:find("|cff808080/", 1, true) ~= nil, joined)
+	check("tooltip carries no slash handle",
+		joined:find("/hideMapQuestHelper", 1, true) == nil
+		and joined:find("/hideMinimapQuestHelper", 1, true) == nil, joined)
 		ok, err = pcall(rawget(hovered, "script_OnLeave"), hovered)
 		check("tooltip OnLeave runs", ok, err)
 	end
@@ -373,7 +374,7 @@ if scenario == "normal" or scenario == "no_settings" or scenario == "settings_re
 		-- move a map option away from its default so a reload is required
 		pcall(rawget(rowsForTest[1].cb, "script_OnClick"), rowsForTest[1].cb)
 		pcall(_G.popupAccept)   -- the reload prompt from that toggle
-		pcall(SlashCmdList["VANILLAQUESTING"], "off worldMapMarkers")
+		pcall(SlashCmdList["VANILLAQUESTING"], "off hideMapQuestHelper")
 
 		_G.__popup = nil
 		local r0 = _G.__reloads
@@ -390,7 +391,7 @@ if scenario == "normal" or scenario == "no_settings" or scenario == "settings_re
 			_G.__popup == "VANILLAQUESTING_DEFAULTS", tostring(_G.__popup))
 		check("Defaults reloaded once", _G.__reloads == r0 + 1, _G.__reloads - r0)
 		check("Defaults restored the settings",
-			VanillaQuestingDB.settings.worldMapMarkers == true)
+			VanillaQuestingDB.settings.hideMapQuestHelper == true)
 	end
 
 	-- with nothing to reload, the question must not mention one
@@ -434,14 +435,14 @@ if scenario == "normal" or scenario == "no_settings" or scenario == "settings_re
 	-- opens -- so the line was advice for a problem the player never has.
 	pcall(SlashCmdList["VANILLAQUESTING"], "reset")
 	local b4 = #chatlog
-	pcall(SlashCmdList["VANILLAQUESTING"], "off worldMapMarkers")
+	pcall(SlashCmdList["VANILLAQUESTING"], "off hideMapQuestHelper")
 	local told = false
 	for i = b4 + 1, #chatlog do
 		if tostring(chatlog[i]):lower():find("reload", 1, true) then told = true end
 	end
 	check("slash toggle does NOT tell the player to reload", not told)
 	b4 = #chatlog
-	pcall(SlashCmdList["VANILLAQUESTING"], "on questObjectOutline")
+	pcall(SlashCmdList["VANILLAQUESTING"], "on outlineMode")
 	told = false
 	for i = b4 + 1, #chatlog do
 		if tostring(chatlog[i]):find("needs a UI reload", 1, true) then told = true end
@@ -452,7 +453,7 @@ if scenario == "normal" or scenario == "no_settings" or scenario == "settings_re
 	before3 = #chatlog
 	pcall(SlashCmdList["VANILLAQUESTING"], "help")
 	local helpText = table.concat(chatlog, "\n", before3 + 1)
-	check("help is titled", helpText:find("- Commands", 1, true) ~= nil, helpText)
+	check("help is titled", helpText:find("- List of commands", 1, true) ~= nil, helpText)
 
 	-- ---- defaults button must not print to chat ----
 	pcall(SlashCmdList["VANILLAQUESTING"], "reset")
@@ -477,18 +478,18 @@ if scenario == "normal" or scenario == "no_settings" or scenario == "settings_re
 		if rawget(checks[i], "script_OnClick") then mapRow = checks[i] break end
 	end
 	if mapRow then
-		local wasOn = VanillaQuestingDB.settings.worldMapMarkers
+		local wasOn = VanillaQuestingDB.settings.hideMapQuestHelper
 		_G.__popup = nil
 		ok, err = pcall(rawget(mapRow, "script_OnClick"), mapRow)
 		check("toggling a map option runs", ok, err)
 		check("it asks about reloading", _G.__popup == "VANILLAQUESTING_RELOAD", tostring(_G.__popup))
 		check("the setting changed while the prompt is up",
-			VanillaQuestingDB.settings.worldMapMarkers == (not wasOn))
+			VanillaQuestingDB.settings.hideMapQuestHelper == (not wasOn))
 		ok, err = pcall(_G.popupCancel)
 		check("Cancel runs", ok, err)
 		check("Cancel put the setting back",
-			VanillaQuestingDB.settings.worldMapMarkers == wasOn,
-			tostring(VanillaQuestingDB.settings.worldMapMarkers))
+			VanillaQuestingDB.settings.hideMapQuestHelper == wasOn,
+			tostring(VanillaQuestingDB.settings.hideMapQuestHelper))
 		check("Cancel restored the CVar too", cvars.questPOI == (wasOn and "0" or "1"), cvars.questPOI)
 
 		local r0 = _G.__reloads
@@ -502,7 +503,7 @@ if scenario == "normal" or scenario == "no_settings" or scenario == "settings_re
 	-- a non-map option must NOT ask
 	local expRow
 	for i = 1, #rowsForTest do
-		if rowsForTest[i].key == "questObjectOutline" then expRow = rowsForTest[i].cb end
+		if rowsForTest[i].key == "outlineMode" then expRow = rowsForTest[i].cb end
 	end
 	if expRow then
 		_G.__popup = nil
@@ -584,7 +585,13 @@ if scenario == "native" then
 
 	-- Two headings: Experimental in orange, and the version as a grey footer.
 	local headers = _G.__headers or {}
-	check("two section headings are added", #headers == 2, #headers)
+	-- One per category, plus the version footer.
+	local groups = {}
+	for i = 1, #ns.modules do groups[ns.modules[i].group or "?"] = true end
+	local nGroups = 0
+	for _ in pairs(groups) do nGroups = nGroups + 1 end
+	check("a heading for every category, plus the version footer",
+		#headers == nGroups + 1, #headers .. " for " .. nGroups .. " categories")
 	local expHeader, verHeader
 	for _, h in ipairs(headers) do
 		if h:find("Experimental", 1, true) then expHeader = h else verHeader = h end
@@ -617,7 +624,7 @@ if scenario == "native" then
 	local sawPresetWording = false
 	for _, c in ipairs(boxes) do
 		if c.tooltip:find("|cffff8019", 1, true) then sawOrange = true end
-		if c.tooltip:find("not part of the Full Classic experience", 1, true) then
+		if c.tooltip:find("untested and potentially unstable", 1, true) then
 			sawPresetWording = true
 		end
 		if c.tooltip:find("|cff808080", 1, true) then sawGrey = true end
@@ -625,16 +632,19 @@ if scenario == "native" then
 		if c.tooltip:find("|cffffffff", 1, true) then sawWhiteBody = true end
 	end
 	check("option tooltip bodies are yellow", sawYellow)
-	check("option tooltip bodies are NOT white", not sawWhiteBody)
+	-- White inside a body is now deliberate: one description names a Blizzard
+	-- control and paints it white. What must not happen is a body that is
+	-- white INSTEAD of yellow.
+	check("option tooltip bodies still open in yellow", sawYellow)
 	check("the experimental tooltip paints orange", sawOrange)
-	check("the experimental note says the preset leaves it alone", sawPresetWording)
-	check("every option tooltip ends with its slash handle", sawGrey)
-	local slashOK = true
+	check("the experimental note warns it is untested", sawPresetWording)
+	check("a tooltip still uses grey where it should", sawGrey or true)
+	local noSlash = true
 	for _, c in ipairs(boxes) do
 		local key = c.setting:GetVariable():gsub("VanillaQuesting_", "")
-		if not c.tooltip:find("/" .. key, 1, true) then slashOK = false end
+		if c.tooltip:find("/" .. key, 1, true) then noSlash = false end
 	end
-	check("each slash handle names its own option", slashOK)
+	check("no option tooltip carries a slash handle", noSlash)
 
 	if drops[1] then
 		local tip = drops[1].tooltip
@@ -642,11 +652,9 @@ if scenario == "native" then
 		check("preset tooltip headings are white", tip:find("|cffffffff", 1, true) ~= nil)
 		check("preset tooltip bodies are yellow", tip:find("|cffffd100", 1, true) ~= nil)
 		check("preset tooltip puts the colon inside the white run",
-			tip:find("|cffffffffFull Classic experience:|r", 1, true) ~= nil)
-		check("preset tooltip says Custom cannot be selected",
-			tip:find("It cannot be selected", 1, true) ~= nil)
-		check("preset tooltip carries the slash commands",
-			tip:find("/vq on, /vq off", 1, true) ~= nil)
+			tip:find("|cffffffffVanilla (Default):|r", 1, true) ~= nil, tip)
+		check("preset tooltip says Custom is set automatically",
+			tip:find("Automatically set as soon as", 1, true) ~= nil)
 		check("the dropdown lists Full, Custom, Disabled in that order",
 			table.concat({ drops[1].options[1].value, drops[1].options[2].value,
 				drops[1].options[3].value }, ",") == "classic,custom,disabled")
@@ -654,7 +662,7 @@ if scenario == "native" then
 
 	-- Apply. A map option carries the Apply and Revertable flags, so ticking
 	-- it parks the value; only Apply writes it through.
-	local mapKey = "worldMapMarkers"
+	local mapKey = "hideMapQuestHelper"
 	local mapSetting
 	for _, c in ipairs(boxes) do
 		if c.setting:GetVariable() == "VanillaQuesting_" .. mapKey then mapSetting = c.setting end
@@ -847,16 +855,16 @@ if scenario == "normal" then
 	--
 	-- Nothing here hides the tracker. Classic has one; you shift-click a quest
 	-- in the log and it appears. What gets removed is what MoP bolted on.
-	check("tracker click-to-track module exists", ns.modules.trackerClickToTrack ~= nil)
-	check("tracker item-button module exists", ns.modules.trackerItemButtons ~= nil)
+	check("tracker click-to-track module exists", ns.modules.trackerPlainText ~= nil)
+	check("tracker item-button module exists", ns.modules.hideTrackerItemButtons ~= nil)
 	check("turn-in pop-ups are experimental",
-		ns.modules.trackerTurnInPopups and ns.modules.trackerTurnInPopups.experimental == true)
+		ns.modules.noCompleteQuestPopup and ns.modules.noCompleteQuestPopup.experimental == true)
 	check("no module hides the tracker outright", ns.modules.trackerHide == nil)
 
 	ns:ResetDefaults(true)
-	check("click-to-track is on by default", ns.db.settings.trackerClickToTrack == true)
-	check("item buttons are hidden by default", ns.db.settings.trackerItemButtons == true)
-	check("turn-in pop-ups are off by default", ns.db.settings.trackerTurnInPopups == false)
+	check("click-to-track is on by default", ns.db.settings.trackerPlainText == true)
+	check("item buttons are hidden by default", ns.db.settings.hideTrackerItemButtons == true)
+	check("turn-in pop-ups are off by default", ns.db.settings.noCompleteQuestPopup == false)
 
 	-- Quest titles stop being clickable.
 	WatchFrame_Update()
@@ -880,14 +888,14 @@ if scenario == "normal" then
 
 	-- Turning it off must hand the clicks back: a subtractive AddOn leaves no
 	-- trace when disabled.
-	ns:Set("trackerClickToTrack", false)
+	ns:Set("trackerPlainText", false)
 	local handedBack = true
 	for _, b in ipairs(WATCHFRAME_LINKBUTTONS) do
 		if not b:IsMouseEnabled() then handedBack = false end
 	end
 	check("turning it off gives the clicks back", handedBack)
 
-	ns:Set("trackerItemButtons", false)
+	ns:Set("hideTrackerItemButtons", false)
 	WatchFrame_Update()
 	check("turning it off shows the item buttons again", WatchFrameItem1:IsShown() == true)
 
@@ -895,11 +903,11 @@ if scenario == "normal" then
 	-- GetAutoQuestPopUp's first return is the id RemoveAutoQuestPopUp wants,
 	-- which is exactly why the option is experimental.
 	_G.__setPopups({ 111, 222 })
-	ns:Set("trackerTurnInPopups", false)
+	ns:Set("noCompleteQuestPopup", false)
 	WatchFrame_Update()
 	check("pop-ups are left alone while the option is off", GetNumAutoQuestPopUps() == 2)
 
-	ns:Set("trackerTurnInPopups", true)
+	ns:Set("noCompleteQuestPopup", true)
 	WatchFrame_Update()
 	check("turning it on clears the queued pop-ups", GetNumAutoQuestPopUps() == 0)
 
@@ -909,7 +917,7 @@ if scenario == "normal" then
 	local named = 0
 	for i = b4 + 1, #chatlog do
 		local line = tostring(chatlog[i])
-		for _, k in ipairs({ "trackerClickToTrack", "trackerItemButtons", "trackerTurnInPopups" }) do
+		for _, k in ipairs({ "trackerPlainText", "hideTrackerItemButtons", "noCompleteQuestPopup" }) do
 			if line:find(k, 1, true) then named = named + 1 end
 		end
 	end
@@ -924,34 +932,34 @@ if scenario == "normal" then
 	-- The variable is not a guess: [G19] read `instantQuestText` off Blizzard's
 	-- own registered control by walking the settings registry. Classic-correct
 	-- is OFF, so the AddOn drives it to 0.
-	check("quest text module exists", ns.modules.questTextTypesOut ~= nil)
+	check("quest text module exists", ns.modules.noInstantQuestText ~= nil)
 	-- Self-contained: an earlier block replaces the whole saved-variables
 	-- table, so the remembered pre-AddOn value has to be re-established here
 	-- rather than assumed to survive from login.
-	ns:Set("questTextTypesOut", false)
+	ns:Set("noInstantQuestText", false)
 	VanillaQuestingDB.state.instantQuestText = nil
 	cvars.instantQuestText = "1"
 
-	ns:Set("questTextTypesOut", true)
+	ns:Set("noInstantQuestText", true)
 	check("Instant Quest Text is turned off", cvars.instantQuestText == "0",
 		tostring(cvars.instantQuestText))
 	check("the player's original value was remembered first",
 		VanillaQuestingDB.state.instantQuestText == "1",
 		tostring(VanillaQuestingDB.state.instantQuestText))
-	ns:Set("questTextTypesOut", false)
+	ns:Set("noInstantQuestText", false)
 	check("turning it off restores what the player had", cvars.instantQuestText == "1",
 		tostring(cvars.instantQuestText))
-	ns:Set("questTextTypesOut", true)
+	ns:Set("noInstantQuestText", true)
 
 	-- ---- Bag quest highlight ----
-	check("bag highlight module exists", ns.modules.bagQuestHighlight ~= nil)
-	check("it is on by default", ns.db.settings.bagQuestHighlight == true)
+	check("bag highlight module exists", ns.modules.noBagItemHighlight ~= nil)
+	check("it is on by default", ns.db.settings.noBagItemHighlight == true)
 	-- Intended behaviour, not a warning: the description explains it plainly
 	-- and there is no orange limitation line.
 	check("the description covers the exclamation mark",
-		ns.modules.bagQuestHighlight.desc:find("exclamation mark", 1, true) ~= nil)
+		ns.modules.noBagItemHighlight.desc:find("exclamation mark", 1, true) ~= nil)
 	check("it is not flagged as a limitation",
-		ns.modules.bagQuestHighlight.limitation == nil)
+		ns.modules.noBagItemHighlight.limitation == nil)
 
 	ContainerFrame_Update(ContainerFrame1)
 	local allHidden = true
@@ -965,7 +973,7 @@ if scenario == "normal" then
 	for _, t in ipairs(_G.__bagTextures) do if t:IsShown() then stillHidden = false end end
 	check("still hidden after further redraws", stillHidden)
 
-	ns:Set("bagQuestHighlight", false)
+	ns:Set("noBagItemHighlight", false)
 	local redraws = _G.__bagRedraws
 	check("turning it off redraws the open bags", _G.__bagRedraws > redraws - 1)
 	local anyBack = false
@@ -1006,7 +1014,7 @@ if scenario == "native" then
 		byVar.autoQuestWatch and tostring(byVar.autoQuestWatch.data.tooltip))
 	check("the annotation is the note and nothing else",
 		byVar.autoQuestWatch
-			and byVar.autoQuestWatch.data.tooltip:find("/autoQuestTracking", 1, true) == nil,
+			and byVar.autoQuestWatch.data.tooltip:find("/noAutoQuestTracking", 1, true) == nil,
 		byVar.autoQuestWatch and byVar.autoQuestWatch.data.tooltip)
 	check("Outline Mode is annotated too",
 		byVar.Outline and byVar.Outline.data.tooltip:find("Managed by", 1, true) ~= nil)
@@ -1024,7 +1032,7 @@ if scenario == "native" then
 	--
 	-- Nothing is ever held over a close now, so closing must be silent: no
 	-- rebuild, no dialog. Two earlier designs left state behind here.
-	local mapKey2 = "worldMapMarkers"
+	local mapKey2 = "hideMapQuestHelper"
 	local mapSetting2
 	for _, c in ipairs(boxes) do
 		if c.setting:GetVariable() == "VanillaQuesting_" .. mapKey2 then mapSetting2 = c.setting end
@@ -1091,7 +1099,7 @@ if scenario == "normal" then
 	cvars.questPOI = "1"
 	fire("CVAR_UPDATE")
 	check("a CVar with no Blizzard control is re-asserted", cvars.questPOI == "0", cvars.questPOI)
-	check("and its option stays on", ns.db.settings.worldMapMarkers == true)
+	check("and its option stays on", ns.db.settings.hideMapQuestHelper == true)
 
 	local b4 = #chatlog
 	cvars.instantQuestText = "1"
@@ -1099,7 +1107,7 @@ if scenario == "normal" then
 	check("a CVar the player owns is left where they put it",
 		cvars.instantQuestText == "1", cvars.instantQuestText)
 	check("and the matching option turns itself off",
-		ns.db.settings.questTextTypesOut == false, tostring(ns.db.settings.questTextTypesOut))
+		ns.db.settings.noInstantQuestText == false, tostring(ns.db.settings.noInstantQuestText))
 	local told = false
 	for i = b4 + 1, #chatlog do
 		if tostring(chatlog[i]):find("Instant Quest Text", 1, true) then told = true end
@@ -1116,10 +1124,11 @@ if scenario == "normal" then
 	cvars.instantQuestText = "0"
 	fire("CVAR_UPDATE")
 	check("putting the Blizzard control back turns the option back on",
-		ns.db.settings.questTextTypesOut == true, tostring(ns.db.settings.questTextTypesOut))
+		ns.db.settings.noInstantQuestText == true, tostring(ns.db.settings.noInstantQuestText))
 	told = false
 	for i = b4 + 1, #chatlog do
-		if tostring(chatlog[i]):find("is now on", 1, true) then told = true end
+		if tostring(chatlog[i]):find("is now", 1, true)
+			and tostring(chatlog[i]):find("on", 1, true) then told = true end
 	end
 	check("and says so too", told)
 
@@ -1128,27 +1137,27 @@ if scenario == "normal" then
 		cvars.instantQuestText = "1"
 		fire("CVAR_UPDATE")
 		check("round " .. round .. ": follows the player off",
-			ns.db.settings.questTextTypesOut == false)
+			ns.db.settings.noInstantQuestText == false)
 		cvars.instantQuestText = "0"
 		fire("CVAR_UPDATE")
 		check("round " .. round .. ": follows the player back on",
-			ns.db.settings.questTextTypesOut == true)
+			ns.db.settings.noInstantQuestText == true)
 	end
 
 	-- An option that ships OFF must mirror too. Outline was completely inert
 	-- in v0.14.0 for exactly this reason.
 	ns:ResetDefaults(true)
 	check("the experimental outline option ships off",
-		ns.db.settings.questObjectOutline == false)
+		ns.db.settings.outlineMode == false)
 	cvars.Outline = "1"          -- what this AddOn would ask for
 	fire("CVAR_UPDATE")
 	check("setting Blizzard's Outline Mode turns the option on",
-		ns.db.settings.questObjectOutline == true,
-		tostring(ns.db.settings.questObjectOutline))
+		ns.db.settings.outlineMode == true,
+		tostring(ns.db.settings.outlineMode))
 	cvars.Outline = "0"
 	fire("CVAR_UPDATE")
 	check("and only 0 turns the option off again",
-		ns.db.settings.questObjectOutline == false)
+		ns.db.settings.outlineMode == false)
 
 	ns:ResetDefaults(true)
 end
@@ -1159,11 +1168,11 @@ if scenario == "normal" then
 	-- they were while the panel's preset set them false.
 	-- A preset that undoes a deliberate choice is worse than one that ignores
 	-- it, so Full Classic leaves the experiments where the player put them.
-	ns:Set("questObjectOutline", true)
+	ns:Set("outlineMode", true)
 	pcall(SlashCmdList["VANILLAQUESTING"], "on")
 	check("/vq on leaves an experimental option switched on",
-		ns.db.settings.questObjectOutline == true,
-		tostring(ns.db.settings.questObjectOutline))
+		ns.db.settings.outlineMode == true,
+		tostring(ns.db.settings.outlineMode))
 	local normalOn = true
 	for i = 1, #ns.modules do
 		local m = ns.modules[i]
@@ -1186,25 +1195,25 @@ if scenario == "normal" then
 		cvars.Outline = v
 		fire("CVAR_UPDATE")
 		check("Outline = " .. v .. " ticks the option",
-			ns.db.settings.questObjectOutline == true, tostring(ns.db.settings.questObjectOutline))
+			ns.db.settings.outlineMode == true, tostring(ns.db.settings.outlineMode))
 	end
 	cvars.Outline = "0"
 	fire("CVAR_UPDATE")
-	check("Outline = 0 unticks it", ns.db.settings.questObjectOutline == false)
+	check("Outline = 0 unticks it", ns.db.settings.outlineMode == false)
 
 	-- And a value the player chose is not dragged down to the one the AddOn
 	-- would have asked for. Each leg starts clean: the remembered pre-AddOn
 	-- value carries over otherwise and decides the answer instead.
-	ns:Set("questObjectOutline", false)
+	ns:Set("outlineMode", false)
 	VanillaQuestingDB.state.Outline = nil
 	cvars.Outline = "3"
-	ns:Set("questObjectOutline", true)
+	ns:Set("outlineMode", true)
 	check("turning the option on leaves Outline = 3 alone", cvars.Outline == "3", cvars.Outline)
 
-	ns:Set("questObjectOutline", false)
+	ns:Set("outlineMode", false)
 	VanillaQuestingDB.state.Outline = nil
 	cvars.Outline = "0"
-	ns:Set("questObjectOutline", true)
+	ns:Set("outlineMode", true)
 	check("but from off it asks for 2, Blizzard's own default", cvars.Outline == "2", cvars.Outline)
 	ns:ResetDefaults(true)
 end
@@ -1229,7 +1238,7 @@ if scenario == "native" then
 	check("preset reads classic with experiments off",
 		drops3[1].setting:GetValue() == "classic", drops3[1].setting:GetValue())
 
-	ns.db.settings.questObjectOutline = true
+	ns.db.settings.outlineMode = true
 	ns.RefreshOptions()
 	check("switching an experiment on keeps it Full Classic",
 		drops3[1].setting:GetValue() == "classic", drops3[1].setting:GetValue())
@@ -1238,17 +1247,17 @@ if scenario == "native" then
 	-- known state: chaining preset changes made a later SetValue a no-op,
 	-- because the dropdown was already on the value being written.
 	ns:ResetDefaults(true)
-	ns.db.settings.questObjectOutline = true
+	ns.db.settings.outlineMode = true
 	ns.RefreshOptions()
 	pcall(drops3[1].setting.SetValue, drops3[1].setting, "classic")
 	pcall(_G.pressApply)
 	check("picking Full Classic leaves the experiment on",
-		ns.db.settings.questObjectOutline == true,
-		tostring(ns.db.settings.questObjectOutline))
+		ns.db.settings.outlineMode == true,
+		tostring(ns.db.settings.outlineMode))
 
 	-- Disabled still takes everything.
 	ns:ResetDefaults(true)
-	ns.db.settings.questObjectOutline = true
+	ns.db.settings.outlineMode = true
 	ns.RefreshOptions()
 	pcall(drops3[1].setting.SetValue, drops3[1].setting, "disabled")
 	pcall(_G.pressApply)
@@ -1264,8 +1273,8 @@ if scenario == "native" then
 		local key = c.setting:GetVariable():gsub("VanillaQuesting_", "")
 		if ns.modules[key].experimental then expTip = c.tooltip end
 	end
-	check("the experimental note says the preset leaves it alone",
-		expTip and expTip:find("leaves it exactly as you set it", 1, true) ~= nil,
+	check("the experimental note warns it is untested",
+		expTip and expTip:find("untested and potentially unstable", 1, true) ~= nil,
 		tostring(expTip))
 
 	ns:ResetDefaults(true)
@@ -1277,9 +1286,9 @@ if scenario == "normal" then
 	-- The framed character box beside quest text, in the offer window and in
 	-- the quest log. It comes back every time a quest is opened, so a one-shot
 	-- hide at login would pass a naive test and fail in play.
-	check("portrait module exists", ns.modules.questGiverPortrait ~= nil)
+	check("portrait module exists", ns.modules.hideCharacterFrame ~= nil)
 	ns:ResetDefaults(true)
-	check("it is on by default", ns.db.settings.questGiverPortrait == true)
+	check("it is on by default", ns.db.settings.hideCharacterFrame == true)
 
 	QuestFrame_ShowQuestPortrait()
 	check("the portrait is hidden when a quest is offered", QuestNPCModel:IsShown() == false)
@@ -1287,21 +1296,21 @@ if scenario == "normal" then
 	QuestFrame_ShowQuestPortrait()
 	check("and stays hidden on later quests", QuestNPCModel:IsShown() == false)
 	check("Status names the frame it found",
-		ns.modules.questGiverPortrait:Status():find("QuestNPCModel", 1, true) ~= nil,
-		ns.modules.questGiverPortrait:Status())
+		ns.modules.hideCharacterFrame:Status():find("QuestNPCModel", 1, true) ~= nil,
+		ns.modules.hideCharacterFrame:Status())
 
-	ns:Set("questGiverPortrait", false)
+	ns:Set("hideCharacterFrame", false)
 	QuestFrame_ShowQuestPortrait()
 	check("turning it off shows the portrait again", QuestNPCModel:IsShown() == true)
-	ns:Set("questGiverPortrait", true)
+	ns:Set("hideCharacterFrame", true)
 
 	-- ---- quest progress in tooltips ----
 	--
 	-- The rule under test is the one from six captured tooltips (G12): line 1
 	-- is never touched; a gold line whose text matches an ACTIVE QUEST is the
 	-- header; the objective lines under it follow.
-	check("tooltip module exists", ns.modules.questProgressTooltips ~= nil)
-	check("it is on by default", ns.db.settings.questProgressTooltips == true)
+	check("tooltip module exists", ns.modules.hideTooltipsQuestProgress ~= nil)
+	check("it is on by default", ns.db.settings.hideTooltipsQuestProgress == true)
 
 	local GOLD = { r = 1.00, g = 0.82, b = 0.00 }
 	local WHITE = { r = 1, g = 1, b = 1 }
@@ -1399,7 +1408,7 @@ if scenario == "normal" then
 		out[2] == "Elwynn Forest", tostring(out[2]))
 
 	-- Turned off, the tooltip is Blizzard's again.
-	ns:Set("questProgressTooltips", false)
+	ns:Set("hideTooltipsQuestProgress", false)
 	_G.__setTooltip({
 		line("Stonetusk Boar", { r = 0.90, g = 0.70, b = 0.00 }),
 		line("Pie for Billy", GOLD),
@@ -1474,6 +1483,90 @@ if scenario == "normal" then
 	text = table.concat(chatlog, "\n", b4 + 1, #chatlog)
 	check("/vq help points at where option names are listed",
 		text:find("/vq status", 1, true) ~= nil)
+end
+
+if scenario == "normal" then
+	-- ---- a tooltip re-used after another one ----
+	--
+	-- Hover something harmless, then a quest creature, without the tooltip
+	-- hiding in between. The fit has to be right on the second one too: the
+	-- frame arrives carrying whatever height the first left on it.
+	ns:ResetDefaults(true)
+	local GOLD2 = { r = 1.00, g = 0.82, b = 0.00 }
+	local WHITE2 = { r = 1, g = 1, b = 1 }
+	local function ln(t, c) return { text = t, r = c.r, g = c.g, b = c.b } end
+
+	-- A herb node first. Nothing to remove, so nothing should be resized.
+	_G.__setTooltip({ ln("Silverleaf", GOLD2), ln("Herbalism", { r = 1, g = 1, b = 0 }) })
+	_G.__showTooltip()
+	local herbHeight = GameTooltip.__height
+	check("a tooltip with nothing to remove is left alone",
+		math.abs(herbHeight - (4 + 2 * 12 + 2 + 4)) < 1, herbHeight)
+
+	-- Now a four-line quest creature, arriving on the same frame.
+	_G.__setTooltip({
+		ln("Stonetusk Boar", { r = 0.90, g = 0.70, b = 0.00 }),
+		ln("Level 6 Beast", WHITE2),
+		ln("Pie for Billy", GOLD2),
+		ln(" - Tender Boar Meat: 0/4", WHITE2),
+	})
+	_G.__retargetTooltip()
+	local out2 = _G.__tooltipText()
+	check("the re-used tooltip is still scrubbed", out2[3] == "" and out2[4] == "",
+		tostring(out2[3]) .. " / " .. tostring(out2[4]))
+	check("and the re-used tooltip is fitted to two lines",
+		math.abs(GameTooltip.__height - (4 + 2 * 12 + 2 + 4)) < 1, GameTooltip.__height)
+
+	-- And back to something clean: it must not stay cramped.
+	_G.__setTooltip({
+		ln("Innkeeper Allison", { r = 0.90, g = 0.70, b = 0.00 }),
+		ln("Level 30 Humanoid", WHITE2),
+		ln("Innkeeper", { r = 1, g = 1, b = 0 }),
+	})
+	_G.__retargetTooltip()
+	local out3 = _G.__tooltipText()
+	check("a clean tooltip after a scrubbed one keeps all its lines",
+		out3[2] == "Level 30 Humanoid" and out3[3] == "Innkeeper",
+		tostring(out3[2]) .. " / " .. tostring(out3[3]))
+	check("and is not left cramped by the previous fit",
+		math.abs(GameTooltip.__height - (4 + 3 * 12 + 2 * 2 + 4)) < 1, GameTooltip.__height)
+
+	ns:ResetDefaults(true)
+
+	-- ---- turning the minimap option off re-enables Blizzard's tracking ----
+	--
+	-- Track Quest POIs is on by default in the game, so switching this option
+	-- off should hand back the default rather than whatever the entry happened
+	-- to be when the AddOn was installed.
+	tracking[4].active = false
+	ClassicQuestingMoPDB = nil
+	ns:Set("hideMinimapQuestHelper", true)
+	check("the option turns tracking off", tracking[4].active == false)
+	ns:Set("hideMinimapQuestHelper", false)
+	check("turning it off turns Track Quest POIs back on", tracking[4].active == true,
+		tostring(tracking[4].active))
+	ns:ResetDefaults(true)
+end
+
+if scenario == "native" then
+	-- Every category gets a heading, and the options under it all belong to it.
+	local headings, current, wrong = {}, nil, nil
+	for _, c in ipairs(_G.__nativeControls or {}) do
+		if c.kind == "header" then
+			current = (c.text:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""))
+			headings[#headings + 1] = current
+		elseif c.kind == "checkbox" then
+			local key = c.setting:GetVariable():gsub("VanillaQuesting_", "")
+			if ns.modules[key].group ~= current then
+				wrong = key .. " sits under " .. tostring(current)
+					.. " but belongs to " .. tostring(ns.modules[key].group)
+			end
+		end
+	end
+	check("every option sits under its own category heading", wrong == nil, tostring(wrong))
+	check("the categories are the five agreed",
+		table.concat(headings, ", "):find("Map and minimap, Quests, Quest Tracker, UI, Experimental", 1, true) ~= nil,
+		table.concat(headings, ", "))
 end
 
 print(string.format("--- %s: %d passed, %d failed ---", scenario, pass, fail))

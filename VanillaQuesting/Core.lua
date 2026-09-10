@@ -139,17 +139,17 @@ end
 -- Account-wide (see the .toc): someone who wants this wants it everywhere.
 local DB_VERSION = 3
 
--- v1 gave every feature two names: a display key ("mapCreaturePortraits") and
+-- v1 gave every feature two names: a display key ("hideCreaturePortraits") and
 -- a saved-setting name mirroring the CVar ("showBosses"). That was a mistake.
 -- It made the name /vq printed different from the name /vq accepted, and it
 -- made "showBosses turned on" mean the portraits were hidden. v2 uses one
 -- name per feature, describing what the AddOn does rather than what Blizzard
 -- calls the underlying switch.
 local RENAMED_IN_V2 = {
-	worldMapQuestPOI = "worldMapMarkers",
-	minimapQuestPOI  = "minimapMarkers",
-	autoQuestWatch   = "autoQuestTracking",
-	showBosses       = "mapCreaturePortraits",
+	worldMapQuestPOI = "hideMapQuestHelper",
+	minimapQuestPOI  = "hideMinimapQuestHelper",
+	autoQuestWatch   = "noAutoQuestTracking",
+	showBosses       = "hideCreaturePortraits",
 }
 
 -- Modules add their own defaults at file scope, before ADDON_LOADED fires.
@@ -249,7 +249,7 @@ function ns:ResetDefaults(silent)
 	end
 	ns:ApplyAll()
 	if not silent then
-		ns:Print("Settings restored to defaults.")
+		ns:Print("Restored default options.")
 	end
 end
 
@@ -282,7 +282,7 @@ local function status()
 		local on = ns.db and ns.db.settings[m.key]
 		-- The live CVar readout is for developer eyes; the player wants to
 		-- know what is on.
-		ns:Print("  " .. (on and (C.on .. "on " .. C.close) or (C.off .. "off" .. C.close)) ..
+		ns:Print("  " .. (on and (C.on .. "on " .. C.close) or (C.off .. "off " .. C.close)) ..
 			"  " .. C.highlight .. tostring(m.key) .. C.close ..
 			(m.experimental and (" " .. C.experimental .. "(experimental)" .. C.close) or ""))
 	end
@@ -292,7 +292,7 @@ SLASH_VANILLAQUESTING1 = "/vq"
 SLASH_VANILLAQUESTING2 = "/vanillaquesting"
 
 -- Accept whatever /vq actually printed. Modules have a display key
--- ("mapCreaturePortraits") and a saved-setting name ("showBosses"), and the
+-- ("hideCreaturePortraits") and a saved-setting name ("showBosses"), and the
 -- status list shows the key -- so the key must be a valid handle for
 -- /vq on|off. Taking only the setting name made every name on screen an
 -- "Unknown setting". Both work now, case-insensitively.
@@ -343,8 +343,9 @@ SlashCmdList["VANILLAQUESTING"] = function(msg)
 			end
 			ns:ApplyAll()
 			ns:Print(want
-				and "The Full Classic Experience has been enabled. Experimental features must be activated manually."
-				or "AddOn disabled.")
+				and ("Enabled all vanilla options." .. " " .. C.muted ..
+					"Experimental options must be activated manually." .. C.close)
+				or "Disabled all options.")
 		else
 			local key = resolveSetting(arg)
 			if key then
@@ -353,34 +354,34 @@ SlashCmdList["VANILLAQUESTING"] = function(msg)
 				-- "showBosses turned on" read as though the portraits were
 				-- being shown. Say what actually happened instead.
 				local effect = m and (want and m.onText or m.offText)
-				ns:Print(C.highlight .. key .. C.close .. " " .. cmd ..
-					(effect and (" -- " .. effect .. ".") or "."))
+				ns:Print(C.highlight .. key .. C.close .. " " ..
+					(want and (C.on .. "on" .. C.close) or (C.off .. "off" .. C.close)) ..
+					"." .. (effect and (" " .. effect) or ""))
 			else
-				ns:Print("Unknown setting '" .. arg .. "'. Try /vq for the list.")
+				ns:Print(C.warning .. "Unknown option '" .. arg .. "'." .. C.close ..
+					" Try " .. C.highlight .. "/vq help" .. C.close .. " for list of commands.")
 			end
 		end
 
 	elseif cmd == "help" then
-		ns:Print(ns.title .. " v" .. tostring(ns.version) .. " - Commands")
+		ns:Print(ns.title .. " v" .. tostring(ns.version) .. " - List of commands")
 		-- The game font is not monospaced, so padding to a column would still
 		-- come out ragged. A fixed separator makes every gap identical instead.
 		local function line(cmd, what)
 			ns:Print("  " .. C.highlight .. cmd .. C.close .. "  -  " .. what)
 		end
 		line("/vq", "Open the options panel")
-		line("/vq on", "Turn on the full Classic experience")
-		line("/vq off", "Disable the AddOn")
-		line("/vq status", "List every option and its state")
-		line("/vq on <name>", "Turn one option on")
-		line("/vq off <name>", "Turn one option off")
-		line("/vq reset", "Restore default settings")
-		ns:Print("  " .. C.muted ..
-			"Option names for the two commands above are listed by /vq status." .. C.close)
+		line("/vq on", "Enable all vanilla options")
+		line("/vq off", "Disable all options")
+		line("/vq status", "List every option and its current state")
+		line("/vq on <option>", "Turn one option on")
+		line("/vq off <option>", "Turn one option off")
+		line("/vq reset", "Restore default options")
 
 	elseif cmd == "status" then
 		status()
-		local example = ns.modules[1] and ns.modules[1].key or "worldMapMarkers"
-		ns:Print(C.highlight .. "/vq help" .. C.close .. " lists every command.")
+		local example = ns.modules[1] and ns.modules[1].key or "hideMapQuestHelper"
+		ns:Print("  " .. C.highlight .. "/vq help" .. C.close .. " lists every command.")
 
 	elseif cmd == "" then
 		-- Only a bare /vq opens the panel. An unrecognised word is a mistake,
@@ -389,10 +390,12 @@ SlashCmdList["VANILLAQUESTING"] = function(msg)
 			ns:OpenOptions()
 		else
 			status()
-			ns:Print("Options panel unavailable; use " .. C.highlight .. "/vq on|off <name>" .. C.close .. ".")
+			ns:Print(C.warning .. "Options panel unavailable." .. C.close .. " Use " ..
+				C.highlight .. "/vq on|off <option>" .. C.close .. ".")
 		end
 
 	else
-		ns:Print("Unknown command '" .. cmd .. "'. Try " .. C.highlight .. "/vq help" .. C.close .. " for the list.")
+		ns:Print(C.warning .. "Unknown command '" .. cmd .. "'." .. C.close ..
+			" Try " .. C.highlight .. "/vq help" .. C.close .. " for list of commands.")
 	end
 end

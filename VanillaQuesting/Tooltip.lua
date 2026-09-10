@@ -25,15 +25,15 @@
 
 local ADDON_NAME, ns = ...
 
-local M = ns:RegisterModule("questProgressTooltips", {})
-M.title = "Hide quest progress in tooltips"
-M.desc  = "Mousing over a creature or object stops telling you which quest it belongs to and how many you still need. Classic expected you to remember what you were looking for."
-M.onText  = "quest progress no longer appended to tooltips"
-M.offText = "quest progress shown in tooltips again"
-M.group = "Quest text"
-M.order = 60
+local M = ns:RegisterModule("hideTooltipsQuestProgress", {})
+M.title = "Hide Quest Progress In Tooltips"
+M.desc  = "Hovering a creature or object no longer tells you which quest it belongs to and your progress."
+M.onText  = "Quest progress removed from tooltips."
+M.offText = "Quest progress in tooltips restored."
+M.group = "UI"
+M.order = 90
 
-ns:RegisterDefaults({ questProgressTooltips = true })
+ns:RegisterDefaults({ hideTooltipsQuestProgress = true })
 
 -- Blizzard's gold, as the captured tooltips report it. Compared with a
 -- tolerance because these come back as floats.
@@ -114,9 +114,22 @@ local function fitHeight(tooltip, name, lines)
 		local padding = frameTop - firstTop
 		local wantBottom = keptBottom - padding
 		local excess = wantBottom - frameBottom
-		-- Half a pixel of rounding is not worth a resize.
-		if excess > 0.5 then
-			tooltip:SetHeight(tooltip:GetHeight() - excess)
+		-- Corrects in BOTH directions. Shrinking only was enough while every
+		-- tooltip was freshly laid out, but a re-used one can arrive already
+		-- too short -- the previous tooltip's fit is still on the frame, and
+		-- Blizzard does not always resize it back up. A fit that can only
+		-- shrink leaves that one cramped forever.
+		--
+		-- Half a pixel either way is rounding, not a resize.
+		if excess > 0.5 or excess < -0.5 then
+			tooltip:SetHeight(math.max(1, tooltip:GetHeight() - excess))
+			-- Setting a height PINS the frame: it stops sizing itself from
+			-- its lines, and the value stays on it when the next tooltip is
+			-- built into the same frame. Once that has happened, this AddOn
+			-- owns the height and has to keep setting it -- including for
+			-- tooltips it has nothing to remove from, which would otherwise
+			-- be left at whatever size the last scrubbed one needed.
+			tooltip.__vqPinned = true
 		end
 	end)
 	if not ok then return end
@@ -125,7 +138,7 @@ end
 
 local function scrub(tooltip)
 	if scanning then return end
-	if not ns.db or not ns.db.settings.questProgressTooltips then return end
+	if not ns.db or not ns.db.settings.hideTooltipsQuestProgress then return end
 	if type(tooltip) ~= "table" or type(tooltip.NumLines) ~= "function" then return end
 
 	local name = tooltip:GetName()
@@ -180,14 +193,24 @@ local function scrub(tooltip)
 	-- Remember that THIS tooltip, at this line count, has had lines taken out
 	-- of it. A later pass over the same tooltip finds only empty strings and
 	-- would otherwise have no way to know they were ever anything.
+	--
+	-- Keyed on the line count AND the first line's text. The count alone was
+	-- not enough: hover a two-line herb node, then a creature whose tooltip
+	-- also comes to the same count, and the marker from one carried into the
+	-- other. Two different tooltips are only "the same" if their name matches
+	-- as well.
+	local stamp = lines .. "\1" .. tostring(_G[name .. "TextLeft1"]
+		and _G[name .. "TextLeft1"]:GetText() or "")
 	if blankedHere > 0 then
-		tooltip.__vqBlankedAt = lines
-	elseif tooltip.__vqBlankedAt ~= lines then
-		-- Different content: whatever was blanked belonged to another tooltip.
+		tooltip.__vqBlankedAt = stamp
+	elseif tooltip.__vqBlankedAt ~= stamp then
+		-- Different tooltip entirely: whatever was blanked was not this.
 		tooltip.__vqBlankedAt = nil
 	end
 
-	if tooltip.__vqBlankedAt == lines then
+	-- Fit when there is something to fit, and also whenever this frame is
+	-- already carrying a height of ours -- see __vqPinned above.
+	if tooltip.__vqBlankedAt == stamp or tooltip.__vqPinned then
 		fitHeight(tooltip, name, lines)
 	end
 	scanning = false
