@@ -1,4 +1,4 @@
--- Classic Questing (MoP) -- CVars
+-- Vanilla Questing -- CVars
 --
 -- Every console variable this AddOn drives to a Classic-correct value.
 -- Table-driven on purpose: adding another lever is one row, not another
@@ -43,7 +43,7 @@ local RULES = {
 		onText  = "newly accepted quests are no longer tracked automatically",
 		offText = "newly accepted quests are tracked automatically again",
 		group   = "Quest tracking",
-		order   = 30,
+		order   = 70,
 		title   = "Disable automatic quest tracking",
 		desc    = "Accepting a quest no longer adds it to the tracker by itself. Quality of life rather than clutter, so it is yours to choose.",
 	},
@@ -66,7 +66,7 @@ local RULES = {
 		onText  = "quest text types out a line at a time",
 		offText = "quest text appears all at once again",
 		group   = "Quest text",
-		order   = 20,
+		order   = 40,
 		title   = "Type quest text out",
 		desc    = "Quest text types out a line at a time instead of appearing at once, as it did in Classic. This is Blizzard's Instant Quest Text option, turned off.",
 	},
@@ -84,7 +84,7 @@ local RULES = {
 		onText  = "world map creature portraits hidden",
 		offText = "world map creature portraits shown again",
 		group   = "World map clutter",
-		order   = 40,
+		order   = 30,
 		title   = "Hide world map creature portraits",
 		desc    = "Hides the boss and creature portrait pins MoP puts on zone maps. Classic never had them.",
 	},
@@ -117,7 +117,7 @@ local RULES = {
 		onText       = "outline requested instead of sparkles (experimental; many clients cannot render it)",
 		offText      = "outline setting returned to what it was",
 		group        = "Experimental",
-		order        = 50,
+		order        = 110,
 		title        = "Request quest object outline",
 		desc         = "Quest objects show either an outline or sparkles, never both, so asking for the outline suppresses the glimmer. Many clients cannot render outlines at all, in which case this does nothing.",
 	},

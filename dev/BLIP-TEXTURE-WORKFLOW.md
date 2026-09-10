@@ -59,7 +59,7 @@ telling us the true proportions even though the on-screen viewer never looked ri
    black square is worse than the icon.
 4. Save as a power-of-two texture the client will load, keeping the original dimensions, into
    the addon folder.
-5. Test immediately: `/unrecon blip Interface\AddOns\ClassicQuestingMoP\<yourfile>`
+5. Test immediately: `/unrecon blip Interface\AddOns\VanillaQuesting\<yourfile>`
    (no file extension in the path). `/unrecon blipreset` puts the real sheet back.
 6. Check what else changed. Herb nodes, vendors, flight masters and trainers must be untouched.
 

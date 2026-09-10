@@ -1,4 +1,4 @@
--- Stub WoW env for Classic Questing in MoP.
+-- Stub WoW env for Vanilla Questing.
 -- Models the two feedback loops that matter: SetCVar fires CVAR_UPDATE and
 -- SetTracking fires MINIMAP_UPDATE_TRACKING, exactly as the client does.
 
@@ -126,7 +126,7 @@ _G.fire = fire
 _G.fireCount = fireCount
 _G.maxEventDepth = function() return maxDepth end
 
-C_AddOns = { GetAddOnMetadata = function(_, k) if k == "Version" then return "0.16.1" end end }
+C_AddOns = { GetAddOnMetadata = function(_, k) if k == "Version" then return "0.17.0" end end }
 
 Settings = {
 	RegisterCanvasLayoutCategory = function(frame, name)
@@ -380,6 +380,10 @@ _G.__setTooltip = function(lines)
         function fs:SetText(t) self.__text = t end
         function fs:GetTextColor() return self.__r, self.__g, self.__b end
         function fs:GetHeight() return 12 end
+        -- Laid out top-down: 12px of text and 2px of spacing per line. The
+        -- spacing is the part v0.16.1's per-line estimate never counted.
+        function fs:GetBottom() return 1000 - (i * 14) end
+        function fs:GetTop() return 1000 - (i * 14) + 12 end
         tipLines[i] = fs
         _G["GameTooltipTextLeft" .. i] = fs
     end
@@ -610,12 +614,12 @@ end
 -- ---- load the addon exactly as the .toc orders it ----
 local ns = {}
 -- Repo-relative, so the suite runs wherever the checkout lives. Set
--- CQ_ADDON_DIR to point it somewhere else.
-local base = os.getenv("CQ_ADDON_DIR") or "../../ClassicQuestingMoP/"
+-- VQ_ADDON_DIR to point it somewhere else.
+local base = os.getenv("VQ_ADDON_DIR") or "../../VanillaQuesting/"
 for _, f in ipairs({ "Core.lua", "CVars.lua", "Minimap.lua", "QuestFrame.lua",
                      "Tooltip.lua", "Tracker.lua", "Bags.lua", "Options.lua" }) do
 	local chunk = assert(loadfile(base .. f))
-	chunk("ClassicQuestingMoP", ns)
+	chunk("VanillaQuesting", ns)
 end
 _G.ns = ns
 _G.chatlog = chat

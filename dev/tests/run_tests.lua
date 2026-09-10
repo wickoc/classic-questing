@@ -11,7 +11,7 @@ end
 print("=== scenario: " .. scenario .. " ===")
 
 -- boot the addon the way the client does
-local ok, err = pcall(fire, "ADDON_LOADED", "ClassicQuestingMoP")
+local ok, err = pcall(fire, "ADDON_LOADED", "VanillaQuesting")
 check("ADDON_LOADED without error", ok, err)
 ok, err = pcall(fire, "PLAYER_ENTERING_WORLD")
 check("PLAYER_ENTERING_WORLD without error", ok, err)
@@ -23,8 +23,8 @@ check("no runaway event recursion (depth " .. maxEventDepth() .. ")", maxEventDe
 if scenario == "normal" then
 	check("questPOI driven to 0", cvars.questPOI == "0", cvars.questPOI)
 	check("quest POI tracking turned off", tracking[4].active == false, tracking[4].active)
-	check("original questPOI remembered", ClassicQuestingMoPDB.state.questPOI == "1")
-	check("original tracking state remembered", ClassicQuestingMoPDB.state.minimapMarkersTracking == true)
+	check("original questPOI remembered", VanillaQuestingDB.state.questPOI == "1")
+	check("original tracking state remembered", VanillaQuestingDB.state.minimapMarkersTracking == true)
 
 	-- user flips the tracking entry back on via Blizzard's dropdown
 	tracking[4].active = true
@@ -37,118 +37,118 @@ if scenario == "normal" then
 	check("re-assert after CVAR_UPDATE", ok and cvars.questPOI == "0", err or cvars.questPOI)
 
 	-- turning the features off restores what the player had
-	ok, err = pcall(SlashCmdList["CLASSICQUESTINGMOP"], "off")
-	check("/cq off runs", ok, err)
+	ok, err = pcall(SlashCmdList["VANILLAQUESTING"], "off")
+	check("/vq off runs", ok, err)
 	check("questPOI restored to 1", cvars.questPOI == "1", cvars.questPOI)
 	check("tracking restored to on", tracking[4].active == true, tracking[4].active)
 
-	ok, err = pcall(SlashCmdList["CLASSICQUESTINGMOP"], "on")
-	check("/cq on runs", ok, err)
+	ok, err = pcall(SlashCmdList["VANILLAQUESTING"], "on")
+	check("/vq on runs", ok, err)
 	check("questPOI back to 0", cvars.questPOI == "0", cvars.questPOI)
 
-	ok, err = pcall(SlashCmdList["CLASSICQUESTINGMOP"], "reset")
-	check("/cq reset runs", ok, err)
-	ok, err = pcall(SlashCmdList["CLASSICQUESTINGMOP"], "")
-	check("/cq status runs", ok, err)
-	ok, err = pcall(SlashCmdList["CLASSICQUESTINGMOP"], "off minimapMarkers")
-	check("/cq off <setting> runs", ok, err)
-	check("only that setting changed", ClassicQuestingMoPDB.settings.minimapMarkers == false
-		and ClassicQuestingMoPDB.settings.worldMapMarkers == true)
-	ok, err = pcall(SlashCmdList["CLASSICQUESTINGMOP"], "off bogusSetting")
+	ok, err = pcall(SlashCmdList["VANILLAQUESTING"], "reset")
+	check("/vq reset runs", ok, err)
+	ok, err = pcall(SlashCmdList["VANILLAQUESTING"], "")
+	check("/vq status runs", ok, err)
+	ok, err = pcall(SlashCmdList["VANILLAQUESTING"], "off minimapMarkers")
+	check("/vq off <setting> runs", ok, err)
+	check("only that setting changed", VanillaQuestingDB.settings.minimapMarkers == false
+		and VanillaQuestingDB.settings.worldMapMarkers == true)
+	ok, err = pcall(SlashCmdList["VANILLAQUESTING"], "off bogusSetting")
 	check("unknown setting handled", ok, err)
 
 	-- opt-in CVars must NOT be applied by default
-	pcall(SlashCmdList["CLASSICQUESTINGMOP"], "reset")
+	pcall(SlashCmdList["VANILLAQUESTING"], "reset")
 	-- Shipped defaults are now the Full Classic experience, so these apply.
 	check("autoQuestWatch applied by default", cvars.autoQuestWatch == "0", cvars.autoQuestWatch)
 	check("showBosses applied by default", cvars.showBosses == "0", cvars.showBosses)
-	-- The names /cq prints are module keys; they must be valid handles.
-	pcall(SlashCmdList["CLASSICQUESTINGMOP"], "on mapCreaturePortraits")
+	-- The names /vq prints are module keys; they must be valid handles.
+	pcall(SlashCmdList["VANILLAQUESTING"], "on mapCreaturePortraits")
 	check("module key accepted as handle", cvars.showBosses == "0", cvars.showBosses)
-	pcall(SlashCmdList["CLASSICQUESTINGMOP"], "off mapCreaturePortraits")
+	pcall(SlashCmdList["VANILLAQUESTING"], "off mapCreaturePortraits")
 	check("module key toggles back off", cvars.showBosses == "1", cvars.showBosses)
-	pcall(SlashCmdList["CLASSICQUESTINGMOP"], "on autoQuestTracking")
+	pcall(SlashCmdList["VANILLAQUESTING"], "on autoQuestTracking")
 	check("autoQuestTracking key accepted", cvars.autoQuestWatch == "0", cvars.autoQuestWatch)
-	pcall(SlashCmdList["CLASSICQUESTINGMOP"], "off autoQuestTracking")
-	pcall(SlashCmdList["CLASSICQUESTINGMOP"], "off MAPCREATUREPORTRAITS")
-	check("module key is case-insensitive", ClassicQuestingMoPDB.settings.mapCreaturePortraits == false)
-	pcall(SlashCmdList["CLASSICQUESTINGMOP"], "on mapCreaturePortraits")
+	pcall(SlashCmdList["VANILLAQUESTING"], "off autoQuestTracking")
+	pcall(SlashCmdList["VANILLAQUESTING"], "off MAPCREATUREPORTRAITS")
+	check("module key is case-insensitive", VanillaQuestingDB.settings.mapCreaturePortraits == false)
+	pcall(SlashCmdList["VANILLAQUESTING"], "on mapCreaturePortraits")
 	check("showBosses applied when opted in", cvars.showBosses == "0", cvars.showBosses)
-	pcall(SlashCmdList["CLASSICQUESTINGMOP"], "on autoQuestTracking")
+	pcall(SlashCmdList["VANILLAQUESTING"], "on autoQuestTracking")
 	check("autoQuestWatch applied when opted in", cvars.autoQuestWatch == "0", cvars.autoQuestWatch)
-	pcall(SlashCmdList["CLASSICQUESTINGMOP"], "off mapCreaturePortraits")
+	pcall(SlashCmdList["VANILLAQUESTING"], "off mapCreaturePortraits")
 	check("showBosses restored on opt-out", cvars.showBosses == "1", cvars.showBosses)
 
 	-- tooltip: the hook must add lines only while the setting is on
-	pcall(SlashCmdList["CLASSICQUESTINGMOP"], "reset")
+	pcall(SlashCmdList["VANILLAQUESTING"], "reset")
 	for i = #tooltipLines, 1, -1 do tooltipLines[i] = nil end
 	ok, err = pcall(hoverTrackingButton)
 	check("tooltip hook runs", ok, err)
 	local joined = table.concat(tooltipLines, " | ")
 	check("tooltip explains the behaviour", joined:find("Track Quest POIs", 1, true) ~= nil, joined)
-	check("tooltip has the addon name as a header", joined:find("Classic Questing", 1, true) ~= nil, joined)
+	check("tooltip has the addon name as a header", joined:find("Vanilla Questing", 1, true) ~= nil, joined)
 	check("tooltip says it is automatic", joined:find("automatically", 1, true) ~= nil, joined)
-	check("tooltip hint uses a working handle", joined:find("/cq off minimapMarkers", 1, true) ~= nil, joined)
+	check("tooltip hint uses a working handle", joined:find("/vq off minimapMarkers", 1, true) ~= nil, joined)
 
 	-- v2 migration: a v1 database must carry its values across to the new names
 	do
 		local fresh = { dbVersion = 1, settings = {
 			worldMapQuestPOI = false, minimapQuestPOI = true,
 			autoQuestWatch = true, showBosses = true }, state = {} }
-		ClassicQuestingMoPDB = fresh
+		VanillaQuestingDB = fresh
 		ns.db = nil
 		pcall(fire, "PLAYER_ENTERING_WORLD")
-		local st = ClassicQuestingMoPDB.settings
+		local st = VanillaQuestingDB.settings
 		check("v1->v2 migrated worldMapMarkers", st.worldMapMarkers == false, tostring(st.worldMapMarkers))
 		check("v1->v2 migrated autoQuestTracking", st.autoQuestTracking == true, tostring(st.autoQuestTracking))
 		check("v1->v2 migrated mapCreaturePortraits", st.mapCreaturePortraits == true, tostring(st.mapCreaturePortraits))
 		check("v1 keys removed", st.showBosses == nil and st.worldMapQuestPOI == nil)
-		check("dbVersion bumped", ClassicQuestingMoPDB.dbVersion == 3, ClassicQuestingMoPDB.dbVersion)
-		ClassicQuestingMoPDB.dbVersion = 1
-		ClassicQuestingMoPDB.state.minimapQuestPOITracking = true
-		ClassicQuestingMoPDB.state.minimapMarkersTracking = nil
+		check("dbVersion bumped", VanillaQuestingDB.dbVersion == 3, VanillaQuestingDB.dbVersion)
+		VanillaQuestingDB.dbVersion = 1
+		VanillaQuestingDB.state.minimapQuestPOITracking = true
+		VanillaQuestingDB.state.minimapMarkersTracking = nil
 		ns.db = nil
 		pcall(fire, "PLAYER_ENTERING_WORLD")
-		check("v1 state key migrated", ClassicQuestingMoPDB.state.minimapMarkersTracking == true)
-		check("v1 state key removed", ClassicQuestingMoPDB.state.minimapQuestPOITracking == nil)
-		pcall(SlashCmdList["CLASSICQUESTINGMOP"], "reset")
+		check("v1 state key migrated", VanillaQuestingDB.state.minimapMarkersTracking == true)
+		check("v1 state key removed", VanillaQuestingDB.state.minimapQuestPOITracking == nil)
+		pcall(SlashCmdList["VANILLAQUESTING"], "reset")
 	end
 
 	-- old names still resolve as handles
-	pcall(SlashCmdList["CLASSICQUESTINGMOP"], "on showBosses")
-	check("old v1 name still accepted", ClassicQuestingMoPDB.settings.mapCreaturePortraits == true)
-	pcall(SlashCmdList["CLASSICQUESTINGMOP"], "off showBosses")
+	pcall(SlashCmdList["VANILLAQUESTING"], "on showBosses")
+	check("old v1 name still accepted", VanillaQuestingDB.settings.mapCreaturePortraits == true)
+	pcall(SlashCmdList["VANILLAQUESTING"], "off showBosses")
 
-	-- experimental features must never be swept on by a bare "/cq on"
-	pcall(SlashCmdList["CLASSICQUESTINGMOP"], "reset")
-	check("experimental off by default", ClassicQuestingMoPDB.settings.questObjectOutline == false)
-	pcall(SlashCmdList["CLASSICQUESTINGMOP"], "on")
-	check("/cq on leaves experimental alone", ClassicQuestingMoPDB.settings.questObjectOutline == false)
-	check("/cq on still enables the normal ones", ClassicQuestingMoPDB.settings.mapCreaturePortraits == true)
+	-- experimental features must never be swept on by a bare "/vq on"
+	pcall(SlashCmdList["VANILLAQUESTING"], "reset")
+	check("experimental off by default", VanillaQuestingDB.settings.questObjectOutline == false)
+	pcall(SlashCmdList["VANILLAQUESTING"], "on")
+	check("/vq on leaves experimental alone", VanillaQuestingDB.settings.questObjectOutline == false)
+	check("/vq on still enables the normal ones", VanillaQuestingDB.settings.mapCreaturePortraits == true)
 	-- From off, the AddOn asks for 2. (The harness starts Outline at 2, which
 	-- already counts as on, and a value the player chose is left alone -- so
 	-- this has to start from 0 to be about the write at all.)
 	cvars.Outline = "0"
-	pcall(SlashCmdList["CLASSICQUESTINGMOP"], "on questObjectOutline")
-	check("experimental can be turned on by name", ClassicQuestingMoPDB.settings.questObjectOutline == true)
+	pcall(SlashCmdList["VANILLAQUESTING"], "on questObjectOutline")
+	check("experimental can be turned on by name", VanillaQuestingDB.settings.questObjectOutline == true)
 	check("Outline driven to Blizzard's default of 2", cvars.Outline == "2", tostring(cvars.Outline))
-	pcall(SlashCmdList["CLASSICQUESTINGMOP"], "off questObjectOutline")
+	pcall(SlashCmdList["VANILLAQUESTING"], "off questObjectOutline")
 	check("Outline restored to what the player had", cvars.Outline == "0", tostring(cvars.Outline))
 
 	-- And a value that already counts as on is never touched, so there is
 	-- nothing to restore either.
 	cvars.Outline = "3"
-	ClassicQuestingMoPDB.state.Outline = nil
-	pcall(SlashCmdList["CLASSICQUESTINGMOP"], "on questObjectOutline")
+	VanillaQuestingDB.state.Outline = nil
+	pcall(SlashCmdList["VANILLAQUESTING"], "on questObjectOutline")
 	check("Outline 3 is left alone when the option goes on", cvars.Outline == "3", cvars.Outline)
-	pcall(SlashCmdList["CLASSICQUESTINGMOP"], "off questObjectOutline")
+	pcall(SlashCmdList["VANILLAQUESTING"], "off questObjectOutline")
 	check("and is still 3 afterwards", cvars.Outline == "3", cvars.Outline)
-	pcall(SlashCmdList["CLASSICQUESTINGMOP"], "reset")
-	pcall(SlashCmdList["CLASSICQUESTINGMOP"], "off minimapMarkers")
+	pcall(SlashCmdList["VANILLAQUESTING"], "reset")
+	pcall(SlashCmdList["VANILLAQUESTING"], "off minimapMarkers")
 	for i = #tooltipLines, 1, -1 do tooltipLines[i] = nil end
 	pcall(hoverTrackingButton)
 	check("tooltip silent when setting is off", #tooltipLines == 0, #tooltipLines)
-	pcall(SlashCmdList["CLASSICQUESTINGMOP"], "on minimapMarkers")
+	pcall(SlashCmdList["VANILLAQUESTING"], "on minimapMarkers")
 
 	-- chat notice on a player-initiated toggle, throttled
 	local function noticeCount()
@@ -204,8 +204,8 @@ elseif scenario == "no_cminimap" then
 	local warned = false
 	for _, m in ipairs(chatlog) do if tostring(m):find("C_Minimap tracking API missing") then warned = true end end
 	check("warned about missing C_Minimap", warned)
-	ok, err = pcall(SlashCmdList["CLASSICQUESTINGMOP"], "")
-	check("/cq status survives missing API", ok, err)
+	ok, err = pcall(SlashCmdList["VANILLAQUESTING"], "")
+	check("/vq status survives missing API", ok, err)
 
 elseif scenario == "no_entry" then
 	check("world map side still worked", cvars.questPOI == "0", cvars.questPOI)
@@ -222,13 +222,13 @@ end
 
 -- ---- options panel ----
 if scenario == "normal" or scenario == "no_settings" or scenario == "settings_refuses" then
-	pcall(SlashCmdList["CLASSICQUESTINGMOP"], "reset")
-	local panel = _G.ClassicQuestingMoPOptions
+	pcall(SlashCmdList["VANILLAQUESTING"], "reset")
+	local panel = _G.VanillaQuestingOptions
 	check("panel frame built at login", panel ~= nil)
 
 	_G.__openedCategory = nil
-	ok, err = pcall(SlashCmdList["CLASSICQUESTINGMOP"], "")
-	check("bare /cq runs", ok, err)
+	ok, err = pcall(SlashCmdList["VANILLAQUESTING"], "")
+	check("bare /vq runs", ok, err)
 
 	if scenario == "normal" then
 		check("opened Blizzard settings category", _G.__openedCategory ~= nil, tostring(_G.__openedCategory))
@@ -271,27 +271,27 @@ if scenario == "normal" or scenario == "no_settings" or scenario == "settings_re
 	-- flip the first row off via its OnClick and confirm the setting moved
 	local first = checks[1]
 	if first then
-		local before = ClassicQuestingMoPDB.settings.worldMapMarkers
+		local before = VanillaQuestingDB.settings.worldMapMarkers
 		first:SetChecked(not before)
 		ok, err = pcall(rawget(first, "script_OnClick"), first)
 		check("checkbox click runs", ok, err)
 		check("checkbox click changed the setting",
-			ClassicQuestingMoPDB.settings.worldMapMarkers == (not before),
-			tostring(ClassicQuestingMoPDB.settings.worldMapMarkers))
+			VanillaQuestingDB.settings.worldMapMarkers == (not before),
+			tostring(VanillaQuestingDB.settings.worldMapMarkers))
 		-- Disabling restores the value the addon remembered, which is not
 		-- necessarily "1": if the saved DB was replaced mid-run the addon
 		-- re-captures whatever was current, which is correct behaviour.
-		local expected = before and ClassicQuestingMoPDB.state.questPOI or "0"
+		local expected = before and VanillaQuestingDB.state.questPOI or "0"
 		check("world map CVar followed the click", cvars.questPOI == expected,
 			cvars.questPOI .. " expected " .. tostring(expected))
-		pcall(SlashCmdList["CLASSICQUESTINGMOP"], "reset")
+		pcall(SlashCmdList["VANILLAQUESTING"], "reset")
 	end
 
-	ok, err = pcall(SlashCmdList["CLASSICQUESTINGMOP"], "status")
-	check("/cq status still works", ok, err)
+	ok, err = pcall(SlashCmdList["VANILLAQUESTING"], "status")
+	check("/vq status still works", ok, err)
 
 	-- ---- preset selector ----
-	pcall(SlashCmdList["CLASSICQUESTINGMOP"], "reset")
+	pcall(SlashCmdList["VANILLAQUESTING"], "reset")
 	local presetText
 	for i = 1, #frames do
 		local f = frames[i]
@@ -304,10 +304,10 @@ if scenario == "normal" or scenario == "no_settings" or scenario == "settings_re
 	check("refresh after reset", ok, err)
 
     -- everything off -> Disabled
-	for i = 1, #ns.modules do ClassicQuestingMoPDB.settings[ns.modules[i].key] = false end
+	for i = 1, #ns.modules do VanillaQuestingDB.settings[ns.modules[i].key] = false end
 	pcall(ns.ApplyAll, ns)
 	pcall(ns.RefreshOptions)
-	local panelFrame = _G.ClassicQuestingMoPOptions
+	local panelFrame = _G.VanillaQuestingOptions
 	check("all off reads as a preset state", true)
 
 	-- stepping from Disabled must turn the non-experimental ones on only
@@ -317,7 +317,7 @@ if scenario == "normal" or scenario == "no_settings" or scenario == "settings_re
 		local on, expOn = 0, 0
 		for i = 1, #ns.modules do
 			local m = ns.modules[i]
-			if ClassicQuestingMoPDB.settings[m.key] then
+			if VanillaQuestingDB.settings[m.key] then
 				on = on + 1
 				if m.experimental then expOn = expOn + 1 end
 			end
@@ -333,7 +333,7 @@ if scenario == "normal" or scenario == "no_settings" or scenario == "settings_re
 		ok, err = pcall(rawget(presetText, "script_OnClick"), presetText)
 		local anyOn = false
 		for i = 1, #ns.modules do
-			if ClassicQuestingMoPDB.settings[ns.modules[i].key] then anyOn = true end
+			if VanillaQuestingDB.settings[ns.modules[i].key] then anyOn = true end
 		end
 		check("stepping again turned everything off", anyOn == false)
 	end
@@ -363,7 +363,7 @@ if scenario == "normal" or scenario == "no_settings" or scenario == "settings_re
 	end
 
 	-- ---- Defaults asks once, not twice ----
-	pcall(SlashCmdList["CLASSICQUESTINGMOP"], "reset")
+	pcall(SlashCmdList["VANILLAQUESTING"], "reset")
 	local defBtn
 	for i = 1, #frames do
 		if rawget(frames[i], "__text") == "Defaults" then defBtn = frames[i] end
@@ -373,31 +373,31 @@ if scenario == "normal" or scenario == "no_settings" or scenario == "settings_re
 		-- move a map option away from its default so a reload is required
 		pcall(rawget(rowsForTest[1].cb, "script_OnClick"), rowsForTest[1].cb)
 		pcall(_G.popupAccept)   -- the reload prompt from that toggle
-		pcall(SlashCmdList["CLASSICQUESTINGMOP"], "off worldMapMarkers")
+		pcall(SlashCmdList["VANILLAQUESTING"], "off worldMapMarkers")
 
 		_G.__popup = nil
 		local r0 = _G.__reloads
 		ok, err = pcall(rawget(defBtn, "script_OnClick"), defBtn)
 		check("Defaults runs", ok, err)
-		check("Defaults asks once", _G.__popup == "CLASSICQUESTING_DEFAULTS", tostring(_G.__popup))
-		local d = _G.StaticPopupDialogs["CLASSICQUESTING_DEFAULTS"]
+		check("Defaults asks once", _G.__popup == "VANILLAQUESTING_DEFAULTS", tostring(_G.__popup))
+		local d = _G.StaticPopupDialogs["VANILLAQUESTING_DEFAULTS"]
 		check("its text mentions the reload",
 			d and tostring(d.text):find("Note: The UI will reload", 1, true) ~= nil, d and d.text)
 		-- popupAccept does not change __popup, so if a SECOND dialog opened the
 		-- name would have moved on. It must still read as the Defaults one.
 		pcall(_G.popupAccept)
 		check("no second confirmation",
-			_G.__popup == "CLASSICQUESTING_DEFAULTS", tostring(_G.__popup))
+			_G.__popup == "VANILLAQUESTING_DEFAULTS", tostring(_G.__popup))
 		check("Defaults reloaded once", _G.__reloads == r0 + 1, _G.__reloads - r0)
 		check("Defaults restored the settings",
-			ClassicQuestingMoPDB.settings.worldMapMarkers == true)
+			VanillaQuestingDB.settings.worldMapMarkers == true)
 	end
 
 	-- with nothing to reload, the question must not mention one
-	pcall(SlashCmdList["CLASSICQUESTINGMOP"], "reset")
+	pcall(SlashCmdList["VANILLAQUESTING"], "reset")
 	if defBtn then
 		pcall(rawget(defBtn, "script_OnClick"), defBtn)
-		local d = _G.StaticPopupDialogs["CLASSICQUESTING_DEFAULTS"]
+		local d = _G.StaticPopupDialogs["VANILLAQUESTING_DEFAULTS"]
 		check("no reload mentioned when nothing needs it",
 			d and tostring(d.text):find("reload", 1, true) == nil, d and d.text)
 		local r1 = _G.__reloads
@@ -407,12 +407,12 @@ if scenario == "normal" or scenario == "no_settings" or scenario == "settings_re
 
 	-- ---- slash output ----
 	local before3 = #chatlog
-	pcall(SlashCmdList["CLASSICQUESTINGMOP"], "status")
+	pcall(SlashCmdList["VANILLAQUESTING"], "status")
 	local statusText = table.concat(chatlog, "\n", before3 + 1)
 	check("status is titled", statusText:find("- Status", 1, true) ~= nil, statusText)
 	check("status hides the live CVar readout",
 		statusText:find("questPOI", 1, true) == nil, statusText)
-	-- /cq status must list options in the same order the panel shows them
+	-- /vq status must list options in the same order the panel shows them
 	do
 		local ordered = ns:SortedModules()
 		local seen, pos = {}, 0
@@ -432,39 +432,39 @@ if scenario == "normal" or scenario == "no_settings" or scenario == "settings_re
 	-- Regression guard. A slash toggle used to print "needs a UI reload".
 	-- Tested in game: it does not -- the map is correct the next time it
 	-- opens -- so the line was advice for a problem the player never has.
-	pcall(SlashCmdList["CLASSICQUESTINGMOP"], "reset")
+	pcall(SlashCmdList["VANILLAQUESTING"], "reset")
 	local b4 = #chatlog
-	pcall(SlashCmdList["CLASSICQUESTINGMOP"], "off worldMapMarkers")
+	pcall(SlashCmdList["VANILLAQUESTING"], "off worldMapMarkers")
 	local told = false
 	for i = b4 + 1, #chatlog do
 		if tostring(chatlog[i]):lower():find("reload", 1, true) then told = true end
 	end
 	check("slash toggle does NOT tell the player to reload", not told)
 	b4 = #chatlog
-	pcall(SlashCmdList["CLASSICQUESTINGMOP"], "on questObjectOutline")
+	pcall(SlashCmdList["VANILLAQUESTING"], "on questObjectOutline")
 	told = false
 	for i = b4 + 1, #chatlog do
 		if tostring(chatlog[i]):find("needs a UI reload", 1, true) then told = true end
 	end
 	check("a non-map slash toggle stays quiet", told == false)
-	pcall(SlashCmdList["CLASSICQUESTINGMOP"], "reset")
+	pcall(SlashCmdList["VANILLAQUESTING"], "reset")
 
 	before3 = #chatlog
-	pcall(SlashCmdList["CLASSICQUESTINGMOP"], "help")
+	pcall(SlashCmdList["VANILLAQUESTING"], "help")
 	local helpText = table.concat(chatlog, "\n", before3 + 1)
 	check("help is titled", helpText:find("- Commands", 1, true) ~= nil, helpText)
 
 	-- ---- defaults button must not print to chat ----
-	pcall(SlashCmdList["CLASSICQUESTINGMOP"], "reset")
+	pcall(SlashCmdList["VANILLAQUESTING"], "reset")
 	local before = #chatlog
 	ok, err = pcall(ns.ResetDefaults, ns, true)
 	check("silent reset runs", ok, err)
 	check("silent reset printed nothing", #chatlog == before, #chatlog - before)
 	ok, err = pcall(ns.ResetDefaults, ns)
-	check("loud reset still prints for /cq reset", #chatlog > before)
+	check("loud reset still prints for /vq reset", #chatlog > before)
 
 	-- ---- reload confirmation at the moment of change ----
-	pcall(SlashCmdList["CLASSICQUESTINGMOP"], "reset")
+	pcall(SlashCmdList["VANILLAQUESTING"], "reset")
 	local noApplyButton = true
 	for i = 1, #frames do
 		if rawget(frames[i], "__text") == "Apply" then noApplyButton = false end
@@ -477,18 +477,18 @@ if scenario == "normal" or scenario == "no_settings" or scenario == "settings_re
 		if rawget(checks[i], "script_OnClick") then mapRow = checks[i] break end
 	end
 	if mapRow then
-		local wasOn = ClassicQuestingMoPDB.settings.worldMapMarkers
+		local wasOn = VanillaQuestingDB.settings.worldMapMarkers
 		_G.__popup = nil
 		ok, err = pcall(rawget(mapRow, "script_OnClick"), mapRow)
 		check("toggling a map option runs", ok, err)
-		check("it asks about reloading", _G.__popup == "CLASSICQUESTING_RELOAD", tostring(_G.__popup))
+		check("it asks about reloading", _G.__popup == "VANILLAQUESTING_RELOAD", tostring(_G.__popup))
 		check("the setting changed while the prompt is up",
-			ClassicQuestingMoPDB.settings.worldMapMarkers == (not wasOn))
+			VanillaQuestingDB.settings.worldMapMarkers == (not wasOn))
 		ok, err = pcall(_G.popupCancel)
 		check("Cancel runs", ok, err)
 		check("Cancel put the setting back",
-			ClassicQuestingMoPDB.settings.worldMapMarkers == wasOn,
-			tostring(ClassicQuestingMoPDB.settings.worldMapMarkers))
+			VanillaQuestingDB.settings.worldMapMarkers == wasOn,
+			tostring(VanillaQuestingDB.settings.worldMapMarkers))
 		check("Cancel restored the CVar too", cvars.questPOI == (wasOn and "0" or "1"), cvars.questPOI)
 
 		local r0 = _G.__reloads
@@ -496,7 +496,7 @@ if scenario == "normal" or scenario == "no_settings" or scenario == "settings_re
 		ok, err = pcall(_G.popupAccept)
 		check("Reload runs", ok, err)
 		check("Reload reloads the UI", _G.__reloads > r0, _G.__reloads - r0)
-		pcall(SlashCmdList["CLASSICQUESTINGMOP"], "reset")
+		pcall(SlashCmdList["VANILLAQUESTING"], "reset")
 	end
 
 	-- a non-map option must NOT ask
@@ -508,12 +508,12 @@ if scenario == "normal" or scenario == "no_settings" or scenario == "settings_re
 		_G.__popup = nil
 		pcall(rawget(expRow, "script_OnClick"), expRow)
 		check("a non-map option does not ask", _G.__popup == nil, tostring(_G.__popup))
-		pcall(SlashCmdList["CLASSICQUESTINGMOP"], "reset")
+		pcall(SlashCmdList["VANILLAQUESTING"], "reset")
 	end
 
 	-- ---- unknown commands ----
 	local before2 = #chatlog
-	ok, err = pcall(SlashCmdList["CLASSICQUESTINGMOP"], "wibble")
+	ok, err = pcall(SlashCmdList["VANILLAQUESTING"], "wibble")
 	check("unknown command runs", ok, err)
 	local complained = false
 	for i = before2 + 1, #chatlog do
@@ -528,14 +528,14 @@ if scenario == "normal" or scenario == "no_settings" or scenario == "settings_re
 	check("never refreshes map data providers", _G.__mapRefreshes == 0, _G.__mapRefreshes)
 	check("does not hook the world map", _G.__mapOnShow == nil)
 
-	-- /cq help must not error
-	ok, err = pcall(SlashCmdList["CLASSICQUESTINGMOP"], "help")
-	check("/cq help runs", ok, err)
+	-- /vq help must not error
+	ok, err = pcall(SlashCmdList["VANILLAQUESTING"], "help")
+	check("/vq help runs", ok, err)
 	local helpSeen = false
 	for _, m in ipairs(chatlog) do
-		if tostring(m):find("/cq status", 1, true) then helpSeen = true end
+		if tostring(m):find("/vq status", 1, true) then helpSeen = true end
 	end
-	check("/cq help lists commands", helpSeen)
+	check("/vq help lists commands", helpSeen)
 end
 
 if fail > 0 then os.exit(1) end
@@ -563,7 +563,7 @@ if scenario == "native" then
 	for _, m in ipairs(sorted) do if m.experimental then want[#want + 1] = m.key end end
 	local got = {}
 	for _, c in ipairs(boxes) do
-		got[#got + 1] = c.setting:GetVariable():gsub("ClassicQuestingMoP_", "")
+		got[#got + 1] = c.setting:GetVariable():gsub("VanillaQuesting_", "")
 	end
 	check("checkboxes follow ns:SortedModules(), experiments last",
 		table.concat(got, ",") == table.concat(want, ","), table.concat(got, ","))
@@ -604,7 +604,7 @@ if scenario == "native" then
 	for _, c in ipairs(created) do
 		if c.kind == "header" and c.text:find("Experimental", 1, true) then sawExpHeader = true
 		elseif c.kind == "checkbox" and sawExpHeader then
-			local key = c.setting:GetVariable():gsub("ClassicQuestingMoP_", "")
+			local key = c.setting:GetVariable():gsub("VanillaQuesting_", "")
 			if not ns.modules[key].experimental then plainAfterHeader = true end
 		end
 	end
@@ -631,7 +631,7 @@ if scenario == "native" then
 	check("every option tooltip ends with its slash handle", sawGrey)
 	local slashOK = true
 	for _, c in ipairs(boxes) do
-		local key = c.setting:GetVariable():gsub("ClassicQuestingMoP_", "")
+		local key = c.setting:GetVariable():gsub("VanillaQuesting_", "")
 		if not c.tooltip:find("/" .. key, 1, true) then slashOK = false end
 	end
 	check("each slash handle names its own option", slashOK)
@@ -646,7 +646,7 @@ if scenario == "native" then
 		check("preset tooltip says Custom cannot be selected",
 			tip:find("It cannot be selected", 1, true) ~= nil)
 		check("preset tooltip carries the slash commands",
-			tip:find("/cq on, /cq off", 1, true) ~= nil)
+			tip:find("/vq on, /vq off", 1, true) ~= nil)
 		check("the dropdown lists Full, Custom, Disabled in that order",
 			table.concat({ drops[1].options[1].value, drops[1].options[2].value,
 				drops[1].options[3].value }, ",") == "classic,custom,disabled")
@@ -657,7 +657,7 @@ if scenario == "native" then
 	local mapKey = "worldMapMarkers"
 	local mapSetting
 	for _, c in ipairs(boxes) do
-		if c.setting:GetVariable() == "ClassicQuestingMoP_" .. mapKey then mapSetting = c.setting end
+		if c.setting:GetVariable() == "VanillaQuesting_" .. mapKey then mapSetting = c.setting end
 	end
 	if mapSetting then
 		check("a map option asks for the Apply button",
@@ -695,7 +695,7 @@ if scenario == "native" then
 	-- An option that needs no rebuild takes effect at once and never asks.
 	local instant
 	for _, c in ipairs(boxes) do
-		local key = c.setting:GetVariable():gsub("ClassicQuestingMoP_", "")
+		local key = c.setting:GetVariable():gsub("VanillaQuesting_", "")
 		if not ns.modules[key].needsApply then instant = c.setting end
 	end
 	if instant then
@@ -703,7 +703,7 @@ if scenario == "native" then
 			not instant:HasCommitFlag(Settings.CommitFlag.Apply))
 		local r0 = _G.__reloads
 		_G.__popup = nil
-		local key = instant:GetVariable():gsub("ClassicQuestingMoP_", "")
+		local key = instant:GetVariable():gsub("VanillaQuesting_", "")
 		pcall(instant.SetValue, instant, not ns.db.settings[key])
 		check("an instant option writes straight through",
 			instant:GetValue() == ns.db.settings[key])
@@ -743,7 +743,7 @@ if scenario == "native" then
 		-- The preset is not stored at all any more; it is read back off the
 		-- settings, which is the only place it cannot go stale.
 		check("the preset is not stored in saved variables",
-			ClassicQuestingMoPDB.preset == nil, tostring(ClassicQuestingMoPDB.preset))
+			VanillaQuestingDB.preset == nil, tostring(VanillaQuestingDB.preset))
 
 		pcall(_G.pressApply)
 		if _G.popupAccept then pcall(_G.popupAccept) end
@@ -780,7 +780,7 @@ if scenario == "native" then
 
 		-- What Blizzard's Defaults does: write each value through, no parking.
 		for _, c in ipairs(boxes) do
-			local key = c.setting:GetVariable():gsub("ClassicQuestingMoP_", "")
+			local key = c.setting:GetVariable():gsub("VanillaQuesting_", "")
 			ns.db.settings[key] = not (ns.defaults[key] and true or false)
 			pcall(c.setting.__cb, c.setting, ns.defaults[key])
 			ns.db.settings[key] = ns.defaults[key] and true or false
@@ -806,8 +806,8 @@ if scenario == "native" then
 	check("opening it does not storm the Apply button", _G.__applyCalls < 50, _G.__applyCalls)
 
 	_G.__applyCalls = 0
-	ok, err = pcall(SlashCmdList["CLASSICQUESTINGMOP"], "")
-	check("/cq does not hang", ok, err)
+	ok, err = pcall(SlashCmdList["VANILLAQUESTING"], "")
+	check("/vq does not hang", ok, err)
 
 	-- Directly: a refresh triggered from inside the Apply hook must not leave
 	-- the outer refresh writing with its guard cleared.
@@ -826,9 +826,9 @@ if scenario == "native" then
 		for _ = 1, 5 do
 			_G.__openSettingsPanel()
 			ns.RefreshOptions()
-			pcall(SlashCmdList["CLASSICQUESTINGMOP"], "on")
-			pcall(SlashCmdList["CLASSICQUESTINGMOP"], "off")
-			pcall(SlashCmdList["CLASSICQUESTINGMOP"], "reset")
+			pcall(SlashCmdList["VANILLAQUESTING"], "on")
+			pcall(SlashCmdList["VANILLAQUESTING"], "off")
+			pcall(SlashCmdList["VANILLAQUESTING"], "reset")
 		end
 	end)
 	check("repeated opening and slash use terminates", ok, err)
@@ -903,9 +903,9 @@ if scenario == "normal" then
 	WatchFrame_Update()
 	check("turning it on clears the queued pop-ups", GetNumAutoQuestPopUps() == 0)
 
-	-- /cq status must cover the new modules without being told about them.
+	-- /vq status must cover the new modules without being told about them.
 	local b4 = #chatlog
-	pcall(SlashCmdList["CLASSICQUESTINGMOP"], "status")
+	pcall(SlashCmdList["VANILLAQUESTING"], "status")
 	local named = 0
 	for i = b4 + 1, #chatlog do
 		local line = tostring(chatlog[i])
@@ -913,7 +913,7 @@ if scenario == "normal" then
 			if line:find(k, 1, true) then named = named + 1 end
 		end
 	end
-	check("/cq status lists the tracker options", named == 3, named)
+	check("/vq status lists the tracker options", named == 3, named)
 
 	ns:ResetDefaults(true)
 end
@@ -929,15 +929,15 @@ if scenario == "normal" then
 	-- table, so the remembered pre-AddOn value has to be re-established here
 	-- rather than assumed to survive from login.
 	ns:Set("questTextTypesOut", false)
-	ClassicQuestingMoPDB.state.instantQuestText = nil
+	VanillaQuestingDB.state.instantQuestText = nil
 	cvars.instantQuestText = "1"
 
 	ns:Set("questTextTypesOut", true)
 	check("Instant Quest Text is turned off", cvars.instantQuestText == "0",
 		tostring(cvars.instantQuestText))
 	check("the player's original value was remembered first",
-		ClassicQuestingMoPDB.state.instantQuestText == "1",
-		tostring(ClassicQuestingMoPDB.state.instantQuestText))
+		VanillaQuestingDB.state.instantQuestText == "1",
+		tostring(VanillaQuestingDB.state.instantQuestText))
 	ns:Set("questTextTypesOut", false)
 	check("turning it off restores what the player had", cvars.instantQuestText == "1",
 		tostring(cvars.instantQuestText))
@@ -1027,7 +1027,7 @@ if scenario == "native" then
 	local mapKey2 = "worldMapMarkers"
 	local mapSetting2
 	for _, c in ipairs(boxes) do
-		if c.setting:GetVariable() == "ClassicQuestingMoP_" .. mapKey2 then mapSetting2 = c.setting end
+		if c.setting:GetVariable() == "VanillaQuesting_" .. mapKey2 then mapSetting2 = c.setting end
 	end
 	if mapSetting2 then
 		_G.__openSettingsPanel()
@@ -1058,7 +1058,7 @@ if scenario == "native" then
 		local r0 = _G.__reloads
 		-- Reset every setting to what it already is: nothing has moved.
 		for _, c in ipairs(boxes) do
-			local key = c.setting:GetVariable():gsub("ClassicQuestingMoP_", "")
+			local key = c.setting:GetVariable():gsub("VanillaQuesting_", "")
 			pcall(c.setting.__cb, c.setting, ns.db.settings[key])
 		end
 		pcall(SettingsPanel.CommitSettings, SettingsPanel)
@@ -1106,8 +1106,8 @@ if scenario == "normal" then
 	end
 	check("and it says so rather than changing silently", told)
 	check("the new value becomes what gets restored later",
-		ClassicQuestingMoPDB.state.instantQuestText == "1",
-		tostring(ClassicQuestingMoPDB.state.instantQuestText))
+		VanillaQuestingDB.state.instantQuestText == "1",
+		tostring(VanillaQuestingDB.state.instantQuestText))
 
 	-- The other direction. v0.14.0 only handled option-on -> variable-moved,
 	-- so putting a Blizzard control BACK to the Classic value did nothing,
@@ -1155,13 +1155,13 @@ end
 
 if scenario == "normal" then
 	-- One preset cannot mean two things depending on whether it was picked in
-	-- the panel or typed. "/cq on" used to leave experimental options where
+	-- the panel or typed. "/vq on" used to leave experimental options where
 	-- they were while the panel's preset set them false.
 	-- A preset that undoes a deliberate choice is worse than one that ignores
 	-- it, so Full Classic leaves the experiments where the player put them.
 	ns:Set("questObjectOutline", true)
-	pcall(SlashCmdList["CLASSICQUESTINGMOP"], "on")
-	check("/cq on leaves an experimental option switched on",
+	pcall(SlashCmdList["VANILLAQUESTING"], "on")
+	check("/vq on leaves an experimental option switched on",
 		ns.db.settings.questObjectOutline == true,
 		tostring(ns.db.settings.questObjectOutline))
 	local normalOn = true
@@ -1172,12 +1172,12 @@ if scenario == "normal" then
 	check("and still turns every normal option on", normalOn)
 
 	-- Disabled means nothing is on, experiments included.
-	pcall(SlashCmdList["CLASSICQUESTINGMOP"], "off")
+	pcall(SlashCmdList["VANILLAQUESTING"], "off")
 	local anyOn = false
 	for i = 1, #ns.modules do
 		if ns.db.settings[ns.modules[i].key] then anyOn = true end
 	end
-	check("/cq off takes the experiments too", not anyOn)
+	check("/vq off takes the experiments too", not anyOn)
 	ns:ResetDefaults(true)
 
 	-- Outline is not a boolean: 1, 2 and 3 all mean outlines are on.
@@ -1196,13 +1196,13 @@ if scenario == "normal" then
 	-- would have asked for. Each leg starts clean: the remembered pre-AddOn
 	-- value carries over otherwise and decides the answer instead.
 	ns:Set("questObjectOutline", false)
-	ClassicQuestingMoPDB.state.Outline = nil
+	VanillaQuestingDB.state.Outline = nil
 	cvars.Outline = "3"
 	ns:Set("questObjectOutline", true)
 	check("turning the option on leaves Outline = 3 alone", cvars.Outline == "3", cvars.Outline)
 
 	ns:Set("questObjectOutline", false)
-	ClassicQuestingMoPDB.state.Outline = nil
+	VanillaQuestingDB.state.Outline = nil
 	cvars.Outline = "0"
 	ns:Set("questObjectOutline", true)
 	check("but from off it asks for 2, Blizzard's own default", cvars.Outline == "2", cvars.Outline)
@@ -1261,7 +1261,7 @@ if scenario == "native" then
 	-- The wording has to match the behaviour.
 	local expTip
 	for _, c in ipairs(boxes3) do
-		local key = c.setting:GetVariable():gsub("ClassicQuestingMoP_", "")
+		local key = c.setting:GetVariable():gsub("VanillaQuesting_", "")
 		if ns.modules[key].experimental then expTip = c.tooltip end
 	end
 	check("the experimental note says the preset leaves it alone",
@@ -1315,9 +1315,14 @@ if scenario == "normal" then
 		line("Pie for Billy", GOLD),
 		line(" - Tender Boar Meat: 0/4", WHITE),
 	})
+	GameTooltip.__height = 4 * 14
 	_G.__showTooltip()
 	local out = _G.__tooltipText()
 	check("the unit name survives", out[1] == "Stonetusk Boar", tostring(out[1]))
+	-- Two lines went, at 14px each including the spacing between them. The
+	-- estimate this replaced counted only the 12px of text and left a pad.
+	check("the tooltip shrinks by the whole removed block, spacing included",
+		GameTooltip.__height == 2 * 14, GameTooltip.__height)
 	check("the level line survives", out[2] == "Level 6 Beast", tostring(out[2]))
 	check("the quest title goes", out[3] == "", tostring(out[3]))
 	check("the objective goes", out[4] == "", tostring(out[4]))
@@ -1411,6 +1416,57 @@ if scenario == "normal" then
 	check("and Blizzard's own grey", ns.color.muted == GRAY_FONT_COLOR_CODE)
 	check("there is exactly one orange",
 		ns.color.experimental == "|cffff8019", ns.color.experimental)
+end
+
+if scenario == "native" then
+	-- ---- every module reaches the panel, in a stable order ----
+	--
+	-- Two orders collided (20/20 and 50/50) and table.sort is unstable in
+	-- Lua 5.1, so those pairs could swap places between one login and the
+	-- next. Unique orders are what make the panel and /vq status agree with
+	-- themselves session to session.
+	local seenOrder, dupe = {}, nil
+	for i = 1, #ns.modules do
+		local o = ns.modules[i].order
+		check("module " .. ns.modules[i].key .. " declares an order", o ~= nil)
+		if o and seenOrder[o] then dupe = o .. " (" .. seenOrder[o] .. " and " .. ns.modules[i].key .. ")" end
+		if o then seenOrder[o] = ns.modules[i].key end
+	end
+	check("no two modules share an order", dupe == nil, tostring(dupe))
+
+	-- And every registered module has a checkbox, so a feature cannot ship
+	-- without reaching the options panel.
+	local inPanel = {}
+	for _, c in ipairs(_G.__nativeControls or {}) do
+		if c.kind == "checkbox" then
+			inPanel[c.setting:GetVariable():gsub("VanillaQuesting_", "")] = true
+		end
+	end
+	local missing = {}
+	for i = 1, #ns.modules do
+		if not inPanel[ns.modules[i].key] then missing[#missing + 1] = ns.modules[i].key end
+	end
+	check("every module has a checkbox in the panel", #missing == 0, table.concat(missing, ", "))
+end
+
+if scenario == "normal" then
+	-- Every module appears in /vq status, so a feature cannot ship without
+	-- being discoverable from chat either.
+	local b4 = #chatlog
+	pcall(SlashCmdList["VANILLAQUESTING"], "status")
+	local text = table.concat(chatlog, "\n", b4 + 1, #chatlog)
+	local absent = {}
+	for i = 1, #ns.modules do
+		if not text:find(ns.modules[i].key, 1, true) then absent[#absent + 1] = ns.modules[i].key end
+	end
+	check("every module appears in /vq status", #absent == 0, table.concat(absent, ", "))
+
+	-- And help says where the option names come from.
+	b4 = #chatlog
+	pcall(SlashCmdList["VANILLAQUESTING"], "help")
+	text = table.concat(chatlog, "\n", b4 + 1, #chatlog)
+	check("/vq help points at where option names are listed",
+		text:find("/vq status", 1, true) ~= nil)
 end
 
 print(string.format("--- %s: %d passed, %d failed ---", scenario, pass, fail))

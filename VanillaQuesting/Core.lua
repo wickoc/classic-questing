@@ -1,4 +1,4 @@
--- Classic Questing in MoP -- Core
+-- Vanilla Questing -- Core
 --
 -- AddOn table, saved variables, event dispatch, slash command.
 -- Modules register themselves here and are driven from the saved settings.
@@ -8,7 +8,7 @@ local ADDON_NAME, ns = ...
 -- What the player sees, everywhere. The folder and the CurseForge listing
 -- keep the (MoP) suffix so the right build can be identified for download;
 -- inside the game it is just the AddOn's name.
-ns.title = "Classic Questing"
+ns.title = "Vanilla Questing"
 
 ---------------------------------------------------------------------
 -- Identity
@@ -116,7 +116,7 @@ end)
 -- the slash command and, later, the options panel.
 ns.modules = {}
 
--- One ordering, used by the options panel and by /cq status alike, so the two
+-- One ordering, used by the options panel and by /vq status alike, so the two
 -- cannot drift apart.
 function ns:SortedModules()
 	local list = {}
@@ -141,7 +141,7 @@ local DB_VERSION = 3
 
 -- v1 gave every feature two names: a display key ("mapCreaturePortraits") and
 -- a saved-setting name mirroring the CVar ("showBosses"). That was a mistake.
--- It made the name /cq printed different from the name /cq accepted, and it
+-- It made the name /vq printed different from the name /vq accepted, and it
 -- made "showBosses turned on" mean the portraits were hidden. v2 uses one
 -- name per feature, describing what the AddOn does rather than what Blizzard
 -- calls the underlying switch.
@@ -162,8 +162,8 @@ function ns:RegisterDefaults(tbl)
 end
 
 local function initDB()
-	ClassicQuestingMoPDB = ClassicQuestingMoPDB or {}
-	local db = ClassicQuestingMoPDB
+	VanillaQuestingDB = VanillaQuestingDB or {}
+	local db = VanillaQuestingDB
 
 	db.settings = db.settings or {}
 	-- Pre-AddOn values live here so Disable() can put the game back exactly
@@ -288,13 +288,13 @@ local function status()
 	end
 end
 
-SLASH_CLASSICQUESTINGMOP1 = "/cq"
-SLASH_CLASSICQUESTINGMOP2 = "/classicquesting"
+SLASH_VANILLAQUESTING1 = "/vq"
+SLASH_VANILLAQUESTING2 = "/vanillaquesting"
 
--- Accept whatever /cq actually printed. Modules have a display key
+-- Accept whatever /vq actually printed. Modules have a display key
 -- ("mapCreaturePortraits") and a saved-setting name ("showBosses"), and the
 -- status list shows the key -- so the key must be a valid handle for
--- /cq on|off. Taking only the setting name made every name on screen an
+-- /vq on|off. Taking only the setting name made every name on screen an
 -- "Unknown setting". Both work now, case-insensitively.
 local function resolveSetting(arg)
 	if not arg or arg == "" or not ns.db then return nil end
@@ -311,7 +311,7 @@ local function resolveSetting(arg)
 	return nil
 end
 
-SlashCmdList["CLASSICQUESTINGMOP"] = function(msg)
+SlashCmdList["VANILLAQUESTING"] = function(msg)
 	msg = msg or ""
 	local cmd = msg:match("^%s*(%S*)") or ""
 	cmd = cmd:lower()
@@ -323,16 +323,16 @@ SlashCmdList["CLASSICQUESTINGMOP"] = function(msg)
 	elseif cmd == "on" or cmd == "off" then
 		local want = (cmd == "on")
 		if arg == "" then
-			-- "/cq on" means the Classic experience, not the experiments.
+			-- "/vq on" means the Classic experience, not the experiments.
 			-- Experimental features are only ever turned on by name.
 			--
 			-- Left exactly as the player set them, in both directions of the
-			-- earlier confusion. v0.14.3 made "/cq on" turn them off, to
+			-- earlier confusion. v0.14.3 made "/vq on" turn them off, to
 			-- match the panel's preset; the panel was the one that was wrong.
 			-- A preset that undoes a deliberate choice is worse than a preset
 			-- that ignores it.
 			--
-			-- "/cq off" still takes them, because Disabled means nothing is on.
+			-- "/vq off" still takes them, because Disabled means nothing is on.
 			for k in pairs(ns.defaults) do
 				local m = ns.modules[k]
 				if want and m and m.experimental then
@@ -356,7 +356,7 @@ SlashCmdList["CLASSICQUESTINGMOP"] = function(msg)
 				ns:Print(C.highlight .. key .. C.close .. " " .. cmd ..
 					(effect and (" -- " .. effect .. ".") or "."))
 			else
-				ns:Print("Unknown setting '" .. arg .. "'. Try /cq for the list.")
+				ns:Print("Unknown setting '" .. arg .. "'. Try /vq for the list.")
 			end
 		end
 
@@ -367,30 +367,32 @@ SlashCmdList["CLASSICQUESTINGMOP"] = function(msg)
 		local function line(cmd, what)
 			ns:Print("  " .. C.highlight .. cmd .. C.close .. "  -  " .. what)
 		end
-		line("/cq", "Open the options panel")
-		line("/cq on", "Turn on the full Classic experience")
-		line("/cq off", "Disable the AddOn")
-		line("/cq status", "List every option and its state")
-		line("/cq on <name>", "Turn one option on")
-		line("/cq off <name>", "Turn one option off")
-		line("/cq reset", "Restore default settings")
+		line("/vq", "Open the options panel")
+		line("/vq on", "Turn on the full Classic experience")
+		line("/vq off", "Disable the AddOn")
+		line("/vq status", "List every option and its state")
+		line("/vq on <name>", "Turn one option on")
+		line("/vq off <name>", "Turn one option off")
+		line("/vq reset", "Restore default settings")
+		ns:Print("  " .. C.muted ..
+			"Option names for the two commands above are listed by /vq status." .. C.close)
 
 	elseif cmd == "status" then
 		status()
 		local example = ns.modules[1] and ns.modules[1].key or "worldMapMarkers"
-		ns:Print(C.highlight .. "/cq help" .. C.close .. " lists every command.")
+		ns:Print(C.highlight .. "/vq help" .. C.close .. " lists every command.")
 
 	elseif cmd == "" then
-		-- Only a bare /cq opens the panel. An unrecognised word is a mistake,
+		-- Only a bare /vq opens the panel. An unrecognised word is a mistake,
 		-- and silently opening the panel would hide that.
 		if type(ns.OpenOptions) == "function" then
 			ns:OpenOptions()
 		else
 			status()
-			ns:Print("Options panel unavailable; use " .. C.highlight .. "/cq on|off <name>" .. C.close .. ".")
+			ns:Print("Options panel unavailable; use " .. C.highlight .. "/vq on|off <name>" .. C.close .. ".")
 		end
 
 	else
-		ns:Print("Unknown command '" .. cmd .. "'. Try " .. C.highlight .. "/cq help" .. C.close .. " for the list.")
+		ns:Print("Unknown command '" .. cmd .. "'. Try " .. C.highlight .. "/vq help" .. C.close .. " for the list.")
 	end
 end

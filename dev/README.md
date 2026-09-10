@@ -4,7 +4,7 @@ Everything here is development material. **None of it ships with the AddOn.**
 
 ## `UnmarkedRecon/`
 
-A throwaway probe AddOn, kept deliberately separate from Classic Questing so nothing
+A throwaway probe AddOn, kept deliberately separate from Vanilla Questing so nothing
 investigative can leak into the shipped code. It reports what this client actually has, rather
 than what an AddOn author might expect it to have.
 

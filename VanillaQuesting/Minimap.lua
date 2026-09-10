@@ -1,4 +1,4 @@
--- Classic Questing in MoP -- Minimap
+-- Vanilla Questing -- Minimap
 --
 -- Tier 1 minimap. One lever does both jobs: the "Track Quest POIs" entry in
 -- the minimap tracking list controls the numbered quest pins AND the blue
@@ -108,7 +108,7 @@ local function notice()
 	-- than the click failing.
 	ns:Print(C.highlight .. "Track Quest POIs" .. C.close ..
 		" was switched back off automatically. To allow it, use " ..
-		C.highlight .. "/cq off minimapMarkers" .. C.close .. ".")
+		C.highlight .. "/vq off minimapMarkers" .. C.close .. ".")
 end
 
 local function enforce()
@@ -169,7 +169,7 @@ local function attachTooltip()
 				" is kept off automatically.", 1, 1, 1)
 			GameTooltip:AddLine("Switching it on here will not stick.", 0.9, 0.9, 0.9)
 			-- TODO(Options): replace with a pointer to the options panel.
-			GameTooltip:AddLine("To allow it: " .. C.highlight .. "/cq off minimapMarkers" .. C.close,
+			GameTooltip:AddLine("To allow it: " .. C.highlight .. "/vq off minimapMarkers" .. C.close,
 				0.8, 0.8, 0.8)
 			GameTooltip:Show()
 		end)

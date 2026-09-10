@@ -1,5 +1,5 @@
 -- Unmarked Recon v0.3
--- Throwaway dev-only probe. Not part of Classic Questing, never shipped with it.
+-- Throwaway dev-only probe. Not part of Vanilla Questing, never shipped with it.
 -- Probes which quest-helper UI pieces this client actually has.
 --
 -- /unrecon              run the probe (short summary to chat, full report to SavedVariables)
@@ -923,7 +923,7 @@ local function sectionOutline()
 	add("")
 	add("   Shipped as an EXPERIMENTAL opt-in anyway: turning Outline ON is a")
 	add("   semi-fix for anyone whose client CAN render outlines. 1 is enough;")
-	add("   2 and 3 also work. Never on by default, never part of /cq on.")
+	add("   2 and 3 also work. Never on by default, never part of /vq on.")
 end
 
 -- [G12] The quest progress tooltip that appears on mouseover.
@@ -1883,7 +1883,7 @@ end
 
 -- [G21] Annotating Blizzard's own controls.
 --
--- v0.14.0 appends "Managed by Classic Questing" to the tooltip of the Blizzard
+-- v0.14.0 appends "Managed by Vanilla Questing" to the tooltip of the Blizzard
 -- options this AddOn drives, by walking SettingsPanel.categoryLayouts and
 -- editing data.tooltip -- the field [G17] found the header's tooltip in.
 --
@@ -2035,7 +2035,7 @@ local function sectionQuestFrameAndTooltip()
 		pcall(function() name = setting.GetName and setting:GetName() end)
 		pcall(function() var = setting.GetVariable and setting:GetVariable() end)
 		pcall(function() vtype = setting.GetVariableType and setting:GetVariableType() end)
-		if tostring(var):find("ClassicQuestingMoP", 1, true) then return end
+		if tostring(var):find("VanillaQuesting", 1, true) then return end
 		local hay = (tostring(name) .. " " .. tostring(var)):lower()
 		if hay:find("tooltip") or hay:find("quest") or hay:find("objective") then
 			found = found + 1

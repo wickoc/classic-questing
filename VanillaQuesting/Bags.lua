@@ -1,4 +1,4 @@
--- Classic Questing (MoP) -- Bags
+-- Vanilla Questing -- Bags
 --
 -- MoP puts a yellow highlight on quest items sitting in your bags. Classic did
 -- not: a quest item looked like any other item, and knowing which was which
@@ -22,7 +22,7 @@ M.desc  = "Quest items in your bags stop being outlined in yellow, and items tha
 M.onText  = "bag quest item highlight hidden"
 M.offText = "bag quest item highlight shown again"
 M.group = "Bags"
-M.order = 80
+M.order = 100
 
 ns:RegisterDefaults({ bagQuestHighlight = true })
 

@@ -1,15 +1,16 @@
-# Classic Questing (MoP)
+# Vanilla Questing
 
-A World of Warcraft AddOn for **Mists of Pandaria Classic** (5.5.4) that strips out MoP's
-quest-helper layer, so questing feels like Classic again: you read the quest text and go and
-look, instead of following a marker.
+A World of Warcraft AddOn that turns off the quest helper, so questing feels like the original
+game again: you read the quest text and go and look, instead of following a marker.
+
+Built and tested against **Mists of Pandaria Classic** (5.5.4). Support for other client versions
+is planned — the AddOn is deliberately named without one.
 
 **Everything it does is subtractive.** It hides or switches off parts of Blizzard's UI. It never
 adds quest data of its own, never tells you where anything is, and leaves no trace when turned
 off — every value it changes is remembered first and put back.
 
-In game it is called **Classic Questing**. Type `/cq` for the options panel, `/cq help` for the
-commands.
+Type `/vq` for the options panel, `/vq help` for the commands.
 
 ## What it removes
 
@@ -88,7 +89,7 @@ Three of these settings have a Blizzard checkbox of their own: **Instant Quest T
 **Automatic Quest Tracking** and **Outline Mode**. Their tooltips are annotated to say Classic
 Questing is driving them, so a checkbox that moves on its own is not a mystery.
 
-Change one of those in Blizzard's options and **Classic Questing follows you** — the matching
+Change one of those in Blizzard's options and **Vanilla Questing follows you** — the matching
 option turns off, and turns back on if you put the setting back. Whichever window you use, the two
 agree, and the AddOn says in chat which way it went. Your interface wins.
 
@@ -103,11 +104,11 @@ the UI.
 
 | Command | What it does |
 | --- | --- |
-| `/cq` | Open the options panel |
-| `/cq on` | Turn on the full Classic experience |
-| `/cq off` | Disable the AddOn |
-| `/cq on <option>` | Turn one option on |
-| `/cq off <option>` | Turn one option off |
-| `/cq status` | Show what each option is doing |
-| `/cq reset` | Restore the default settings |
-| `/cq help` | List the commands |
+| `/vq` | Open the options panel |
+| `/vq on` | Turn on the full Classic experience |
+| `/vq off` | Disable the AddOn |
+| `/vq on <option>` | Turn one option on |
+| `/vq off <option>` | Turn one option off |
+| `/vq status` | Show what each option is doing |
+| `/vq reset` | Restore the default settings |
+| `/vq help` | List the commands |

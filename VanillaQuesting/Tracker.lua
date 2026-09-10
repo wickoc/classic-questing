@@ -1,4 +1,4 @@
--- Classic Questing (MoP) -- Objective tracker
+-- Vanilla Questing -- Objective tracker
 --
 -- Tier 2. Classic HAS a tracker: you shift-click a quest in the log and it
 -- appears. So nothing here hides it -- that would remove a Classic feature
@@ -62,7 +62,7 @@ do
 	M.offText = "tracker quest titles are clickable again"
 	M.limitation = "Known limitation: achievement lines in the tracker stop being clickable too. The tracker draws both from one pool of buttons and does not mark which is which."
 	M.group = "Quest tracking"
-	M.order = 50
+	M.order = 80
 
 	ns:RegisterDefaults({ trackerClickToTrack = true })
 
@@ -122,7 +122,7 @@ do
 	M.onText  = "tracker quest item buttons hidden"
 	M.offText = "tracker quest item buttons shown again"
 	M.group = "Quest tracking"
-	M.order = 60
+	M.order = 90
 
 	ns:RegisterDefaults({ trackerItemButtons = true })
 
@@ -197,7 +197,7 @@ do
 	M.onText  = "turn-in pop-ups suppressed"
 	M.offText = "turn-in pop-ups shown again"
 	M.group = "Quest tracking"
-	M.order = 70
+	M.order = 120
 	M.experimental = true
 	M.limitation = "Untested: no turn-in pop-up has been seen in play yet, so the removal has never actually run."
 

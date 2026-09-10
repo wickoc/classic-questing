@@ -1,4 +1,4 @@
--- Classic Questing (MoP) -- Quest frame
+-- Vanilla Questing -- Quest frame
 --
 -- MoP shows a portrait of the questgiver beside the quest text: a framed
 -- character box on the quest offer window, and again on the quest log's detail
@@ -23,7 +23,7 @@ M.desc  = "Removes the framed character box MoP puts beside quest text, both whe
 M.onText  = "questgiver portrait hidden"
 M.offText = "questgiver portrait shown again"
 M.group = "Quest text"
-M.order = 25
+M.order = 50
 
 ns:RegisterDefaults({ questGiverPortrait = true })
 

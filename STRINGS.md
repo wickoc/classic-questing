@@ -16,8 +16,8 @@ a colour there to change it everywhere it is used, or override it on a single ro
 
 | ID | Where | Text | Notes |
 | --- | --- | --- | --- |
-| `ID.NAME` | Everywhere in game: chat prefix, options category, tooltips | `Classic Questing` | One variable, `ns.title`. Changing it here changes every use. |
-| `ID.NOTES` | The AddOn list, under the name | `Hides MoP's quest markers. Read the text, explore.` | From the `.toc`. Kept short: long values were suspected in the tooltip layout bug. |
+| `ID.NAME` | Everywhere in game: chat prefix, options category, tooltips | `Vanilla Questing` | One variable, `ns.title`. Changing it here changes every use. |
+| `ID.NOTES` | The AddOn list, under the name | `Turn off the quest helper and quest as if it were the original game.` | From the `.toc`. Kept short: long values were suspected in the tooltip layout bug. |
 | `ID.AUTHOR` | The AddOn list | `Wictor` | From the `.toc`. |
 
 ---
@@ -28,23 +28,23 @@ Every line is prefixed automatically. Do not repeat the name inside a message.
 
 | ID | Trigger | Text |
 | --- | --- | --- |
-| `CHAT.PREFIX` | Every chat line | `[Classic Questing] ` in `COLOR.BRAND`, trailing space |
-| `CHAT.ON_ALL` | `/cq on` | `The Full Classic Experience has been enabled. Experimental features must be activated manually.` |
-| `CHAT.OFF_ALL` | `/cq off` | `AddOn disabled.` |
-| `CHAT.OPTION_CHANGED` | `/cq on <name>` / `/cq off <name>` | `<optionKey>` in `COLOR.HIGHLIGHT`, then ` on` or ` off`, then ` -- <effect>.` — `<effect>` is the option's own `ON_*` / `OFF_*` text from section 5 |
-| `CHAT.RESET` | `/cq reset` | `Settings restored to defaults.` |
-| `CHAT.UNKNOWN_OPTION` | `/cq on wrongname` | `Unknown setting '<name>'. Try /cq for the list.` |
-| `CHAT.UNKNOWN_COMMAND` | `/cq wrongword` | `Unknown command '<word>'. Try ` + `/cq help` in `COLOR.HIGHLIGHT` + ` for the list.` |
-| `CHAT.NO_PANEL` | `/cq` when the options panel could not be built | `Options panel unavailable; use ` + `/cq on|off <name>` in `COLOR.HIGHLIGHT` + `.` |
-| `CHAT.HELP_HINT` | End of `/cq status` | `/cq help` in `COLOR.HIGHLIGHT` + ` lists every command.` |
+| `CHAT.PREFIX` | Every chat line | `[Vanilla Questing] ` in `COLOR.BRAND`, trailing space |
+| `CHAT.ON_ALL` | `/vq on` | `The Full Classic Experience has been enabled. Experimental features must be activated manually.` |
+| `CHAT.OFF_ALL` | `/vq off` | `AddOn disabled.` |
+| `CHAT.OPTION_CHANGED` | `/vq on <name>` / `/vq off <name>` | `<optionKey>` in `COLOR.HIGHLIGHT`, then ` on` or ` off`, then ` -- <effect>.` — `<effect>` is the option's own `ON_*` / `OFF_*` text from section 5 |
+| `CHAT.RESET` | `/vq reset` | `Settings restored to defaults.` |
+| `CHAT.UNKNOWN_OPTION` | `/vq on wrongname` | `Unknown setting '<name>'. Try /vq for the list.` |
+| `CHAT.UNKNOWN_COMMAND` | `/vq wrongword` | `Unknown command '<word>'. Try ` + `/vq help` in `COLOR.HIGHLIGHT` + ` for the list.` |
+| `CHAT.NO_PANEL` | `/vq` when the options panel could not be built | `Options panel unavailable; use ` + `/vq on|off <name>` in `COLOR.HIGHLIGHT` + `.` |
+| `CHAT.HELP_HINT` | End of `/vq status` | `/vq help` in `COLOR.HIGHLIGHT` + ` lists every command.` |
 
 ### Chat: the two list headers
 
 | ID | Trigger | Text |
 | --- | --- | --- |
-| `CHAT.STATUS_TITLE` | `/cq status` | `<AddOn name> v<version> - Status` |
+| `CHAT.STATUS_TITLE` | `/vq status` | `<AddOn name> v<version> - Status` |
 | `CHAT.STATUS_ROW` | one per option | two spaces, then `on ` in `COLOR.ON` or `off` in `COLOR.OFF`, two spaces, `<optionKey>` in `COLOR.HIGHLIGHT`, then ` (experimental)` in `COLOR.EXPERIMENTAL` where it applies |
-| `CHAT.HELP_TITLE` | `/cq help` | `<AddOn name> v<version> - Commands` |
+| `CHAT.HELP_TITLE` | `/vq help` | `<AddOn name> v<version> - Commands` |
 | `CHAT.HELP_ROW` | one per command | two spaces, `<command>` in `COLOR.HIGHLIGHT`, then `  -  `, then the description below |
 
 ### Chat: the command list
@@ -54,13 +54,14 @@ is not monospaced, so padding to a column comes out ragged.
 
 | ID | Command | Description |
 | --- | --- | --- |
-| `HELP.OPEN` | `/cq` | `Open the options panel` |
-| `HELP.ON` | `/cq on` | `Turn on the full Classic experience` |
-| `HELP.OFF` | `/cq off` | `Disable the AddOn` |
-| `HELP.STATUS` | `/cq status` | `List every option and its state` |
-| `HELP.ON_ONE` | `/cq on <name>` | `Turn one option on` |
-| `HELP.OFF_ONE` | `/cq off <name>` | `Turn one option off` |
-| `HELP.RESET` | `/cq reset` | `Restore default settings` |
+| `HELP.OPEN` | `/vq` | `Open the options panel` |
+| `HELP.ON` | `/vq on` | `Turn on the full Classic experience` |
+| `HELP.OFF` | `/vq off` | `Disable the AddOn` |
+| `HELP.STATUS` | `/vq status` | `List every option and its state` |
+| `HELP.ON_ONE` | `/vq on <name>` | `Turn one option on` |
+| `HELP.OFF_ONE` | `/vq off <name>` | `Turn one option off` |
+| `HELP.RESET` | `/vq reset` | `Restore default settings` |
+| `HELP.NAMES` | (foot of the list, in `COLOR.MUTED`) | `Option names for the two commands above are listed by /vq status.` |
 
 ### Chat: when a Blizzard control is changed instead
 
@@ -75,7 +76,7 @@ Fires when the player moves one of Blizzard's own checkboxes that this AddOn als
 
 | ID | Trigger | Text |
 | --- | --- | --- |
-| `CHAT.TRACKING_REASSERTED` | The player switches *Track Quest POIs* on and the AddOn switches it back. Throttled to once every 10 seconds. | `Track Quest POIs` in `COLOR.HIGHLIGHT` + ` was switched back off automatically. To allow it, use ` + `/cq off minimapMarkers` in `COLOR.HIGHLIGHT` + `.` |
+| `CHAT.TRACKING_REASSERTED` | The player switches *Track Quest POIs* on and the AddOn switches it back. Throttled to once every 10 seconds. | `Track Quest POIs` in `COLOR.HIGHLIGHT` + ` was switched back off automatically. To allow it, use ` + `/vq off minimapMarkers` in `COLOR.HIGHLIGHT` + `.` |
 
 ---
 
@@ -100,7 +101,7 @@ only when this client lacks something the AddOn expected, so most players never 
 | `WARN.QUESTFRAME_MISSING` | The portrait frame was not found | `could not find the questgiver portrait on this client; skipping that option.` |
 | `WARN.TOOLTIP_MISSING` | `GameTooltip` is not hookable | `GameTooltip is not hookable here; skipping quest progress tooltips.` |
 | `WARN.BAGS_MISSING` | `ContainerFrame_Update` absent | `ContainerFrame_Update is not present on this client; skipping the bag quest highlight.` |
-| `WARN.OPTIONS_REGISTER` | The panel could not be added to Blizzard's settings | `could not add the panel to Blizzard's settings; /cq opens it as its own window instead.` |
+| `WARN.OPTIONS_REGISTER` | The panel could not be added to Blizzard's settings | `could not add the panel to Blizzard's settings; /vq opens it as its own window instead.` |
 | `WARN.OPTIONS_REFRESH` | The panel failed to refresh | `could not refresh the panel: <error>` |
 | `WARN.EVENT` | A handler errored | `error handling <event>: <error>` |
 | `WARN.APPLY` | An option failed to apply | `could not <enable/disable> <optionKey>: <error>` |
@@ -137,7 +138,7 @@ in `COLOR.BODY` on the same line. Rows separated by a blank line.
 | `PRESET.TIP_CLASSIC` | `Every normal option on. Experimental ones are left exactly as you set them.` |
 | `PRESET.TIP_CUSTOM` | `Your own mix. It cannot be selected; it is chosen automatically as soon as you change any option below.` |
 | `PRESET.TIP_DISABLED` | `Every option off, experimental ones included: the game as Blizzard ships it.` |
-| `PRESET.TIP_COMMANDS` | `/cq on, /cq off` in `COLOR.MUTED`, at the foot |
+| `PRESET.TIP_COMMANDS` | `/vq on, /vq off` in `COLOR.MUTED`, at the foot |
 
 ### Option tooltips: the shape
 
@@ -170,7 +171,7 @@ Appended to Blizzard's tracking-button tooltip while the minimap option is on.
 | `TIP.TRACK_HEADER` | `<AddOn name>` | `COLOR.BRAND` |
 | `TIP.TRACK_LINE1` | `Track Quest POIs` in `COLOR.HIGHLIGHT` + ` is kept off automatically.` | white body |
 | `TIP.TRACK_LINE2` | `Switching it on here will not stick.` | light grey |
-| `TIP.TRACK_LINE3` | `To allow it: ` + `/cq off minimapMarkers` in `COLOR.HIGHLIGHT` | grey |
+| `TIP.TRACK_LINE3` | `To allow it: ` + `/vq off minimapMarkers` in `COLOR.HIGHLIGHT` | grey |
 
 ### Dialogs
 
@@ -204,7 +205,7 @@ so they should read as a continuation and start lowercase.
 
 `LABEL_*` appears only inside warnings, in the middle of a sentence, so it too starts lowercase.
 
-The **key** column is what the player types after `/cq on` and what appears in tooltips.
+The **key** column is what the player types after `/vq on` and what appears in tooltips.
 
 ### worldMapMarkers
 
@@ -356,9 +357,9 @@ These four are the AddOn's own, and have no Blizzard equivalent to inherit:
 | ID | Value | Used for |
 | --- | --- | --- |
 | `COLOR.BRAND` | `|cff66ccff` — light blue | The chat prefix, tooltip headers that are ours, `Managed by`. Chosen to stand clear of Blizzard's white body text and yellow highlights. |
-| `COLOR.EXPERIMENTAL` | `|cffff8019` — orange | The `Experimental` heading, the experimental note, and known-limitation lines. **This is now the only orange.** The second one (`ff8800`, in `/cq status`) is gone. |
+| `COLOR.EXPERIMENTAL` | `|cffff8019` — orange | The `Experimental` heading, the experimental note, and known-limitation lines. **This is now the only orange.** The second one (`ff8800`, in `/vq status`) is gone. |
 | `COLOR.WARNING` | `|cffff9955` — pale orange | Warning messages in chat. |
-| `COLOR.ON` / `COLOR.OFF` | `|cff55ff55` / `|cffff5555` | The words `on` and `off` in `/cq status`. |
+| `COLOR.ON` / `COLOR.OFF` | `|cff55ff55` / `|cffff5555` | The words `on` and `off` in `/vq status`. |
 
 `COLOR.HIGHLIGHT` and `COLOR.BODY` are deliberately the same value doing two jobs — that is what
 Blizzard does. They are separate entries so that if you ever want tooltip bodies to differ from

@@ -1,4 +1,4 @@
--- Classic Questing (MoP) -- Options
+-- Vanilla Questing -- Options
 --
 -- The settings panel. Two implementations, one preferred.
 --
@@ -11,7 +11,7 @@
 -- file. If any step of registerNative() fails, it takes over unchanged, so the
 -- worst case is the panel that shipped before rather than no panel. If even
 -- RegisterCanvasLayoutCategory fails, the same frame is shown as a standalone
--- window, so /cq always opens something.
+-- window, so /vq always opens something.
 
 local ADDON_NAME, ns = ...
 
@@ -79,7 +79,7 @@ local function promptReload(before, many)
 	if type(StaticPopupDialogs) ~= "table" or type(StaticPopup_Show) ~= "function" then
 		return
 	end
-	StaticPopupDialogs["CLASSICQUESTING_RELOAD"] = {
+	StaticPopupDialogs["VANILLAQUESTING_RELOAD"] = {
 		text = many
 			and "The UI needs to reload for some of these settings to take effect."
 			or "The UI needs to reload for this setting to take effect.",
@@ -98,7 +98,7 @@ local function promptReload(before, many)
 		preferredIndex = 3,
 	}
 	ensureDim():Show()
-	local ok, dlg = pcall(StaticPopup_Show, "CLASSICQUESTING_RELOAD")
+	local ok, dlg = pcall(StaticPopup_Show, "VANILLAQUESTING_RELOAD")
 	if not ok then
 		if dim then dim:Hide() end
 		return
@@ -334,7 +334,7 @@ end
 local function build()
 	if panel then return panel end
 
-	panel = CreateFrame("Frame", "ClassicQuestingMoPOptions", UIParent)
+	panel = CreateFrame("Frame", "VanillaQuestingOptions", UIParent)
 	panel:SetSize(620, 560)
 	panel:Hide()
 	panel.name = ns.title
@@ -391,7 +391,7 @@ local function build()
 				if reload then
 					text = text .. "\n\nNote: The UI will reload."
 				end
-				StaticPopupDialogs["CLASSICQUESTING_DEFAULTS"] = {
+				StaticPopupDialogs["VANILLAQUESTING_DEFAULTS"] = {
 					-- The question is phrased as a question, so the answers are
 					-- Yes and No. Pairing "Yes" with "Cancel" is a mismatched
 					-- pair; Blizzard uses YES/NO for questions like this too,
@@ -405,7 +405,7 @@ local function build()
 					preferredIndex = 3,
 				}
 				ensureDim():Show()
-				local shown, dlg = pcall(StaticPopup_Show, "CLASSICQUESTING_DEFAULTS")
+				local shown, dlg = pcall(StaticPopup_Show, "VANILLAQUESTING_DEFAULTS")
 				if not shown then
 					if dim then dim:Hide() end
 					doReset(reload)
@@ -724,7 +724,7 @@ local function presetTooltip()
 		.. row("classic", "Every normal option on. Experimental ones are left exactly as you set them.") .. "|n|n"
 		.. row("custom", "Your own mix. It cannot be selected; it is chosen automatically as soon as you change any option below.") .. "|n|n"
 		.. row("disabled", "Every option off, experimental ones included: the game as Blizzard ships it.") .. "|n|n"
-		.. GREY .. "/cq on, /cq off" .. "|r"
+		.. GREY .. "/vq on, /vq off" .. "|r"
 end
 
 -- What happens when a control's value moves. Shared by every checkbox.
@@ -922,7 +922,7 @@ function ns.AnnotateBlizzardOptions()
 					local m = var and ours[var]
 					-- Skip this AddOn's own controls: they do not need telling
 					-- who manages them.
-					if m and not tostring(var):find("ClassicQuestingMoP", 1, true) then
+					if m and not tostring(var):find("VanillaQuesting", 1, true) then
 						annotated[init] = true
 						local data = rawget(init, "data")
 						if type(data) == "table" then
@@ -971,7 +971,7 @@ local function registerNative()
 	-- The preset selector goes first: it is the coarse control, and the
 	-- checkboxes below it are the fine one.
 	local okp, presetSetting = pcall(Settings.RegisterAddOnSetting,
-		category, "ClassicQuestingMoP_preset", "preset", presetProxy,
+		category, "VanillaQuesting_preset", "preset", presetProxy,
 		varType("String"), "Preset", "classic")
 	if not okp or type(presetSetting) ~= "table" then return false end
 
@@ -1012,7 +1012,7 @@ local function registerNative()
 	nativePresetSetting = presetSetting
 
 	-- One checkbox per module, in the single ordering ns:SortedModules owns,
-	-- so this panel and /cq status cannot drift apart. The experiments come
+	-- so this panel and /vq status cannot drift apart. The experiments come
 	-- last so a heading can be put in front of them.
 	local ordered = ns:SortedModules()
 	local plain, experiments = {}, {}
@@ -1023,7 +1023,7 @@ local function registerNative()
 
 	local function addCheckbox(m)
 		local oks, setting = pcall(Settings.RegisterAddOnSetting,
-			category, "ClassicQuestingMoP_" .. m.key, m.key, ns.db.settings,
+			category, "VanillaQuesting_" .. m.key, m.key, ns.db.settings,
 			varType("Boolean"), m.title or m.key, ns.defaults[m.key] and true or false)
 		if not oks or type(setting) ~= "table" then return false end
 
@@ -1219,6 +1219,6 @@ ns:RegisterEvent("PLAYER_LOGIN", function()
 	build()
 	if not register() then
 		ns:Warn("options:register",
-			"could not add the panel to Blizzard's settings; /cq opens it as its own window instead.")
+			"could not add the panel to Blizzard's settings; /vq opens it as its own window instead.")
 	end
 end)

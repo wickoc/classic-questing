@@ -1,4 +1,4 @@
--- Classic Questing (MoP) -- Quest progress in tooltips
+-- Vanilla Questing -- Quest progress in tooltips
 --
 -- Mousing over a mob or an object that counts towards a quest appends the
 -- quest's name and your progress to its tooltip: "Pie for Billy" and then
@@ -31,7 +31,7 @@ M.desc  = "Mousing over a creature or object stops telling you which quest it be
 M.onText  = "quest progress no longer appended to tooltips"
 M.offText = "quest progress shown in tooltips again"
 M.group = "Quest text"
-M.order = 26
+M.order = 60
 
 ns:RegisterDefaults({ questProgressTooltips = true })
 
@@ -86,6 +86,13 @@ local function scrub(tooltip)
 
 	local titles
 	local removed, inQuestBlock = 0, false
+	-- The last line that SURVIVES, and the last that goes. The tooltip should
+	-- end where the first of those ends, and the gap between them is exactly
+	-- what has to come off the height.
+	-- Line 1 always survives, so it is the starting answer for "the last line
+	-- that stays" -- otherwise a tooltip whose entire body is a quest block
+	-- would fall through to the estimate.
+	local lastKept, lastBlanked = _G[name .. "TextLeft1"], nil
 
 	scanning = true
 	-- Line 1 is always the name; never touch it.
@@ -100,40 +107,63 @@ local function scrub(tooltip)
 					if okc then r, g, b = cr, cg, cb end
 				end
 
+				local blank = false
 				if isGold(r, g, b) then
 					titles = titles or activeQuestTitles()
 					if titles[text] then
 						-- A quest header. Everything under it, while it keeps
 						-- looking like an objective, belongs to it.
 						inQuestBlock = true
-						fs:SetText("")
-						removed = removed + 1
+						blank = true
 					else
 						-- Gold, but not a quest -- a gathering node's name.
 						inQuestBlock = false
 					end
 				elseif inQuestBlock and text:match(OBJECTIVE_PATTERN) then
+					blank = true
+				else
+					inQuestBlock = false
+				end
+
+				if blank then
+					-- Measured BEFORE clearing: an empty font string reports a
+					-- different height, and the layout does not re-run.
+					lastBlanked = fs
 					fs:SetText("")
 					removed = removed + 1
 				else
-					inQuestBlock = false
+					lastKept = fs
 				end
 			end
 		end
 	end
 	scanning = false
 
-	-- Blanked lines still take up their height, so the tooltip would keep a
-	-- gap where the quest block was. Shrinking by one line height each is
-	-- cosmetic; if it ever misjudges, the text is still gone, which is the
-	-- part that matters. Only the pass that actually blanked something
-	-- shrinks, so running twice on one tooltip does not shrink it twice.
-	if removed > 0 and type(tooltip.GetHeight) == "function" and type(tooltip.SetHeight) == "function" then
+	-- Blanked lines still occupy their space, so without this the tooltip
+	-- keeps a gap where the quest block was.
+	--
+	-- v0.16.1 subtracted one line height per removed line, which left a
+	-- trailing pad: a tooltip line is its text height PLUS the spacing between
+	-- lines, and the spacing was never counted. Rather than guess at the gap,
+	-- measure the block: the distance from the bottom of the last surviving
+	-- line to the bottom of the last blanked one is exactly what is now empty,
+	-- spacing included.
+	if removed > 0 and lastBlanked and type(tooltip.SetHeight) == "function" then
 		pcall(function()
-			local perLine = _G[name .. "TextLeft2"]
-			local h = perLine and perLine.GetHeight and perLine:GetHeight() or 0
-			if h > 0 then
-				tooltip:SetHeight(math.max(1, tooltip:GetHeight() - (h * removed)))
+			local bottomKept = lastKept and lastKept:GetBottom()
+			local bottomGone = lastBlanked:GetBottom()
+			local shrink
+			if bottomKept and bottomGone then
+				shrink = bottomKept - bottomGone
+			else
+				-- The tooltip is not laid out yet, so positions are not
+				-- readable. Fall back to counting whole lines.
+				local perLine = _G[name .. "TextLeft2"]
+				local h = perLine and perLine.GetHeight and perLine:GetHeight()
+				shrink = h and (h * removed) or nil
+			end
+			if shrink and shrink > 0 then
+				tooltip:SetHeight(math.max(1, tooltip:GetHeight() - shrink))
 			end
 		end)
 	end

@@ -1,14 +1,14 @@
-# Classic Questing (MoP) — build spec
+# Vanilla Questing — build spec
 
 **Target:** World of Warcraft — Mists of Pandaria Classic, 5.5.4 (build 69585), interface `50504`.
-Install path: `World of Warcraft\_classic_\Interface\AddOns\ClassicQuestingMoP\`
+Install path: `World of Warcraft\_classic_\Interface\AddOns\VanillaQuesting\`
 (Folder without parentheses; the parenthesised form is the `## Title` shown in the addon list.)
 
 **Goal:** restore the Classic questing experience by hiding the quest-helper layer MoP added
 on top of it. Everything the addon does is *subtractive* — hiding or unregistering Blizzard UI.
 It never adds quest data of its own.
 
-> Named *Unmarked* while in recon, then *Classic Questing*, now **Classic Questing (MoP)**.
+> Named *Unmarked* while in recon, then *Classic Questing*, now **Vanilla Questing**.
 > The old name survives only in `dev/UnmarkedRecon/`, the throwaway probe addon, which stays a
 > separate dev-only addon and is never shipped or folded into this one.
 
@@ -73,6 +73,20 @@ Nothing. The next probe section goes with the next question.
   edited `ObjectIconsAtlas.blp`. Workflow written up in `dev/BLIP-TEXTURE-WORKFLOW.md`.
 - **Turn-in markers: `?` versus the gold bullet.** The minimap shows both for nearby turn-ins.
   Close enough to Classic to leave alone by default; offer a purist toggle for gold-bullet-only.
+- **Cross-expansion support.** One AddOn across client versions, one CurseForge listing — which
+  is why the name carries no expansion suffix. **[RXPGuides](https://github.com/RestedXP/RXPGuides)**
+  ([CurseForge](https://www.curseforge.com/wow/addons/restedxp-guide)) is the reference to read
+  first: it has already solved this shape of problem — one codebase, one listing, many clients
+  with different APIs underneath. Worth studying specifically:
+  - **How it detects the client** and branches on it, rather than shipping a build per expansion.
+  - **How its `.toc` files are arranged.** Modern clients accept several versions in
+    `## Interface:`, and `-Mainline` / `-Classic` / `-Vanilla` `.toc` suffixes exist; which of
+    those this project needs depends on how far back it goes.
+  - **How it degrades** where a client lacks something — the same problem this AddOn already
+    solves per-feature with existence checks and a warning once, but at whole-expansion scale.
+
+  Not a dependency and not a model to copy wholesale: a worked example of the packaging problem,
+  by someone who has been through it.
 - **A wiki of what this client actually exposes.** Twenty-two probe sections have established a
   large amount about a client nobody has documented: which globals exist, which CVars are real,
   what `Settings.RegisterAddOnSetting` wants, where Blizzard's own settings can be read from.
@@ -125,8 +139,8 @@ client will not let an AddOn do cleanly, not things left undone.
 ## Architecture
 
 ```
-ClassicQuestingMoP/
-  ClassicQuestingMoP.toc
+VanillaQuesting/
+  VanillaQuesting.toc
   Core.lua        -- addon table, event dispatch, saved variables, defaults, slash command
   CVars.lua       -- set + re-assert console variables
   Minimap.lua     -- minimap quest markers
@@ -151,27 +165,27 @@ panel level, even where the underlying lever is (see the `questPOI` bundling not
 
 **SavedVariables:** account-wide, not per character. Someone who wants this wants it everywhere.
 
-**Slash command:** `/cq` opens the panel, with `/classicquesting` as a long-form alias.
-`/cq reset` restores defaults. (Renamed from `/unmarked` along with the project.)
+**Slash command:** `/vq` opens the panel, with `/vanillaquesting` as a long-form alias.
+`/vq reset` restores defaults. (Renamed from `/unmarked` along with the project.)
 
 **Addon-list tooltip: version renders outside the box.** Unresolved. Shortening `## Notes`
 did not fix it, so the cause is not Notes length. The remaining differences from the recon
-addon, which renders correctly, are the title length ("Classic Questing (MoP)" at 22 characters
+addon, which renders correctly, are the title length ("Vanilla Questing" at 22 characters
 versus "Unmarked Recon" at 14) and the version format ("0.2.1", two dots, versus "0.7", one).
 v0.3 tests the version format by changing only that. If it still overflows, shorten the Title
 next. Do not keep guessing past that without a screenshot.
 
 **One name per feature — no second name anywhere.** v1 gave each feature a display key
 (`mapCreaturePortraits`) *and* a saved-setting name mirroring the CVar (`showBosses`). That
-duplication was not good practice and it caused two separate bugs: `/cq on|off` rejected every
-name `/cq` itself printed, and `"showBosses turned on"` read as though the portraits were being
+duplication was not good practice and it caused two separate bugs: `/vq on|off` rejected every
+name `/vq` itself printed, and `"showBosses turned on"` read as though the portraits were being
 *shown* when they were being hidden. As of v2 the module key, the saved-settings key and the
 typed handle are the same string, and it names what the addon does rather than what Blizzard
 calls the switch underneath. The CVar name is an implementation detail inside the rule table.
 A `dbVersion` migration carries v1 saved settings across, and the old names still resolve as
 handles.
 
-**Report the effect, not the switch.** `/cq on X` prints what actually changed
+**Report the effect, not the switch.** `/vq on X` prints what actually changed
 ("world map creature portraits hidden"), never the raw CVar transition.
 
 **Versioning: stay below 1.0 until the AddOn is releasable.** Use `0.MINOR.PATCH`. Version
@@ -208,7 +222,7 @@ Settings.RegisterAddOnSetting(category, variable, variableKey,
 
 Details that matter:
 
-- **Ordering** comes from `ns:SortedModules()`, the same source `/cq status` uses, with the
+- **Ordering** comes from `ns:SortedModules()`, the same source `/vq status` uses, with the
   experiments moved to the end so a heading can sit in front of them.
 - **The Experimental heading** is a real section header —
   `CreateSettingsListSectionHeaderInitializer`, a plain global, added to the **second** return
@@ -232,7 +246,7 @@ fails, so the worst case is the panel that shipped before rather than no panel. 
 module's `group` field — the native layout uses one heading and no grouping.
 
 If even `RegisterCanvasLayoutCategory` fails, the same frame is shown as a standalone movable
-window and `/cq` still opens it. One warning line, once.
+window and `/vq` still opens it. One warning line, once.
 
 ### Presets
 
@@ -250,7 +264,7 @@ Experimental options do not enter into whether the settings read as Full Classic
 what people install the AddOn for; neither "all off" nor a subset picked to the author's taste is
 a defensible out-of-the-box state.
 
-**The player-facing name is "Classic Questing"** everywhere in game, including the AddOn list.
+**The player-facing name is "Vanilla Questing"** everywhere in game, including the AddOn list.
 The `(MoP)` suffix survives only in the folder name, the repository and the future CurseForge
 listing, where it identifies which build to download for which client. See `NAMING.md` — the name
 itself is under review.
@@ -307,7 +321,7 @@ read as modal.
 **The slash path says nothing about reloading; the panel asks.** These are not inconsistent —
 they are two different situations, and I had the reasoning backwards until it was corrected:
 
-- **`/cq on|off|reset`** — the player is at the keyboard with the map reachable, and the map is
+- **`/vq on|off|reset`** — the player is at the keyboard with the map reachable, and the map is
   correct the next time it opens. No reload is involved, so saying otherwise is advice for a
   problem they do not have. A regression guard in the suite asserts the slash path never says
   "reload".
@@ -322,7 +336,7 @@ redundant. That needs the checkboxes *and* the dropdown to be Blizzard's — one
 enough, since Apply only knows about settings registered through it. As of v0.10.0 both are;
 what is still missing is the commit-flag value that asks Apply to appear. Probe v0.16 [G16].
 
-**One ordering.** `ns:SortedModules()` is the single source; the options panel and `/cq status`
+**One ordering.** `ns:SortedModules()` is the single source; the options panel and `/vq status`
 both use it, so they cannot drift apart as options are added.
 
 **"AddOn", not "addon".** Blizzard's own capitalisation, in every user-visible string and in
@@ -446,7 +460,7 @@ Two things did not survive the move and are tracked, not forgotten:
 
 - The orange **"Experimental"** section header. A vertical layout has no header mechanism I have
   evidence for yet, so the warning moved into the tooltip. [G16] looks for one.
-- The panel's own **Defaults** button. `/cq reset` still does the job. [G16] looks for the
+- The panel's own **Defaults** button. `/vq reset` still does the job. [G16] looks for the
   category-level defaults callback.
 
 ### G15 — the tracker from the inside
@@ -809,10 +823,10 @@ cleared on rebuild so one visit cannot ask twice.
 ### Presets and experimental options
 
 Checking the experimental wording turned up a real inconsistency: the panel's **Full Classic
-experience** preset set experimental options to `false`, while `/cq on` left them where they were.
+experience** preset set experimental options to `false`, while `/vq on` left them where they were.
 Same preset, two behaviours depending on whether it was clicked or typed.
 
-v0.14.3 aligned them by making `/cq on` turn the experiments off. **That was the wrong side to
+v0.14.3 aligned them by making `/vq on` turn the experiments off. **That was the wrong side to
 align to**, and v0.15.0 reverses it. A preset that undoes a deliberate choice is worse than one
 that ignores it: switch an experiment on, pick Full Classic, and it went off again with no
 explanation.
@@ -827,7 +841,7 @@ The rule now:
 
 So switching an experiment on no longer drops the preset to Custom. The experiments are not part
 of the Classic experience, so having one on does not stop the rest of the settings being it. Both
-the panel and `/cq on|off` follow this.
+the panel and `/vq on|off` follow this.
 
 ### A rule can have more than one "on" value
 
@@ -997,6 +1011,59 @@ It was in the draft CurseForge summary. **There is no objective arrow in this cl
 Blizzard's quest helper has never drawn one; on-screen arrows are Carbonite and TomTom, which are
 third-party. It sounded like part of a quest helper, which is why it went in unchallenged.
 Removed. Nothing in a public listing should describe something the AddOn does not do.
+
+## v0.17.0 — the rename, and two adjacent defects
+
+### Vanilla Questing
+
+Decided, and done in one pass. The old name said "questing, as it works in Classic MoP", which is
+the opposite of what this does; and with cross-expansion support as the goal, a name that carries
+a mechanism or an expansion would have gone stale.
+
+Everything moved: folder, `.toc` filename and title, `ns.title`, SavedVariables, the setting
+variables Blizzard stores, the dialog keys, and the slash commands. **No alias kept for the old `/cq`** —
+nothing public ever shipped under the old name, so an alias would be dead weight from the first
+release. SavedVariables were dropped rather than migrated, agreed as acceptable while the AddOn
+is not public.
+
+The word *Classic* survives everywhere it means the **game era** — "as it did in Classic", "Full
+Classic experience" — and only the product name changed. Those are different words that happened
+to look the same, and a blanket replacement would have wrecked half the option descriptions.
+
+### Every module reaches the panel — but the orders collided
+
+The report was that the newest features had not been added to the options. They had: all twelve
+modules were registered, in the panel, and in `/vq status`. But checking turned up a real defect
+next door.
+
+**Two pairs of modules shared an `order`** — 20 and 50 — and `table.sort` in Lua 5.1 is not
+stable. Those pairs could therefore swap places between one login and the next, in the panel and
+in `/vq status` both. Every module now has a unique order, spaced by area:
+
+| | |
+| --- | --- |
+| 10–30 | Map and minimap |
+| 40–60 | Quest text |
+| 70–90 | Quest tracking |
+| 100 | Bags |
+| 110–120 | Experimental |
+
+Guarded three ways, so this cannot recur quietly: every module must declare an order, no two may
+share one, every module must have a checkbox in the panel, and every module must appear in
+`/vq status`. **A feature can no longer ship without being reachable from both.**
+
+`/vq help` also never said where option names come from — it documents `/vq on <name>` without
+saying what names exist. One grey line at the foot now points at `/vq status`.
+
+### The trailing pad under a scrubbed tooltip
+
+v0.16.1 subtracted one line height per removed line. A tooltip line is its text height **plus the
+spacing between lines**, and the spacing was never counted, so a gap was left behind.
+
+It measures the block now instead of estimating it: the distance from the bottom of the last
+surviving line to the bottom of the last blanked one is exactly what is now empty, spacing
+included. Line 1 counts as a survivor, so a tooltip whose entire body is a quest block still
+measures rather than falling through to the estimate.
 
 ## Safety rules — non-negotiable
 
@@ -1351,7 +1418,7 @@ two of them negative and therefore decisive.
 `C_Minimap.GetPOITextureCoords` works, returning four coordinates per index in a 13-per-row
 grid — an atlas lookup into the POI icon sheet.
 
-**Live tests.** `/unrecon set showBosses 0` works. `/cq` works: it removes what the probe
+**Live tests.** `/unrecon set showBosses 0` works. `/vq` works: it removes what the probe
 removed, and holds the minimap POI toggle off.
 
 ---
@@ -1429,8 +1496,8 @@ would cannot render here.
 **Shipped anyway as `questObjectOutline`, experimental, default off.** Turning `Outline` *on* is
 a semi-fix for anyone whose client can render outlines (1 is enough; 2 and 3 also work). It is
 the one rule in `CVars.lua` that turns something **on** rather than off. It is never enabled by
-default and is deliberately skipped by a bare `/cq on`, which enables the Classic set but leaves
-experiments alone — those must be named explicitly. `/cq` marks it `(experimental)`.
+default and is deliberately skipped by a bare `/vq on`, which enables the Classic set but leaves
+experiments alone — those must be named explicitly. `/vq` marks it `(experimental)`.
 
 **Quest progress tooltip: reachable, and the matching rule is now settled.** Six captured
 tooltips, with per-line colours:

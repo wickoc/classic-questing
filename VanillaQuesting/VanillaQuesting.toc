@@ -1,0 +1,15 @@
+## Interface: 50504
+## Title: Vanilla Questing
+## Notes: Turn off the quest helper and quest as if it were the original game.
+## Author: Wictor
+## Version: 0.17.0
+## SavedVariables: VanillaQuestingDB
+
+Core.lua
+CVars.lua
+Minimap.lua
+QuestFrame.lua
+Tooltip.lua
+Tracker.lua
+Bags.lua
+Options.lua
