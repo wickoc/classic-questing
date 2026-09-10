@@ -24,7 +24,7 @@ local RULES = {
 		group   = "Map and minimap",
 		order   = 10,
 		title   = "Hide World Map Quest Helper",
-		desc    = "Removes the quest markers, the blue objective areas, the Track Quest checkbox and the quest list in the world map pane.",
+		desc    = "Removes the quest markers, the blue objective areas, the Track Quest checkbox and the quest list in the world map.",
 	},
 	{
 		-- Tier 2, opt-in. Newly accepted quests stop auto-tracking. This is
@@ -63,19 +63,19 @@ local RULES = {
 		wanted  = "0",
 		default = true,
 		label   = "instant quest text",
-		onText  = "quest text appear slowly",
-		offText = "quest text appear instantly",
+		onText  = "Quest text appears slowly.",
+		offText = "Quest text appears instantly.",
 		group   = "Quests",
 		order   = 40,
 		title   = "No Instant Quest Text",
-		desc    = "Quest text appear slowly, accompanied by the sound of a quill writing.",
+		desc    = "Quest text appears slowly, accompanied by the sound of a quill writing.",
 	},
 	{
 		-- Tier 3, opt-in. The boss and creature portrait pins MoP puts on
 		-- zone maps, which Classic never had. Confirmed working in game.
 		-- Recon named the lever: provider 7 is EncounterJournalDataProvider
 		-- carrying cvar=showBosses.
-		key     = "hideCreaturePortraits",
+		key     = "hideBossPortraits",
 		cvar       = "showBosses",
 		wanted     = "0",
 		needsApply = true,
@@ -85,8 +85,8 @@ local RULES = {
 		offText = "Creature portraits restored.",
 		group   = "Map and minimap",
 		order   = 30,
-		title   = "Hide Creature Portraits",
-		desc    = "Hides the portrait markers for bosses and creatures on the world map.",
+		title   = "Hide Boss Portraits",
+		desc    = "Hides the boss portraits on the world map.",
 	},
 	{
 		-- Tier 3, opt-in, EXPERIMENTAL and off by default.
@@ -119,7 +119,7 @@ local RULES = {
 		group        = "Experimental",
 		order        = 110,
 		title        = "Outline Mode",
-		desc         = "Quest objects show either an outline or sparkles. If the outline fails to render, sparkles are shown automatically.",
+		desc         = "Quest objects in the world are outlined instead of showing loot sparkles. If the outline fails to render, sparkles are shown automatically.",
 	},
 }
 
@@ -289,13 +289,13 @@ ns:RegisterEvent("CVAR_UPDATE", function()
 						-- remember that has not been remembered already.
 						ns:Print(C.highlight .. rule.blizzOption .. C.close ..
 							" was changed in Blizzard's options, so " .. C.highlight ..
-							rule.key .. C.close .. " is now " .. C.on .. "on " .. C.close .. ".")
+							rule.key .. C.close .. " is now " .. C.on .. "on" .. C.close .. ".")
 					else
 						-- What the player has now IS what to restore later.
 						ns.db.state[rule.cvar] = now
 						ns:Print(C.highlight .. rule.blizzOption .. C.close ..
 							" was changed in Blizzard's options, so " .. C.highlight ..
-							rule.key .. C.close .. " is now " .. C.off .. "off " .. C.close .. ".")
+							rule.key .. C.close .. " is now " .. C.off .. "off" .. C.close .. ".")
 					end
 
 					if ns.RefreshOptions then ns.RefreshOptions() end

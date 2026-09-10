@@ -44,7 +44,7 @@ Tiers have stopped being useful. Work has landed across all three, so "Tier 3" n
 | World map quest pins, shaded areas, Track Quest box, in-map quest list | `hideMapQuestHelper` | v0.1.0 |
 | Minimap quest markers | `hideMinimapQuestHelper` | v0.1.0 |
 | Automatic tracking of newly accepted quests | `noAutoQuestTracking` | v0.2.0 |
-| World map boss/creature portraits | `hideCreaturePortraits` | v0.2.0 |
+| World map boss/creature portraits | `hideBossPortraits` | v0.2.0 |
 | Tracker quest titles made plain text (no click-to-track, no context menu) | `trackerPlainText` | v0.12.0 |
 | Tracker quest item use buttons | `hideTrackerItemButtons` | v0.12.0 |
 | Instant Quest Text, so quest text types out | `noInstantQuestText` | v0.13.0 |
@@ -176,7 +176,7 @@ v0.3 tests the version format by changing only that. If it still overflows, shor
 next. Do not keep guessing past that without a screenshot.
 
 **One name per feature — no second name anywhere.** v1 gave each feature a display key
-(`hideCreaturePortraits`) *and* a saved-setting name mirroring the CVar (`showBosses`). That
+(`hideBossPortraits`) *and* a saved-setting name mirroring the CVar (`showBosses`). That
 duplication was not good practice and it caused two separate bugs: `/vq on|off` rejected every
 name `/vq` itself printed, and `"showBosses turned on"` read as though the portraits were being
 *shown* when they were being hidden. As of v2 the module key, the saved-settings key and the
@@ -1158,6 +1158,44 @@ it. So:
 one, still cramped. That is the first time on this feature that the suite found the gap instead of
 the player. Three previous rounds went out green and broken because the harness modelled what was
 convenient; this one modelled the awkward part first.
+
+## v0.18.1 — the tooltip fit, fifth pass, and why four failed
+
+Every previous attempt corrected the height **at a moment the client reserved the right to
+overrule**. That is the single sentence that covers all four.
+
+The tell was always the same and I kept reading past it: **right on a fresh tooltip, wrong on a
+re-used one.** The difference between those two cases is not the content or the arithmetic — it
+is who runs last.
+
+- A tooltip shown from hidden calls `Show()`. The hook on `Show` runs **after** Blizzard has laid
+  the frame out, so the fit sticks.
+- A tooltip built into a frame that is **already visible never calls `Show()` again**. The only
+  pass is the content-set script, which runs **before** Blizzard resizes the frame for the new
+  content — and the resize throws the fit away.
+
+So the fit is now also scheduled for the **next frame**, which is after every moment the client
+has, whatever order it used them in. A one-shot `OnUpdate` frame rather than `C_Timer`:
+`CreateFrame` and `SetScript` are certain on this client and `C_Timer` has never been probed here.
+The immediate fit is kept as well, so the common case has no visible flicker.
+
+### The harness, again — but this time it earned its keep
+
+`__retargetTooltip` was calling the `Show` hooks, exactly like a fresh tooltip. That is why four
+rounds of this went out green. It now models the real thing: no `Show()`, and Blizzard's resize
+**after** the content script. With that in place the bug reproduces at 62 where 34 is correct, and
+removing the deferred fit makes it fail again — so the fix is pinned to the behaviour rather than
+to a number.
+
+One real robustness bug fell out of building it: the deferred fit called `tooltip:IsShown()`
+inside a `pcall`, and a tooltip implementation without that method would have had its fit skipped
+**silently**. Existence-checked now. That is the same class of mistake as every other one in this
+file — a `pcall` hiding a missing method rather than a failing one.
+
+### The rule this feature has earned
+
+**When a fix depends on when it runs, prove the moment before tuning the value.** Four rounds
+were spent improving the arithmetic while the arithmetic was already right.
 
 ## Safety rules — non-negotiable
 

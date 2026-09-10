@@ -21,6 +21,17 @@ SlashCmdList = {}
 
 local frames = {}
 _G.frames = frames
+
+-- Frames with an OnUpdate are driven by _G.__nextFrame(), which is how the
+-- harness advances a game frame.
+_G.__nextFrame = function()
+    for i = 1, #frames do
+        local f = frames[i]
+        -- The stub keeps OnUpdate in `onUpdate`, not `script_OnUpdate`.
+        local fn = rawget(f, "onUpdate")
+        if fn and rawget(f, "__shown") then pcall(fn, f, 0.016) end
+    end
+end
 _G.fontstrings = {}
 
 -- Permissive widget: named methods below behave, anything else is a no-op, so
@@ -126,7 +137,7 @@ _G.fire = fire
 _G.fireCount = fireCount
 _G.maxEventDepth = function() return maxDepth end
 
-C_AddOns = { GetAddOnMetadata = function(_, k) if k == "Version" then return "0.18.0" end end }
+C_AddOns = { GetAddOnMetadata = function(_, k) if k == "Version" then return "0.18.1" end end }
 
 Settings = {
 	RegisterCanvasLayoutCategory = function(frame, name)
@@ -367,6 +378,7 @@ GameTooltip.GetHeight = function(self) return self.__height end
 -- tooltip and wrong on one hovered straight after something else -- and the
 -- harness could not show it while relayout() reset the height every time.
 GameTooltip.SetHeight = function(self, h) self.__height = h; self.__pinned = true end
+GameTooltip.IsShown = function(self) return self.__visible ~= false end
 GameTooltip.GetTop = function() return 1000 end
 GameTooltip.GetBottom = function(self) return 1000 - self.__height end
 
@@ -431,11 +443,22 @@ end
 
 -- Moving from one creature straight to the next: the tooltip never hides, so
 -- OnShow does not fire again. Only the content-set script does.
+-- A tooltip built into a frame that is ALREADY visible. The client does NOT
+-- call Show() again -- so no Show hook runs -- and it resizes the frame for
+-- the new content AFTER the content-set script. Any height set during that
+-- script is thrown away.
+--
+-- This is the case three fixes in a row got wrong, and the harness could not
+-- show it while __retargetTooltip called the Show hooks like a fresh tooltip.
 _G.__retargetTooltip = function()
+    GameTooltip.__pinned = nil
     relayout()
     for _, fn in ipairs(GameTooltip.scripts.OnTooltipSetUnit or {}) do fn(GameTooltip) end
+    -- Blizzard's resize, after the script and with no Show() to follow it.
+    GameTooltip.__pinned = nil
     relayout()
-    for _, fn in ipairs(hookedShow or {}) do fn(GameTooltip) end
+    -- Then the frame ticks over.
+    _G.__nextFrame()
 end
 _G.__tooltipText = function()
     local out = {}

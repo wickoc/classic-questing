@@ -19,7 +19,7 @@ local ADDON_NAME, ns = ...
 
 local M = ns:RegisterModule("hideCharacterFrame", {})
 M.title = "Hide Character Frame"
-M.desc  = "Removes the character frame next to quests, both when a quest is offered and in the quest log."
+M.desc  = "Removes the frame with character models next to quests, both when a quest is offered and in the quest log."
 M.onText  = "Character frame removed."
 M.offText = "Character frame restored."
 M.group = "Quests"

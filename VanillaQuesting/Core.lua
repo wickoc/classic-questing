@@ -139,7 +139,7 @@ end
 -- Account-wide (see the .toc): someone who wants this wants it everywhere.
 local DB_VERSION = 3
 
--- v1 gave every feature two names: a display key ("hideCreaturePortraits") and
+-- v1 gave every feature two names: a display key ("hideBossPortraits") and
 -- a saved-setting name mirroring the CVar ("showBosses"). That was a mistake.
 -- It made the name /vq printed different from the name /vq accepted, and it
 -- made "showBosses turned on" mean the portraits were hidden. v2 uses one
@@ -149,7 +149,7 @@ local RENAMED_IN_V2 = {
 	worldMapQuestPOI = "hideMapQuestHelper",
 	minimapQuestPOI  = "hideMinimapQuestHelper",
 	autoQuestWatch   = "noAutoQuestTracking",
-	showBosses       = "hideCreaturePortraits",
+	showBosses       = "hideBossPortraits",
 }
 
 -- Modules add their own defaults at file scope, before ADDON_LOADED fires.
@@ -275,7 +275,7 @@ end)
 ---------------------------------------------------------------------
 
 local function status()
-	ns:Print(ns.title .. " v" .. tostring(ns.version) .. " - Status")
+	ns:Print(ns.title .. " v" .. tostring(ns.version) .. " - Status and list of options")
 	local ordered = ns:SortedModules()
 	for i = 1, #ordered do
 		local m = ordered[i]
@@ -292,7 +292,7 @@ SLASH_VANILLAQUESTING1 = "/vq"
 SLASH_VANILLAQUESTING2 = "/vanillaquesting"
 
 -- Accept whatever /vq actually printed. Modules have a display key
--- ("hideCreaturePortraits") and a saved-setting name ("showBosses"), and the
+-- ("hideBossPortraits") and a saved-setting name ("showBosses"), and the
 -- status list shows the key -- so the key must be a valid handle for
 -- /vq on|off. Taking only the setting name made every name on screen an
 -- "Unknown setting". Both work now, case-insensitively.

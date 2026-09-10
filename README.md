@@ -29,7 +29,7 @@ off — every value it changes is remembered first and put back.
 
 `<option>` is one of the names below — `/vq status` lists them in game:
 
-`hideMapQuestHelper` · `hideMinimapQuestHelper` · `hideCreaturePortraits` · `noInstantQuestText` ·
+`hideMapQuestHelper` · `hideMinimapQuestHelper` · `hideBossPortraits` · `noInstantQuestText` ·
 `hideCharacterFrame` · `hideTooltipsQuestProgress` · `noAutoQuestTracking` · `trackerPlainText` ·
 `hideTrackerItemButtons` · `noBagItemHighlight` · `outlineMode` · `noCompleteQuestPopup`
 

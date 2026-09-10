@@ -523,9 +523,10 @@ local function build()
 		-- Same text as the native panel's version, which is the one most
 		-- players see. It drifted once; both now read from the same wording.
 		return "\n" .. WHITE .. PRESET_LABEL.classic .. ":" .. C.close
-			.. " Enable all vanilla options. Experimental options must be activated manually.\n\n"
+			.. " Enable all vanilla options. " .. GREY
+			.. "Experimental options must be activated manually." .. C.close .. "\n\n"
 			.. WHITE .. PRESET_LABEL.custom .. ":" .. C.close
-			.. " Automatically set as soon as you change any option below.\n\n"
+			.. " Automatically selected when you change any option below.\n\n"
 			.. WHITE .. PRESET_LABEL.disabled .. ":" .. C.close
 			.. " Disable all options."
 	end
@@ -720,8 +721,9 @@ local function presetTooltip()
 		return WHITE .. PRESET_LABEL[headingKey] .. ":|r " .. YELLOW .. body .. "|r"
 	end
 	return "|n"
-		.. row("classic", "Enable all vanilla options. Experimental options must be activated manually.") .. "|n|n"
-		.. row("custom", "Automatically set as soon as you change any option below.") .. "|n|n"
+		.. row("classic", "Enable all vanilla options. " .. GREY ..
+			"Experimental options must be activated manually." .. C.close) .. "|n|n"
+		.. row("custom", "Automatically selected when you change any option below.") .. "|n|n"
 		.. row("disabled", "Disable all options.")
 end
 

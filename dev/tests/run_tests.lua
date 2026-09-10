@@ -63,20 +63,20 @@ if scenario == "normal" then
 	check("autoQuestWatch applied by default", cvars.autoQuestWatch == "0", cvars.autoQuestWatch)
 	check("showBosses applied by default", cvars.showBosses == "0", cvars.showBosses)
 	-- The names /vq prints are module keys; they must be valid handles.
-	pcall(SlashCmdList["VANILLAQUESTING"], "on hideCreaturePortraits")
+	pcall(SlashCmdList["VANILLAQUESTING"], "on hideBossPortraits")
 	check("module key accepted as handle", cvars.showBosses == "0", cvars.showBosses)
-	pcall(SlashCmdList["VANILLAQUESTING"], "off hideCreaturePortraits")
+	pcall(SlashCmdList["VANILLAQUESTING"], "off hideBossPortraits")
 	check("module key toggles back off", cvars.showBosses == "1", cvars.showBosses)
 	pcall(SlashCmdList["VANILLAQUESTING"], "on noAutoQuestTracking")
 	check("noAutoQuestTracking key accepted", cvars.autoQuestWatch == "0", cvars.autoQuestWatch)
 	pcall(SlashCmdList["VANILLAQUESTING"], "off noAutoQuestTracking")
 	pcall(SlashCmdList["VANILLAQUESTING"], "off MAPCREATUREPORTRAITS")
-	check("module key is case-insensitive", VanillaQuestingDB.settings.hideCreaturePortraits == false)
-	pcall(SlashCmdList["VANILLAQUESTING"], "on hideCreaturePortraits")
+	check("module key is case-insensitive", VanillaQuestingDB.settings.hideBossPortraits == false)
+	pcall(SlashCmdList["VANILLAQUESTING"], "on hideBossPortraits")
 	check("showBosses applied when opted in", cvars.showBosses == "0", cvars.showBosses)
 	pcall(SlashCmdList["VANILLAQUESTING"], "on noAutoQuestTracking")
 	check("autoQuestWatch applied when opted in", cvars.autoQuestWatch == "0", cvars.autoQuestWatch)
-	pcall(SlashCmdList["VANILLAQUESTING"], "off hideCreaturePortraits")
+	pcall(SlashCmdList["VANILLAQUESTING"], "off hideBossPortraits")
 	check("showBosses restored on opt-out", cvars.showBosses == "1", cvars.showBosses)
 
 	-- tooltip: the hook must add lines only while the setting is on
@@ -103,7 +103,7 @@ if scenario == "normal" then
 		local st = VanillaQuestingDB.settings
 		check("v1->v2 migrated hideMapQuestHelper", st.hideMapQuestHelper == false, tostring(st.hideMapQuestHelper))
 		check("v1->v2 migrated noAutoQuestTracking", st.noAutoQuestTracking == true, tostring(st.noAutoQuestTracking))
-		check("v1->v2 migrated hideCreaturePortraits", st.hideCreaturePortraits == true, tostring(st.hideCreaturePortraits))
+		check("v1->v2 migrated hideBossPortraits", st.hideBossPortraits == true, tostring(st.hideBossPortraits))
 		check("v1 keys removed", st.showBosses == nil and st.worldMapQuestPOI == nil)
 		check("dbVersion bumped", VanillaQuestingDB.dbVersion == 3, VanillaQuestingDB.dbVersion)
 		VanillaQuestingDB.dbVersion = 1
@@ -118,7 +118,7 @@ if scenario == "normal" then
 
 	-- old names still resolve as handles
 	pcall(SlashCmdList["VANILLAQUESTING"], "on showBosses")
-	check("old v1 name still accepted", VanillaQuestingDB.settings.hideCreaturePortraits == true)
+	check("old v1 name still accepted", VanillaQuestingDB.settings.hideBossPortraits == true)
 	pcall(SlashCmdList["VANILLAQUESTING"], "off showBosses")
 
 	-- experimental features must never be swept on by a bare "/vq on"
@@ -126,7 +126,7 @@ if scenario == "normal" then
 	check("experimental off by default", VanillaQuestingDB.settings.outlineMode == false)
 	pcall(SlashCmdList["VANILLAQUESTING"], "on")
 	check("/vq on leaves experimental alone", VanillaQuestingDB.settings.outlineMode == false)
-	check("/vq on still enables the normal ones", VanillaQuestingDB.settings.hideCreaturePortraits == true)
+	check("/vq on still enables the normal ones", VanillaQuestingDB.settings.hideBossPortraits == true)
 	-- From off, the AddOn asks for 2. (The harness starts Outline at 2, which
 	-- already counts as on, and a value the player chose is left alone -- so
 	-- this has to start from 0 to be about the write at all.)
@@ -654,7 +654,7 @@ if scenario == "native" then
 		check("preset tooltip puts the colon inside the white run",
 			tip:find("|cffffffffVanilla (Default):|r", 1, true) ~= nil, tip)
 		check("preset tooltip says Custom is set automatically",
-			tip:find("Automatically set as soon as", 1, true) ~= nil)
+			tip:find("Automatically selected when you", 1, true) ~= nil, tip)
 		check("the dropdown lists Full, Custom, Disabled in that order",
 			table.concat({ drops[1].options[1].value, drops[1].options[2].value,
 				drops[1].options[3].value }, ",") == "classic,custom,disabled")

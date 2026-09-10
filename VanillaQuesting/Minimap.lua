@@ -18,7 +18,7 @@ M.offText = "Minimap quest helper restored."
 M.group = "Map and minimap"
 M.title = "Hide Minimap Quest Helper"
 M.order = 20
-M.desc = "Keeps the " .. C.title .. "Track Quest POIs" .. C.close .. " tracking switched off, removing both the markers and the blue objective areas from the minimap."
+M.desc = "Keeps the " .. C.title .. "Track Quest POIs" .. C.close .. " tracking switched off, removing both the quest markers and the blue objective areas from the minimap."
 
 -- One name: module key, saved-settings key and typed handle are all the same.
 ns:RegisterDefaults({
@@ -164,8 +164,8 @@ local function attachTooltip()
 			-- AddOn's chat blue, which stands clear of Blizzard's white body
 			-- text and yellow highlights.
 			GameTooltip:AddLine(" ")
-			GameTooltip:AddLine(C.highlight .. "Track Quest POIs" .. C.close ..
-				" is managed by " .. C.brand .. ns.title .. C.close .. ".")
+			GameTooltip:AddLine(C.title .. "Track Quest POIs" .. C.close .. " " ..
+				C.brand .. "is managed by " .. ns.title .. "." .. C.close)
 			GameTooltip:Show()
 		end)
 	end)

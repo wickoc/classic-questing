@@ -27,7 +27,7 @@ local ADDON_NAME, ns = ...
 
 local M = ns:RegisterModule("hideTooltipsQuestProgress", {})
 M.title = "Hide Quest Progress In Tooltips"
-M.desc  = "Hovering a creature or object no longer tells you which quest it belongs to and your progress."
+M.desc  = "Hovering a creature or object no longer tells you which quest it belongs to or your progress."
 M.onText  = "Quest progress removed from tooltips."
 M.offText = "Quest progress in tooltips restored."
 M.group = "UI"
@@ -72,6 +72,41 @@ local function activeQuestTitles()
 end
 
 local scanning = false
+
+-- Run something on the NEXT frame.
+--
+-- This exists because of the one difference between a tooltip that works and
+-- one that does not. A tooltip shown from hidden calls Show(), and the hook on
+-- Show re-applies the height AFTER Blizzard has laid the frame out. A tooltip
+-- built into a frame that is ALREADY visible never calls Show() again -- so
+-- the only pass is the content-set script, which runs BEFORE Blizzard resizes
+-- the frame for the new content, and the resize then throws the fit away.
+--
+-- Three earlier attempts all corrected the height at a moment the client
+-- reserved the right to overrule. Next frame is after every moment the client
+-- has, whatever order it used them in.
+--
+-- A one-shot OnUpdate rather than C_Timer: CreateFrame and SetScript are
+-- certain on this client, and C_Timer has never been probed here.
+local deferFrame
+local function nextFrame(fn)
+	if type(CreateFrame) ~= "function" then return end
+	if not deferFrame then
+		deferFrame = CreateFrame("Frame")
+		if not deferFrame then return end
+		deferFrame:Hide()
+	end
+	deferFrame.pending = fn
+	deferFrame:SetScript("OnUpdate", function(self)
+		self:SetScript("OnUpdate", nil)
+		self:Hide()
+		local f = self.pending
+		self.pending = nil
+		if f then pcall(f) end
+	end)
+	deferFrame:Show()
+end
+
 
 -- Shrink the tooltip to end just under its last surviving line.
 --
@@ -211,7 +246,26 @@ local function scrub(tooltip)
 	-- Fit when there is something to fit, and also whenever this frame is
 	-- already carrying a height of ours -- see __vqPinned above.
 	if tooltip.__vqBlankedAt == stamp or tooltip.__vqPinned then
+		-- Now, so the common case is right immediately and without a flicker.
 		fitHeight(tooltip, name, lines)
+		-- And again next frame, which is the only moment the client cannot
+		-- overrule. On a tooltip built into an already-visible frame this is
+		-- the pass that actually sticks.
+		nextFrame(function()
+			-- IsShown is checked for existence first. A tooltip implementation
+			-- without it is not a reason to skip the fit -- and inside a pcall
+			-- a missing method would have skipped it silently.
+			local shown = true
+			if type(tooltip.IsShown) == "function" then
+				local ok, v = pcall(tooltip.IsShown, tooltip)
+				shown = (not ok) or v
+			end
+			if shown then
+				scanning = true
+				fitHeight(tooltip, name, tooltip:NumLines())
+				scanning = false
+			end
+		end)
 	end
 	scanning = false
 end

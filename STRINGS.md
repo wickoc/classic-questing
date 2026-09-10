@@ -262,7 +262,7 @@ The **key** column is what the player types after `/vq on` and what appears in t
 | `OFF_hideTooltipsQuestProgress` | `Quest progress in tooltips restored.` |
 | `LABEL_hideTooltipsQuestProgress` | `quest progress in tooltips` |
 
-### mapCreaturePortraits -> hideCreaturePortraits
+### mapCreaturePortraits -> hideBossPortraits
 
 | ID | Text |
 | --- | --- |
