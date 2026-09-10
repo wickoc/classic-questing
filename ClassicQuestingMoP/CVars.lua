@@ -6,6 +6,8 @@
 
 local ADDON_NAME, ns = ...
 
+local C = ns.color
+
 local RULES = {
 	{
 		-- Tier 1. Removes the numbered quest pins, the blue quest area
@@ -285,15 +287,15 @@ ns:RegisterEvent("CVAR_UPDATE", function()
 						-- Adopted rather than applied: the player set this
 						-- themselves, so there is no pre-AddOn value to
 						-- remember that has not been remembered already.
-						ns:Print("|cffffd100" .. rule.blizzOption ..
-							"|r matches Classic, so |cffffd100" .. rule.key ..
-							"|r is now on.")
+						ns:Print(C.highlight .. rule.blizzOption .. C.close ..
+							" matches Classic, so " .. C.highlight .. rule.key ..
+							C.close .. " is now on.")
 					else
 						-- What the player has now IS what to restore later.
 						ns.db.state[rule.cvar] = now
-						ns:Print("|cffffd100" .. rule.blizzOption ..
-							"|r was changed in Blizzard's options, so |cffffd100" ..
-							rule.key .. "|r is now off.")
+						ns:Print(C.highlight .. rule.blizzOption .. C.close ..
+							" was changed in Blizzard's options, so " .. C.highlight ..
+							rule.key .. C.close .. " is now off.")
 					end
 
 					if ns.RefreshOptions then ns.RefreshOptions() end

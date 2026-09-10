@@ -10,6 +10,8 @@
 
 local ADDON_NAME, ns = ...
 
+local C = ns.color
+
 local M = ns:RegisterModule("minimapMarkers", {})
 M.onText = "minimap quest pins and the blue quest area hidden"
 M.offText = "minimap quest pins and the blue quest area shown again"
@@ -104,8 +106,9 @@ local function notice()
 	-- Name the tracking entry explicitly so the line can be scanned at a
 	-- glance, and say "automatically" so it reads as the AddOn acting rather
 	-- than the click failing.
-	ns:Print("|cffffd100Track Quest POIs|r was switched back off automatically. " ..
-		"To allow it, use |cffffd100/cq off minimapMarkers|r.")
+	ns:Print(C.highlight .. "Track Quest POIs" .. C.close ..
+		" was switched back off automatically. To allow it, use " ..
+		C.highlight .. "/cq off minimapMarkers" .. C.close .. ".")
 end
 
 local function enforce()
@@ -161,11 +164,13 @@ local function attachTooltip()
 			-- AddOn's chat blue, which stands clear of Blizzard's white body
 			-- text and yellow highlights.
 			GameTooltip:AddLine(" ")
-			GameTooltip:AddLine("|cff66ccff" .. ns.title .. "|r")
-			GameTooltip:AddLine("|cffffd100Track Quest POIs|r is kept off automatically.", 1, 1, 1)
+			GameTooltip:AddLine(C.brand .. ns.title .. C.close)
+			GameTooltip:AddLine(C.highlight .. "Track Quest POIs" .. C.close ..
+				" is kept off automatically.", 1, 1, 1)
 			GameTooltip:AddLine("Switching it on here will not stick.", 0.9, 0.9, 0.9)
 			-- TODO(Options): replace with a pointer to the options panel.
-			GameTooltip:AddLine("To allow it: |cffffd100/cq off minimapMarkers|r", 0.8, 0.8, 0.8)
+			GameTooltip:AddLine("To allow it: " .. C.highlight .. "/cq off minimapMarkers" .. C.close,
+				0.8, 0.8, 0.8)
 			GameTooltip:Show()
 		end)
 	end)
@@ -203,7 +208,7 @@ function M:Status()
 	if not index then return "tracking entry not found" end
 	if refused then return "tracking entry #" .. index .. " (write refused)" end
 	return "tracking entry #" .. index .. ", quest POIs " ..
-		(info.active and "|cffff5555showing|r" or "hidden")
+		(info.active and (C.off .. "showing" .. C.close) or "hidden")
 end
 
 -- The tracking dropdown stays fully functional; we simply put it back. Flipping

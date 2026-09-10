@@ -126,7 +126,7 @@ _G.fire = fire
 _G.fireCount = fireCount
 _G.maxEventDepth = function() return maxDepth end
 
-C_AddOns = { GetAddOnMetadata = function(_, k) if k == "Version" then return "0.15.1" end end }
+C_AddOns = { GetAddOnMetadata = function(_, k) if k == "Version" then return "0.16.0" end end }
 
 Settings = {
 	RegisterCanvasLayoutCategory = function(frame, name)
@@ -294,6 +294,103 @@ ContainerFrame_Update = function(frame)
 	for _, fn in ipairs(postHooks["ContainerFrame_Update"] or {}) do fn(frame) end
 end
 
+
+-- ---- quest frame portrait, and quest progress in tooltips ----
+--
+-- Blizzard's own colour codes, which the palette prefers over literals.
+NORMAL_FONT_COLOR_CODE = "|cffffd100"
+HIGHLIGHT_FONT_COLOR_CODE = "|cffffffff"
+GRAY_FONT_COLOR_CODE = "|cff808080"
+FONT_COLOR_CODE_CLOSE = "|r"
+
+local questFrameShown = true
+QuestNPCModel = {
+    __shown = true,
+    scripts = {},
+    GetName = function() return "QuestNPCModel" end,
+    GetObjectType = function() return "Frame" end,
+    Hide = function(self) self.__shown = false end,
+    Show = function(self) self.__shown = true end,
+    IsShown = function(self) return self.__shown end,
+    GetParent = function() return QuestFrameDetailPanel end,
+    HookScript = function(self, which, fn)
+        self.scripts[which] = self.scripts[which] or {}
+        table.insert(self.scripts[which], fn)
+    end,
+}
+QuestFrameDetailPanel = { IsShown = function() return questFrameShown end }
+_G.__setQuestFrameShown = function(v) questFrameShown = v end
+
+-- What Blizzard calls when a quest is offered or opened in the log. The
+-- portrait comes BACK every time, which is why a one-shot hide would pass a
+-- naive test and fail in play.
+QuestFrame_ShowQuestPortrait = function()
+    QuestNPCModel.__shown = true
+    for _, fn in ipairs(postHooks["QuestFrame_ShowQuestPortrait"] or {}) do fn() end
+    for _, fn in ipairs(QuestNPCModel.scripts.OnShow or {}) do fn(QuestNPCModel) end
+end
+
+-- The quest log the tooltip matcher reads titles from.
+local questLog = {
+    { title = "Elwynn Forest", isHeader = true },
+    { title = "Pie for Billy", isHeader = false },
+}
+_G.__setQuestLog = function(t) questLog = t end
+GetNumQuestLogEntries = function() return #questLog end
+GetQuestLogTitle = function(i)
+    local e = questLog[i]
+    if not e then return nil end
+    return e.title, 0, 0, e.isHeader
+end
+
+-- A tooltip whose lines carry per-line colours, as the captured samples in
+-- G12 report them.
+--
+-- EXTENDS the existing GameTooltip stub rather than replacing it. Redefining
+-- it wholesale is a mistake this harness has already made once: the second
+-- definition silently ate the first, and the minimap tracking tooltip tests
+-- went green while testing nothing.
+local tipLines = {}
+GameTooltip.scripts = GameTooltip.scripts or {}
+GameTooltip.__height = 100
+GameTooltip.GetName = function() return "GameTooltip" end
+GameTooltip.NumLines = function() return #tipLines end
+GameTooltip.GetHeight = function(self) return self.__height end
+GameTooltip.SetHeight = function(self, h) self.__height = h end
+-- The canvas panel uses SetText for a tooltip's first line, so it has to be
+-- recorded like AddLine or that panel's tooltip tests see a headless body.
+GameTooltip.SetText = function(_, text)
+    tooltipLines[#tooltipLines + 1] = tostring(text)
+    if _G.__tooltipLines then table.insert(_G.__tooltipLines, tostring(text)) end
+end
+GameTooltip.HookScript = function(self, which, fn)
+    self.scripts[which] = self.scripts[which] or {}
+    table.insert(self.scripts[which], fn)
+end
+_G.__setTooltip = function(lines)
+    tipLines = {}
+    for i, l in ipairs(lines) do
+        local fs = { __text = l.text, __r = l.r, __g = l.g, __b = l.b }
+        function fs:GetText() return self.__text end
+        function fs:SetText(t) self.__text = t end
+        function fs:GetTextColor() return self.__r, self.__g, self.__b end
+        function fs:GetHeight() return 12 end
+        tipLines[i] = fs
+        _G["GameTooltipTextLeft" .. i] = fs
+    end
+    -- Clear any leftovers from a longer previous tooltip.
+    local i = #lines + 1
+    while _G["GameTooltipTextLeft" .. i] do _G["GameTooltipTextLeft" .. i] = nil; i = i + 1 end
+end
+_G.__showTooltip = function()
+    for _, fn in ipairs(GameTooltip.scripts.OnShow or {}) do fn(GameTooltip) end
+end
+_G.__tooltipText = function()
+    local out = {}
+    for i = 1, #tipLines do out[i] = tipLines[i]:GetText() end
+    return out
+end
+
 -- ---- scenario tweaks, applied BEFORE the addon loads ----
 if scenario == "cvar_refused" then lockCVar("questPOI")
 elseif scenario == "tracking_refused" then lockTracking()
@@ -388,10 +485,20 @@ elseif scenario == "native" or scenario == "native_halfway" then
 			self.scripts[which] = self.scripts[which] or {}
 			table.insert(self.scripts[which], fn)
 		end,
+		-- The guard here is DEPTH, not a running total. It was a total, and
+		-- once there were enough modules an ordinary run crossed the limit and
+		-- reported a recursion that was not happening. Depth is what the real
+		-- fault looked like -- a hook re-entering the thing that called it --
+		-- so depth is what to watch.
 		SetApplyButtonEnabled = function(self, on)
 			_G.__applyCalls = _G.__applyCalls + 1
-			if _G.__applyCalls > 400 then error("runaway SetApplyButtonEnabled recursion") end
+			_G.__applyDepth = (_G.__applyDepth or 0) + 1
+			if _G.__applyDepth > 20 then
+				_G.__applyDepth = 0
+				error("runaway SetApplyButtonEnabled recursion")
+			end
 			for _, fn in ipairs(hookedFns) do fn(self, on) end
+			_G.__applyDepth = _G.__applyDepth - 1
 		end,
 		-- What the Apply button calls. Post-hooks run after it, which is how
 		-- a rebuild held back by Defaults gets finished.
@@ -484,7 +591,8 @@ local ns = {}
 -- Repo-relative, so the suite runs wherever the checkout lives. Set
 -- CQ_ADDON_DIR to point it somewhere else.
 local base = os.getenv("CQ_ADDON_DIR") or "../../ClassicQuestingMoP/"
-for _, f in ipairs({ "Core.lua", "CVars.lua", "Minimap.lua", "Tracker.lua", "Bags.lua", "Options.lua" }) do
+for _, f in ipairs({ "Core.lua", "CVars.lua", "Minimap.lua", "QuestFrame.lua",
+                     "Tooltip.lua", "Tracker.lua", "Bags.lua", "Options.lua" }) do
 	local chunk = assert(loadfile(base .. f))
 	chunk("ClassicQuestingMoP", ns)
 end

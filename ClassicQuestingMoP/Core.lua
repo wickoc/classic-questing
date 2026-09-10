@@ -30,7 +30,35 @@ ns.version = addonVersion()
 -- Output
 ---------------------------------------------------------------------
 
-local PREFIX = "|cff66ccff[Classic Questing]|r "
+-- One palette, one definition.
+--
+-- The yellows and whites are the GAME's own colour codes where the client
+-- offers them, not values typed in here: NORMAL_FONT_COLOR_CODE is what
+-- Blizzard's own tooltips and option labels use, so taking it from the client
+-- means this AddOn cannot drift away from the interface it is trying to sit
+-- inside. The literals are fallbacks for a client that does not define them,
+-- and they are the same values those globals hold.
+ns.color = {
+	-- Blizzard's own
+	body        = NORMAL_FONT_COLOR_CODE    or "|cffffd100",  -- the standard yellow
+	highlight   = NORMAL_FONT_COLOR_CODE    or "|cffffd100",
+	title       = HIGHLIGHT_FONT_COLOR_CODE or "|cffffffff",
+	muted       = GRAY_FONT_COLOR_CODE      or "|cff808080",
+	close       = FONT_COLOR_CODE_CLOSE     or "|r",
+
+	-- This AddOn's own. One orange, used for every warning-ish thing:
+	-- the Experimental heading, the experimental note, and known limitations.
+	-- There were two near-identical oranges; this is the survivor.
+	brand        = "|cff66ccff",
+	experimental = "|cffff8019",
+	warning      = "|cffff9955",
+	on           = "|cff55ff55",
+	off          = "|cffff5555",
+}
+
+local C = ns.color
+
+local PREFIX = C.brand .. "[" .. ns.title .. "]" .. C.close .. " "
 
 function ns:Print(msg)
 	if DEFAULT_CHAT_FRAME then
@@ -45,7 +73,7 @@ function ns:Warn(key, msg)
 	if warned[key] then return end
 	warned[key] = true
 	if DEFAULT_CHAT_FRAME then
-		DEFAULT_CHAT_FRAME:AddMessage(PREFIX .. "|cffff9955" .. tostring(msg) .. "|r")
+		DEFAULT_CHAT_FRAME:AddMessage(PREFIX .. C.warning .. tostring(msg) .. C.close)
 	end
 end
 
@@ -254,9 +282,9 @@ local function status()
 		local on = ns.db and ns.db.settings[m.key]
 		-- The live CVar readout is for developer eyes; the player wants to
 		-- know what is on.
-		ns:Print("  " .. (on and "|cff55ff55on |r" or "|cffff5555off|r") ..
-			"  |cffffd100" .. tostring(m.key) .. "|r" ..
-			(m.experimental and " |cffff8800(experimental)|r" or ""))
+		ns:Print("  " .. (on and (C.on .. "on " .. C.close) or (C.off .. "off" .. C.close)) ..
+			"  " .. C.highlight .. tostring(m.key) .. C.close ..
+			(m.experimental and (" " .. C.experimental .. "(experimental)" .. C.close) or ""))
 	end
 end
 
@@ -325,7 +353,7 @@ SlashCmdList["CLASSICQUESTINGMOP"] = function(msg)
 				-- "showBosses turned on" read as though the portraits were
 				-- being shown. Say what actually happened instead.
 				local effect = m and (want and m.onText or m.offText)
-				ns:Print("|cffffd100" .. key .. "|r " .. cmd ..
+				ns:Print(C.highlight .. key .. C.close .. " " .. cmd ..
 					(effect and (" -- " .. effect .. ".") or "."))
 			else
 				ns:Print("Unknown setting '" .. arg .. "'. Try /cq for the list.")
@@ -337,7 +365,7 @@ SlashCmdList["CLASSICQUESTINGMOP"] = function(msg)
 		-- The game font is not monospaced, so padding to a column would still
 		-- come out ragged. A fixed separator makes every gap identical instead.
 		local function line(cmd, what)
-			ns:Print("  |cffffd100" .. cmd .. "|r  -  " .. what)
+			ns:Print("  " .. C.highlight .. cmd .. C.close .. "  -  " .. what)
 		end
 		line("/cq", "Open the options panel")
 		line("/cq on", "Turn on the full Classic experience")
@@ -350,7 +378,7 @@ SlashCmdList["CLASSICQUESTINGMOP"] = function(msg)
 	elseif cmd == "status" then
 		status()
 		local example = ns.modules[1] and ns.modules[1].key or "worldMapMarkers"
-		ns:Print("|cffffd100/cq help|r lists every command.")
+		ns:Print(C.highlight .. "/cq help" .. C.close .. " lists every command.")
 
 	elseif cmd == "" then
 		-- Only a bare /cq opens the panel. An unrecognised word is a mistake,
@@ -359,10 +387,10 @@ SlashCmdList["CLASSICQUESTINGMOP"] = function(msg)
 			ns:OpenOptions()
 		else
 			status()
-			ns:Print("Options panel unavailable; use |cffffd100/cq on|off <name>|r.")
+			ns:Print("Options panel unavailable; use " .. C.highlight .. "/cq on|off <name>" .. C.close .. ".")
 		end
 
 	else
-		ns:Print("Unknown command '" .. cmd .. "'. Try |cffffd100/cq help|r for the list.")
+		ns:Print("Unknown command '" .. cmd .. "'. Try " .. C.highlight .. "/cq help" .. C.close .. " for the list.")
 	end
 end

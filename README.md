@@ -22,6 +22,9 @@ commands.
 
 **Quest text and bags**
 
+- The framed questgiver portrait beside quest text, in the offer window and the quest log
+- Quest progress appended to tooltips — mousing a creature no longer tells you which quest it
+  belongs to or how many you still need
 - Instant Quest Text, so quest text types out a line at a time as it did in Classic
 - The yellow highlight MoP puts on quest items in your bags, and the `!` on items that start a
   quest — one option, since Blizzard draws both with the same texture

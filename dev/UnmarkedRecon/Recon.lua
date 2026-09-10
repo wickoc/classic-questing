@@ -81,7 +81,8 @@ local ACTIVE = {
 	g21 = false, -- ANSWERED v0.21: all three are strings, and all three took
 	             --   the annotation
 
-	-- Nothing open. The next section added here goes with the next question.
+	-- Still open.
+	g22 = true, -- the questgiver portrait frame, and a switch for quest tooltips
 }
 
 
@@ -1971,6 +1972,129 @@ local function sectionBlizzardTooltips()
 	add("    the data dump above should show.)")
 end
 
+-- [G22] Two features shipped in v0.16.0 on names that have NOT been probed on
+-- this client, which is a first for this project and worth correcting in the
+-- same breath.
+--
+--   1. The questgiver portrait. v0.16.0 tries three frame names and two show
+--      functions and uses whichever exists. This says which is real.
+--   2. Quest progress in tooltips. v0.16.0 blanks the lines by text and
+--      colour, which works but is surgery. If Blizzard registers a SETTING
+--      for it, that is a switch instead -- and the settings registry is
+--      exactly where instantQuestText was found after the console search
+--      failed. So look there before settling for the surgery.
+local function sectionQuestFrameAndTooltip()
+	head("[G22] Questgiver portrait, and a switch for quest tooltips")
+
+	add("   The portrait frame -- which name is real here:")
+	for _, n in ipairs({
+		"QuestNPCModel", "QuestModelScene", "QuestFrameNPCModel",
+		"QuestFrame_ShowQuestPortrait", "QuestFrame_HideQuestPortrait",
+		"QuestLogPopupDetailFrame_ShowQuestPortrait",
+		"QuestFrameDetailPanel", "QuestLogPopupDetailFrame",
+	}) do probe(n) end
+	add("")
+	listGlobals("Globals containing 'npcmodel'", "npcmodel", 30)
+	add("")
+	listGlobals("Globals containing 'questportrait'", "questportrait", 30)
+	add("")
+	listGlobals("Globals containing 'modelscene'", "modelscene", 30)
+	add("")
+
+	-- If one of them exists, describe it: what it is parented to decides
+	-- whether hiding it disturbs the layout of the frame around it.
+	local portrait
+	for _, n in ipairs({ "QuestNPCModel", "QuestModelScene", "QuestFrameNPCModel" }) do
+		if _G[n] then portrait = _G[n]; add("   Found: " .. n); break end
+	end
+	if portrait then
+		local parent, shown, otype = "?", "?", "?"
+		pcall(function() local p = portrait:GetParent() parent = (p and p:GetName()) or "<unnamed>" end)
+		pcall(function() shown = portrait:IsShown() and "shown" or "hidden" end)
+		pcall(function() otype = portrait:GetObjectType() end)
+		add("      parent=" .. parent .. "  " .. shown .. "  [" .. otype .. "]")
+		add("")
+		dumpChildren(portrait, "   portrait")
+		add("")
+		dumpRegions(portrait, "   portrait")
+	else
+		add("   None of the three exist. Open a quest window and run this again --")
+		add("   the frame may be created on first use.")
+	end
+	add("")
+
+	-- Now the switch hunt. Same walk that found instantQuestText: Blizzard's
+	-- registered settings, read off its own controls.
+	add("   Every registered setting mentioning tooltip, quest or objective:")
+	local seen, found = {}, 0
+
+	local function inspect(setting, where)
+		if type(setting) ~= "table" or seen[setting] then return end
+		seen[setting] = true
+		local name, var, vtype
+		pcall(function() name = setting.GetName and setting:GetName() end)
+		pcall(function() var = setting.GetVariable and setting:GetVariable() end)
+		pcall(function() vtype = setting.GetVariableType and setting:GetVariableType() end)
+		if tostring(var):find("ClassicQuestingMoP", 1, true) then return end
+		local hay = (tostring(name) .. " " .. tostring(var)):lower()
+		if hay:find("tooltip") or hay:find("quest") or hay:find("objective") then
+			found = found + 1
+			local value = "?"
+			pcall(function() value = tostring(setting:GetValue()) end)
+			add(string.format("      %-40s variable=%-30s [%s] = %s",
+				tostring(name), tostring(var), tostring(vtype), value))
+		end
+	end
+
+	if type(SettingsPanel) == "table" then
+		local layouts = rawget(SettingsPanel, "categoryLayouts")
+		if type(layouts) == "table" then
+			for _, layout in pairs(layouts) do
+				local inits = type(layout) == "table" and rawget(layout, "initializers")
+				if type(inits) == "table" then
+					for i = 1, #inits do
+						local init = inits[i]
+						if type(init) == "table" and type(init.GetSetting) == "function" then
+							local ok, st = pcall(init.GetSetting, init)
+							if ok then inspect(st, "") end
+						end
+					end
+				end
+			end
+		end
+	end
+	if found == 0 then
+		add("      none. Open Blizzard's options once, then run this again.")
+	end
+	add("")
+
+	-- And the colour-code globals the AddOn now takes its palette from, so a
+	-- fallback that never fires can be confirmed as never firing.
+	add("   Blizzard's own colour codes, which the palette prefers:")
+	for _, n in ipairs({
+		"NORMAL_FONT_COLOR_CODE", "HIGHLIGHT_FONT_COLOR_CODE",
+		"GRAY_FONT_COLOR_CODE", "GREEN_FONT_COLOR_CODE",
+		"RED_FONT_COLOR_CODE", "FONT_COLOR_CODE_CLOSE",
+	}) do
+		local v = _G[n]
+		if v == nil then
+			add("   --   " .. n)
+		else
+			-- Printed with the bar escaped, or the report shows a colour
+			-- instead of the value being reported.
+			add("   OK   " .. n .. " = " .. tostring(v):gsub("|", "||"))
+		end
+	end
+	add("")
+
+	-- The quest log API the tooltip matcher reads titles from.
+	add("   Quest log API the tooltip matcher depends on:")
+	for _, n in ipairs({
+		"GetNumQuestLogEntries", "GetQuestLogTitle", "GetQuestLogIndexByID",
+		"C_QuestLog",
+	}) do probe(n) end
+end
+
 local function collect()
 	wipe(lines)
 
@@ -2064,6 +2188,7 @@ local function collect()
 	if ACTIVE.g19  then sectionInstantQuestText() end
 	if ACTIVE.g20  then sectionDefaultsAndApply() end
 	if ACTIVE.g21  then sectionBlizzardTooltips() end
+	if ACTIVE.g22  then sectionQuestFrameAndTooltip() end
 
 	-- Any full method dumps collected via "/unrecon methods <global>" get
 	-- folded in here so they travel inside the readable report rather than

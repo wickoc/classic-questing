@@ -97,6 +97,8 @@ only when this client lacks something the AddOn expected, so most players never 
 | `WARN.MM_SET` | The tracking entry would not change | `could not change quest POI tracking; skipping minimap markers.` |
 | `WARN.MM_REFUSED` | It changed back by itself | `quest POI tracking would not turn off; skipping minimap markers.` |
 | `WARN.MM_TOOLTIP` | The tracking button was not found | `tracking button not found; using chat notices instead of a tooltip.` |
+| `WARN.QUESTFRAME_MISSING` | The portrait frame was not found | `could not find the questgiver portrait on this client; skipping that option.` |
+| `WARN.TOOLTIP_MISSING` | `GameTooltip` is not hookable | `GameTooltip is not hookable here; skipping quest progress tooltips.` |
 | `WARN.BAGS_MISSING` | `ContainerFrame_Update` absent | `ContainerFrame_Update is not present on this client; skipping the bag quest highlight.` |
 | `WARN.OPTIONS_REGISTER` | The panel could not be added to Blizzard's settings | `could not add the panel to Blizzard's settings; /cq opens it as its own window instead.` |
 | `WARN.OPTIONS_REFRESH` | The panel failed to refresh | `could not refresh the panel: <error>` |
@@ -243,6 +245,24 @@ The **key** column is what the player types after `/cq on` and what appears in t
 | `OFF_autoQuestTracking` | `newly accepted quests are tracked automatically again` |
 | `LABEL_autoQuestTracking` | `automatic tracking of new quests` |
 
+### questGiverPortrait
+
+| ID | Text |
+| --- | --- |
+| `TITLE_questGiverPortrait` | `Hide the questgiver portrait` |
+| `DESC_questGiverPortrait` | `Removes the framed character box MoP puts beside quest text, both when a quest is offered and in the quest log. Classic showed the text and nothing else.` |
+| `ON_questGiverPortrait` | `questgiver portrait hidden` |
+| `OFF_questGiverPortrait` | `questgiver portrait shown again` |
+
+### questProgressTooltips
+
+| ID | Text |
+| --- | --- |
+| `TITLE_questProgressTooltips` | `Hide quest progress in tooltips` |
+| `DESC_questProgressTooltips` | `Mousing over a creature or object stops telling you which quest it belongs to and how many you still need. Classic expected you to remember what you were looking for.` |
+| `ON_questProgressTooltips` | `quest progress no longer appended to tooltips` |
+| `OFF_questProgressTooltips` | `quest progress shown in tooltips again` |
+
 ### mapCreaturePortraits
 
 | ID | Text |
@@ -313,23 +333,33 @@ and no others.
 
 ## 6. Colours
 
-Change a value here to change it everywhere that colour is used.
+There is now **one palette**, defined once in `Core.lua` as `ns.color`. Nothing else in the AddOn
+writes a colour code. Change a value there and it changes everywhere.
+
+**The yellows and whites are the game's own**, not values typed in by hand. The AddOn reads
+`NORMAL_FONT_COLOR_CODE`, `HIGHLIGHT_FONT_COLOR_CODE` and `GRAY_FONT_COLOR_CODE` from the client,
+so it uses exactly what Blizzard's own tooltips and option labels use and cannot drift away from
+them. The hex values below are the fallbacks, for a client that does not define those globals —
+and they are the same values those globals hold. `|cffffd100` was the right yellow; it is now
+sourced rather than assumed.
+
+| ID | Source | Value | Used for |
+| --- | --- | --- | --- |
+| `COLOR.BODY` | `NORMAL_FONT_COLOR_CODE` | `|cffffd100` | Tooltip body text. Blizzard's standard yellow. |
+| `COLOR.HIGHLIGHT` | `NORMAL_FONT_COLOR_CODE` | `|cffffd100` | Option keys, commands and Blizzard option names inside a sentence. |
+| `COLOR.TITLE` | `HIGHLIGHT_FONT_COLOR_CODE` | `|cffffffff` | Headings inside a tooltip, such as each preset name. |
+| `COLOR.MUTED` | `GRAY_FONT_COLOR_CODE` | `|cff808080` | The slash handle at the foot of a tooltip, and the version footer. |
+| `COLOR.CLOSE` | `FONT_COLOR_CODE_CLOSE` | `|r` | Ends a coloured run. |
+
+These four are the AddOn's own, and have no Blizzard equivalent to inherit:
 
 | ID | Value | Used for |
 | --- | --- | --- |
 | `COLOR.BRAND` | `|cff66ccff` — light blue | The chat prefix, tooltip headers that are ours, `Managed by`. Chosen to stand clear of Blizzard's white body text and yellow highlights. |
-| `COLOR.HIGHLIGHT` | `|cffffd100` — Blizzard gold | Option keys, commands and Blizzard option names inside a sentence. This is the game's own highlight colour. |
-| `COLOR.BODY` | `|cffffd100` — Blizzard gold | Tooltip body text. Same value as `COLOR.HIGHLIGHT`; it is what Blizzard's own tooltips use for a body line. |
-| `COLOR.TITLE` | `|cffffffff` — white | Headings inside a tooltip, such as each preset name. |
-| `COLOR.MUTED` | `|cff808080` — grey | The slash handle at the foot of a tooltip, and the version footer. |
-| `COLOR.EXPERIMENTAL` | `|cffff8019` — orange | The `Experimental` heading, the experimental note, and known-limitation lines. |
+| `COLOR.EXPERIMENTAL` | `|cffff8019` — orange | The `Experimental` heading, the experimental note, and known-limitation lines. **This is now the only orange.** The second one (`ff8800`, in `/cq status`) is gone. |
 | `COLOR.WARNING` | `|cffff9955` — pale orange | Warning messages in chat. |
-| `COLOR.ON` | `|cff55ff55` — green | The word `on` in `/cq status`. |
-| `COLOR.OFF` | `|cffff5555` — red | The word `off` in `/cq status`. |
+| `COLOR.ON` / `COLOR.OFF` | `|cff55ff55` / `|cffff5555` | The words `on` and `off` in `/cq status`. |
 
-Two colours are currently near-duplicates and worth a decision:
-
-- `COLOR.EXPERIMENTAL` (`ff8019`) and one older orange still used by `/cq status` for the
-  `(experimental)` tag (`ff8800`). **These should be one colour.** Say which and I will unify.
-- `COLOR.HIGHLIGHT` and `COLOR.BODY` are the same value used for two purposes. Fine as it stands,
-  but if you want tooltip bodies to differ from inline highlights, they need splitting first.
+`COLOR.HIGHLIGHT` and `COLOR.BODY` are deliberately the same value doing two jobs — that is what
+Blizzard does. They are separate entries so that if you ever want tooltip bodies to differ from
+inline highlights, the split is one line rather than a search-and-replace.

@@ -1,16 +1,34 @@
 -- Classic Questing (MoP) -- Options
 --
--- The settings panel, styled to sit alongside Blizzard's own: white headings,
--- yellow option labels, descriptions in hover tooltips rather than on the page.
+-- The settings panel. Two implementations, one preferred.
 --
--- Deliberately built as a CANVAS layout with hand-made controls rather than
--- through Settings.RegisterAddOnSetting / Settings.CreateCheckbox. Recon
--- confirmed those functions exist, but not their signatures, and this client
--- has already punished several confident guesses. RegisterCanvasLayoutCategory
--- only needs a frame, which is verifiable. If even that fails, the same frame
--- is shown as a standalone window instead, so /cq always opens something.
+-- WHAT SHIPS is Blizzard's own: a vertical layout category built through
+-- Settings.RegisterAddOnSetting, with real checkboxes, the real dropdown, and
+-- Blizzard's own Apply and Defaults buttons. The signature that makes it
+-- possible was settled by readback rather than guesswork -- see SPEC.md G13c.
+--
+-- THE FALLBACK is the original hand-built canvas panel, further down this
+-- file. If any step of registerNative() fails, it takes over unchanged, so the
+-- worst case is the panel that shipped before rather than no panel. If even
+-- RegisterCanvasLayoutCategory fails, the same frame is shown as a standalone
+-- window, so /cq always opens something.
 
 local ADDON_NAME, ns = ...
+
+-- Colours, from the one palette in Core.lua.
+--
+-- Declared HERE, at the top, and not beside the code that uses them most.
+-- Lua 5.1 resolves a local that is declared later in the file as a nil
+-- global, silently -- so a palette defined halfway down left the canvas
+-- panel's tooltips concatenating nil and failing inside a pcall. Third time
+-- this trap has been sprung on this project. The yellow is the game's
+-- own NORMAL_FONT_COLOR_CODE, not a value typed in here, so it cannot drift
+-- away from what Blizzard's own tooltips use.
+local C      = ns.color
+local WHITE  = C.title
+local YELLOW = C.body
+local ORANGE = C.experimental
+local GREY   = C.muted
 
 local panel
 local rows = {}
@@ -503,10 +521,14 @@ local function build()
 	local function presetBody()
 		-- Leading break so the first white heading does not sit against the
 		-- white tooltip title.
-		return "\n|cffffffffFull Classic experience:|r Every option on, except experimental ones.\n\n"
-			.. "|cffffffffDisabled:|r Every option off, the game as Blizzard ships it.\n\n"
-			.. "|cffffffffCustom:|r Your own mix. It cannot be selected; it is chosen "
-			.. "automatically as soon as you change any option below."
+		-- Same text as the native panel's version, which is the one most
+		-- players see. It drifted once; both now read from the same wording.
+		return "\n" .. WHITE .. "Full Classic experience:" .. C.close
+			.. " Every normal option on. Experimental ones are left exactly as you set them.\n\n"
+			.. WHITE .. "Custom:" .. C.close
+			.. " Your own mix. It cannot be selected; it is chosen automatically as soon as you change any option below.\n\n"
+			.. WHITE .. "Disabled:" .. C.close
+			.. " Every option off, experimental ones included: the game as Blizzard ships it."
 	end
 	attachTooltip(value, function() return "Preset" end, presetBody)
 	if left then attachTooltip(left, function() return "Preset" end, presetBody) end
@@ -519,7 +541,8 @@ local function build()
 	-- Option rows
 	---------------------------------------------------------------
 
-	local GROUP_COLOR = { ["Experimental"] = { 1, 0.5, 0.1 } }
+	-- The same orange as the tooltips, as RGB rather than an escape.
+	local GROUP_COLOR = { ["Experimental"] = { 1, 0.502, 0.098 } }
 
 	local y = -110
 	local lastGroup
@@ -571,12 +594,14 @@ local function build()
 			local function body()
 				local text = m.desc or ""
 				if m.experimental then
-					text = text .. "\n\n|cffff8019Experimental: not part of the Full Classic experience, which leaves it exactly as you set it. Switch it on by hand.|r"
+					text = text .. "\n\n" .. ORANGE
+						.. "Experimental: not part of the Full Classic experience, which leaves it exactly as you set it. Switch it on by hand."
+						.. C.close
 				end
 				-- Tooltip lines cannot be resized -- AddLine has no font
 				-- argument and the body font is Blizzard-wide -- so the slash
 				-- handle is set apart by colour instead.
-				return text .. "\n\n|cff808080/" .. m.key .. "|r"
+				return text .. "\n\n" .. GREY .. "/" .. m.key .. C.close
 			end
 			attachTooltip(row, function() return m.title or m.key end, body)
 			attachTooltip(cb, function() return m.title or m.key end, body)
@@ -665,17 +690,6 @@ local refreshing = false
 -- is needed, which is the only answer that cannot go stale.
 local presetProxy = { preset = "classic" }
 
--- Tooltip colours. These are the canvas panel's, unchanged.
---
--- Moving to native controls I repainted the body white, which was an unforced
--- change and wrong: the canvas panel drew bodies with AddLine(text, 1, 0.82, 0)
--- -- Blizzard's yellow -- and only used white for the headings inside the
--- preset tooltip. Nothing about native controls required that to change, so it
--- is back to yellow bodies and white headings.
-local WHITE  = "|cffffffff"
-local YELLOW = "|cffffd100"   -- 1, 0.82, 0: the colour AddLine was giving them
-local ORANGE = "|cffff8019"
-local GREY   = "|cff808080"
 
 local function varType(which)
 	local t = Settings and Settings.VarType
@@ -874,7 +888,7 @@ end
 -- reachable through SettingsPanel.categoryLayouts: each layout carries
 -- initializers, each initializer has GetSetting() and a data table, and [G17]
 -- showed the tooltip string lives at data.tooltip.
-local ANNOTATION = "|cff66ccffManaged by " .. ns.title .. ".|r"
+local ANNOTATION = C.brand .. "Managed by " .. ns.title .. "." .. C.close
 local annotated = {}
 
 function ns.AnnotateBlizzardOptions()

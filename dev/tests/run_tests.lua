@@ -1271,5 +1271,134 @@ if scenario == "native" then
 	ns:ResetDefaults(true)
 end
 
+if scenario == "normal" then
+	-- ---- the questgiver portrait ----
+	--
+	-- The framed character box beside quest text, in the offer window and in
+	-- the quest log. It comes back every time a quest is opened, so a one-shot
+	-- hide at login would pass a naive test and fail in play.
+	check("portrait module exists", ns.modules.questGiverPortrait ~= nil)
+	ns:ResetDefaults(true)
+	check("it is on by default", ns.db.settings.questGiverPortrait == true)
+
+	QuestFrame_ShowQuestPortrait()
+	check("the portrait is hidden when a quest is offered", QuestNPCModel:IsShown() == false)
+	QuestFrame_ShowQuestPortrait()
+	QuestFrame_ShowQuestPortrait()
+	check("and stays hidden on later quests", QuestNPCModel:IsShown() == false)
+	check("Status names the frame it found",
+		ns.modules.questGiverPortrait:Status():find("QuestNPCModel", 1, true) ~= nil,
+		ns.modules.questGiverPortrait:Status())
+
+	ns:Set("questGiverPortrait", false)
+	QuestFrame_ShowQuestPortrait()
+	check("turning it off shows the portrait again", QuestNPCModel:IsShown() == true)
+	ns:Set("questGiverPortrait", true)
+
+	-- ---- quest progress in tooltips ----
+	--
+	-- The rule under test is the one from six captured tooltips (G12): line 1
+	-- is never touched; a gold line whose text matches an ACTIVE QUEST is the
+	-- header; the objective lines under it follow.
+	check("tooltip module exists", ns.modules.questProgressTooltips ~= nil)
+	check("it is on by default", ns.db.settings.questProgressTooltips == true)
+
+	local GOLD = { r = 1.00, g = 0.82, b = 0.00 }
+	local WHITE = { r = 1, g = 1, b = 1 }
+
+	local function line(text, c) return { text = text, r = c.r, g = c.g, b = c.b } end
+
+	-- Sample 1: the quest block sits at lines 3 and 4.
+	_G.__setTooltip({
+		line("Stonetusk Boar", { r = 0.90, g = 0.70, b = 0.00 }),
+		line("Level 6 Beast", WHITE),
+		line("Pie for Billy", GOLD),
+		line(" - Tender Boar Meat: 0/4", WHITE),
+	})
+	_G.__showTooltip()
+	local out = _G.__tooltipText()
+	check("the unit name survives", out[1] == "Stonetusk Boar", tostring(out[1]))
+	check("the level line survives", out[2] == "Level 6 Beast", tostring(out[2]))
+	check("the quest title goes", out[3] == "", tostring(out[3]))
+	check("the objective goes", out[4] == "", tostring(out[4]))
+
+	-- Sample 2: a gathering node's NAME is the same gold as a quest title.
+	-- This is the case that a colour-only rule eats by mistake.
+	_G.__setTooltip({
+		line("Silverleaf", GOLD),
+		line("Herbalism", { r = 1, g = 1, b = 0 }),
+	})
+	_G.__showTooltip()
+	out = _G.__tooltipText()
+	check("a gold node name on line 1 is never touched", out[1] == "Silverleaf", tostring(out[1]))
+	check("and its profession line survives", out[2] == "Herbalism", tostring(out[2]))
+
+	-- Sample 3: the same quest, one line further down. A fixed index fails here.
+	_G.__setTooltip({
+		line("Stonetusk Boar", { r = 0.90, g = 0.70, b = 0.00 }),
+		line("Level 5 Corpse", WHITE),
+		line("Skinnable", { r = 1, g = 1, b = 0 }),
+		line("Pie for Billy", GOLD),
+		line(" - Tender Boar Meat: 0/4", WHITE),
+	})
+	_G.__showTooltip()
+	out = _G.__tooltipText()
+	check("Skinnable survives", out[3] == "Skinnable", tostring(out[3]))
+	check("the quest title goes wherever it sits", out[4] == "", tostring(out[4]))
+	check("as does its objective", out[5] == "", tostring(out[5]))
+
+	-- A gold line that is NOT in the quest log must survive even below line 1.
+	_G.__setTooltip({
+		line("Some Mob", WHITE),
+		line("Not A Quest I Have", GOLD),
+		line(" - Something: 0/1", WHITE),
+	})
+	_G.__showTooltip()
+	out = _G.__tooltipText()
+	check("a gold line that is not an active quest survives",
+		out[2] == "Not A Quest I Have", tostring(out[2]))
+	check("and so does the line under it", out[3] == " - Something: 0/1", tostring(out[3]))
+
+	-- A quest-log HEADER is a zone name, not a quest, and must not match.
+	_G.__setQuestLog({
+		{ title = "Elwynn Forest", isHeader = true },
+		{ title = "Pie for Billy", isHeader = false },
+	})
+	_G.__setTooltip({
+		line("Some Mob", WHITE),
+		line("Elwynn Forest", GOLD),
+	})
+	_G.__showTooltip()
+	out = _G.__tooltipText()
+	check("a quest log zone header is not treated as a quest",
+		out[2] == "Elwynn Forest", tostring(out[2]))
+
+	-- Turned off, the tooltip is Blizzard's again.
+	ns:Set("questProgressTooltips", false)
+	_G.__setTooltip({
+		line("Stonetusk Boar", { r = 0.90, g = 0.70, b = 0.00 }),
+		line("Pie for Billy", GOLD),
+		line(" - Tender Boar Meat: 0/4", WHITE),
+	})
+	_G.__showTooltip()
+	out = _G.__tooltipText()
+	check("turning it off leaves the quest block alone",
+		out[2] == "Pie for Billy" and out[3] == " - Tender Boar Meat: 0/4",
+		tostring(out[2]) .. " / " .. tostring(out[3]))
+
+	ns:ResetDefaults(true)
+
+	-- ---- one palette ----
+	--
+	-- Every colour in the AddOn comes from ns.color, and the yellows and
+	-- whites come from the GAME's own codes where it defines them.
+	check("the palette prefers Blizzard's own yellow",
+		ns.color.body == NORMAL_FONT_COLOR_CODE, ns.color.body)
+	check("and Blizzard's own white", ns.color.title == HIGHLIGHT_FONT_COLOR_CODE)
+	check("and Blizzard's own grey", ns.color.muted == GRAY_FONT_COLOR_CODE)
+	check("there is exactly one orange",
+		ns.color.experimental == "|cffff8019", ns.color.experimental)
+end
+
 print(string.format("--- %s: %d passed, %d failed ---", scenario, pass, fail))
 os.exit(fail == 0 and 0 or 1)

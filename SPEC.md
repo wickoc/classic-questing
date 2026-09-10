@@ -48,6 +48,8 @@ Tiers have stopped being useful. Work has landed across all three, so "Tier 3" n
 | Tracker quest titles made plain text (no click-to-track, no context menu) | `trackerClickToTrack` | v0.12.0 |
 | Tracker quest item use buttons | `trackerItemButtons` | v0.12.0 |
 | Instant Quest Text, so quest text types out | `questTextTypesOut` | v0.13.0 |
+| The framed questgiver portrait beside quest text | `questGiverPortrait` | v0.16.0 |
+| Quest progress appended to tooltips | `questProgressTooltips` | v0.16.0 |
 | Yellow quest-item highlight in bags | `bagQuestHighlight` | v0.13.0 |
 
 Plus the options panel itself: Blizzard's own vertical layout, real checkboxes, the real
@@ -71,9 +73,12 @@ Nothing. The next probe section goes with the next question.
   edited `ObjectIconsAtlas.blp`. Workflow written up in `dev/BLIP-TEXTURE-WORKFLOW.md`.
 - **Turn-in markers: `?` versus the gold bullet.** The minimap shows both for nearby turn-ins.
   Close enough to Classic to leave alone by default; offer a purist toggle for gold-bullet-only.
-- **Quest progress tooltip on mouseover.** The matching rule is already settled (see G12): skip
-  line 1; a gold `1.00,0.82,0.00` line whose text equals an active quest title is the header;
-  following lines matching `^%s*%-%s.+:%s*%d+/%d+%s*$` are objectives. Nothing built.
+- **A wiki of what this client actually exposes.** Twenty-two probe sections have established a
+  large amount about a client nobody has documented: which globals exist, which CVars are real,
+  what `Settings.RegisterAddOnSetting` wants, where Blizzard's own settings can be read from.
+  It lives as raw logs plus this file. Turning it into a reference — for this project, so nothing
+  has to be re-probed, and for anyone else writing for MoP Classic — is worth doing. Not yet;
+  the logs stay as they are until then.
 
 ### Dropped
 
@@ -878,6 +883,66 @@ to `dev/tests/` with a `run.sh`, and the harness's hardcoded absolute path made 
   the reason a client that refuses the Settings API still gets a working panel.
 - **`local ADDON_NAME, ns = ...`** in files that never use the first value. It is the standard
   idiom and the name documents what the slot holds.
+
+## v0.16.0 — two features, and a trap sprung for the third time
+
+### The questgiver portrait
+
+MoP frames a character box beside quest text, in the offer window and again in the quest log.
+Shipped as `questGiverPortrait`.
+
+**This is the first feature in this project built on names that have not been probed on this
+client**, which is a departure worth flagging rather than hiding. Three candidate frame names and
+two candidate show-functions are tried, the first that exists is used, and `Status()` reports what
+was actually found — so a wrong guess disables the option loudly instead of erroring. `[G22]`
+settles it in the same build.
+
+### Quest progress in tooltips — built at last
+
+Not lost: **never built.** The matching rule was settled in G12 and then sat in the backlog while
+the options panel took over. It is built now, and the rule is exactly the one the six captured
+tooltips produced:
+
+1. Never touch line 1; it is always the name.
+2. From line 2 on, a gold `1.00, 0.82, 0.00` line **whose text matches an active quest in the
+   log** is the quest header.
+3. Lines under it matching `^%s*%-%s.+:%s*%d+/%d+%s*$` are its objectives.
+
+The quest-log match is what stops a gathering node called *Silverleaf* — gold, on line 1 — being
+eaten, and the tests carry all three captured samples plus a zone header, which is gold and in
+the quest log but is not a quest.
+
+`[G22]` also asks whether Blizzard registers a **setting** for this, the way it turned out to for
+`instantQuestText`. Blanking tooltip lines works but is surgery; a switch would be better.
+
+### One palette
+
+Every colour now comes from `ns.color` in `Core.lua`, and nothing else in the AddOn writes a
+colour code. Two changes of substance:
+
+- **One orange.** There were two near-identical ones; `ff8019` survives and `ff8800` is gone.
+- **The yellows and whites are the game's own.** `NORMAL_FONT_COLOR_CODE`,
+  `HIGHLIGHT_FONT_COLOR_CODE` and `GRAY_FONT_COLOR_CODE` are read from the client rather than
+  typed in. `|cffffd100` was the right yellow all along — it is now sourced rather than assumed,
+  so it cannot drift from what Blizzard's own tooltips use.
+
+### The forward-reference trap, third time
+
+Declaring the palette next to the code that uses it most put it **halfway down** `Options.lua` —
+after the canvas panel that also needs it. Lua 5.1 resolves a local declared later in the file as
+a nil global, silently, so the canvas panel's tooltips concatenated nil and failed inside a
+`pcall`. Invisible in game; caught by the suite.
+
+**Standing rule, since this keeps happening: file-level locals go at the top of the file, not
+beside their heaviest user.** Previous victims were `notice()` in `Minimap.lua` and
+`refreshMapNow`/`hookWorldMap` in `Options.lua`.
+
+### And a harness fault worth recording
+
+The test harness guarded against the v0.12.0 freeze with a **running total** of
+`SetApplyButtonEnabled` calls. Once there were enough modules, ordinary use crossed the limit and
+the harness reported a recursion that was not happening. It counts **depth** now, which is what
+the real fault looked like. A guard that measures the wrong quantity eventually lies.
 
 ## Safety rules — non-negotiable
 
