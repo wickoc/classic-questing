@@ -84,9 +84,16 @@ local ACTIVE = {
 	g22 = false, -- ANSWERED v0.22: QuestModelScene is the portrait frame, and
 	             --   there is no CVar for quest tooltips
 
+	g23 = false, -- ANSWERED v0.24: nine initializer globals and none of them
+	             --   is a description; the header's second argument DOES land
+	             --   in data.tooltip; a checkbox initializer has no
+	             --   SetTooltipFunc, and label and tooltip title share
+	             --   data.name
+
 	-- Still open.
-	g23 = true, -- is there a DESCRIPTION element for the settings list, or is
-	            --   a section header the only text element there is?
+	g24 = true, -- one candidate left for description text:
+	            --   CreateSettingsAddOnDisabledLabelInitializer. What template
+	            --   does it render, and will it take arbitrary text?
 }
 
 
@@ -2098,6 +2105,72 @@ local function sectionListDescription()
 	end
 end
 
+-- [G24] One loose end from [G23]. Of the nine initializer globals this client
+-- has, eight are controls or headings -- but one is a LABEL:
+-- CreateSettingsAddOnDisabledLabelInitializer. Blizzard uses it to say an
+-- AddOn is switched off, which means it renders a sentence rather than a
+-- heading, which is exactly the shape the Experimental note needs.
+--
+-- Nothing assumed. This calls it with a string and with no argument at all,
+-- dumps whatever comes back, and reads GetTemplate() off it -- the same route
+-- that identified SettingsListSectionHeaderTemplate. If it takes arbitrary
+-- text, the note stops being a tooltip. If it ignores what it is given, the
+-- tooltip is the final answer and this line of enquiry closes.
+local function sectionDescriptionLabel()
+	head("[G24] CreateSettingsAddOnDisabledLabelInitializer as description text")
+
+	local fn = _G.CreateSettingsAddOnDisabledLabelInitializer
+	if type(fn) ~= "function" then
+		add("   absent. [G23] listed it, so this is a contradiction worth knowing.")
+		return
+	end
+
+	for _, args in ipairs({
+		{ label = "with a string", value = "PROBE DESCRIPTION TEXT" },
+		{ label = "with nothing",  value = nil },
+	}) do
+		local ok, init = pcall(fn, args.value)
+		if not ok or type(init) ~= "table" then
+			add("   " .. args.label .. ": could not build one -- " ..
+				tostring(init):sub(1, 80))
+		else
+			add("   " .. args.label .. ":")
+			if type(init.GetTemplate) == "function" then
+				local okt, tmpl = pcall(init.GetTemplate, init)
+				add("      GetTemplate() -> " .. (okt and tostring(tmpl) or "error"))
+			end
+			add("      frameTemplate -> " .. tostring(rawget(init, "frameTemplate")))
+			local d = rawget(init, "data")
+			if type(d) == "table" then
+				dumpTable(d, "      .data", 20)
+				-- Did the string survive into the data at all? If it did not,
+				-- this element draws its own text and cannot be borrowed.
+				local found = false
+				for k, v in pairs(d) do
+					if type(v) == "string" and v:find("PROBE DESCRIPTION", 1, true) then
+						add("      the text landed in .data." .. tostring(k))
+						found = true
+					end
+				end
+				if args.value and not found then
+					add("      the text did NOT land anywhere in .data.")
+				end
+			else
+				add("      no .data table.")
+			end
+		end
+	end
+
+	-- And the generic route, for completeness: if an element initializer can
+	-- be built against an arbitrary template, the header template's siblings
+	-- become reachable by name.
+	if type(Settings) == "table" and type(Settings.CreateElementInitializer) == "function" then
+		add("   Settings.CreateElementInitializer exists.")
+	else
+		add("   Settings.CreateElementInitializer missing.")
+	end
+end
+
 local function sectionQuestFrameAndTooltip()
 	head("[G22] Questgiver portrait, and a switch for quest tooltips")
 
@@ -2305,6 +2378,7 @@ local function collect()
 	if ACTIVE.g21  then sectionBlizzardTooltips() end
 	if ACTIVE.g22  then sectionQuestFrameAndTooltip() end
 	if ACTIVE.g23  then sectionListDescription()   end
+	if ACTIVE.g24  then sectionDescriptionLabel()  end
 
 	-- Any full method dumps collected via "/unrecon methods <global>" get
 	-- folded in here so they travel inside the readable report rather than

@@ -69,7 +69,7 @@ STRINGS.md              every player-visible string, labelled. A RECORD of what 
 README.md               the public front page
 dev/README.md           what the probe is, why old logs are kept, how to run the tests
 dev/UnmarkedRecon/      the probe AddOn. Dev-only, never folded into Vanilla Questing.
-                        Sections G1..G23, switched on and off by the ACTIVE table.
+                        Sections G1..G24, switched on and off by the ACTIVE table.
 dev/recon-log-*.txt     raw probe output. Every conclusion in SPEC.md is evidence from one.
                         Kept, never pruned: a later run switches settled sections off, so an
                         earlier log is often the only remaining record of an answer.
@@ -161,16 +161,19 @@ the **Releases → Draft a new release** page on GitHub, which creates the tag i
   `WatchFrameItem<N>`, `WatchFrameAutoQuest_*`.
 - **`QuestModelScene`** is the questgiver portrait frame. `QuestNPCModel` is only a region prefix.
 - **`Settings.RegisterVerticalLayoutCategory` returns `category, layout`** — two values.
-- **`CreateSettingsListSectionHeaderInitializer(name[, tooltip])`** is a plain global. `[G17]`
-  found `data.tooltip` nil when only a name is passed; whether a second argument lands there has
-  never been confirmed. It is also the **only text element in the settings list any probe has
-  found**, and it is *not* usable as description text — tried, and it reads as a second heading.
-  `[G23]` is open on whether a real description element exists.
-- **The native panel draws a checkbox's label and its tooltip title from one string.** Colouring
-  the registered setting name colours both. To mark one without the other, the AddOn must own the
-  tooltip (`SetTooltipFunc`, existence unconfirmed — also `[G23]`).
+- **`CreateSettingsListSectionHeaderInitializer(name[, tooltip])`** is a plain global; the second
+  argument **does** land in `data.tooltip` (`[G23]`), and `GetTemplate()` is
+  `SettingsListSectionHeaderTemplate`.
+- **There is no description element in this client's settings list.** `[G23]` enumerated all nine
+  `CreateSettings*` globals; eight are controls, one is a heading. Text that needs to sit under a
+  heading goes on the heading's tooltip. (`[G24]` checks the last candidate,
+  `CreateSettingsAddOnDisabledLabelInitializer`.)
+- **A checkbox's label and its tooltip title both come from `data.name`, and there is no
+  `SetTooltipFunc`** (`[G23b]`). One string, one colour — so an option's name cannot be coloured
+  in the native panel without colouring its tooltip title too. Settled; do not retry.
 - **`HideUIPanel` / `ShowUIPanel` / `ToggleWorldMap` have never been probed.** Existence-check
-  them; `Frame:Hide`/`Show` are the certain fallback. Never show a UI panel in combat.
+  them; `Frame:Hide`/`Show` are the certain fallback. The world map is **not** protected on this
+  client and is cycled in combat deliberately — that is the one considered exception.
 - **`Outline` is not a boolean.** 1, 2 and 3 all mean on; only 0 is off. `2` is Blizzard's default.
 - **`C_Console.GetAllCommands` is absent**, so CVars cannot be enumerated. Blizzard's settings
   registry (`SettingsPanel.categoryLayouts` → `initializers` → `init:GetSetting()`) is the

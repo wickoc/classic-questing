@@ -433,6 +433,9 @@ if scenario == "normal" or scenario == "no_settings" or scenario == "settings_re
 		check("turning the world map helper off redraws the map's quest pane",
 			_G.__questPaneUpdates > q0, _G.__questPaneUpdates .. " vs " .. q0)
 
+		-- The cycle above leaves the map closed, so it has to be reopened
+		-- before the other direction can be checked on an open map.
+		_G.openWorldMap()
 		local q1 = _G.__questPaneUpdates
 		pcall(SlashCmdList["VANILLAQUESTING"], "on hideMapQuestHelper")
 		check("and turning it back on redraws it too",
@@ -453,44 +456,49 @@ if scenario == "normal" or scenario == "no_settings" or scenario == "settings_re
 
 		-- Cycling the map. Asking the tracker to redraw was NOT enough: in
 		-- play the on-screen quest helper only picks a questPOI change up when
-		-- the map pane closes and opens again.
+		-- the map pane closes and opens again -- and the map has to end up
+		-- CLOSED, which is what the sequence is asserted on rather than a
+		-- count of cycles.
+		local function ops() return table.concat(_G.__mapOps, ",") end
+
 		ns.db.state.questPOI = "1"
 		SetCVar("questPOI", "0")
 		_G.openWorldMap()
-		local c0 = _G.__mapCycles
+		_G.__clearMapOps()
 		pcall(SlashCmdList["VANILLAQUESTING"], "off hideMapQuestHelper")
-		check("changing the world map helper closes and reopens the map pane",
-			_G.__mapCycles == c0 + 1, _G.__mapCycles .. " vs " .. c0)
-		check("and the map is left open afterwards", WorldMapFrame:IsShown())
+		check("an open map is closed, reopened and closed again",
+			ops() == "hide,show,hide", ops())
+		check("and the map ends closed", not WorldMapFrame:IsShown())
 
-		-- An option the map does not read must not jolt it.
-		local c1 = _G.__mapCycles
-		pcall(SlashCmdList["VANILLAQUESTING"], "off hideTooltipsQuestProgress")
-		check("an unrelated option does not cycle the map",
-			_G.__mapCycles == c1, _G.__mapCycles .. " vs " .. c1)
-
-		-- Closed map, nothing to cycle.
+		-- A shut map is opened for an instant and shut again: half a round
+		-- trip does not refresh the helper, so there is no shortcut here.
 		_G.closeWorldMap()
-		local c2 = _G.__mapCycles
+		_G.__clearMapOps()
 		SetCVar("questPOI", "1")
 		pcall(SlashCmdList["VANILLAQUESTING"], "on hideMapQuestHelper")
-		check("a closed map is not opened by a change",
-			_G.__mapCycles == c2 and not WorldMapFrame:IsShown(),
-			_G.__mapCycles .. " vs " .. c2)
+		check("a shut map is opened and closed again", ops() == "show,hide", ops())
+		check("and it ends closed too", not WorldMapFrame:IsShown())
 
-		-- Safety rule 1: never show a UI panel in combat.
+		-- An option the map does not read must not touch it at all.
 		ns.db.state.questPOI = "1"
+		_G.openWorldMap()
+		_G.__clearMapOps()
+		pcall(SlashCmdList["VANILLAQUESTING"], "off hideTooltipsQuestProgress")
+		check("an unrelated option does not touch the map", ops() == "", ops())
+		check("and leaves it open", WorldMapFrame:IsShown())
+
+		-- In combat too, at the author's request. The world map is not a
+		-- protected frame on this client, and a stale quest helper in combat
+		-- is exactly when it matters.
 		SetCVar("questPOI", "0")
 		_G.openWorldMap()
 		_G.__inCombat = true
-		local c3 = _G.__mapCycles
+		_G.__clearMapOps()
 		pcall(SlashCmdList["VANILLAQUESTING"], "off hideMapQuestHelper")
-		check("the map is not cycled in combat",
-			_G.__mapCycles == c3, _G.__mapCycles .. " vs " .. c3)
-		check("and the map is still open after a combat-time change",
-			WorldMapFrame:IsShown())
+		check("the map is cycled in combat as well",
+			ops() == "hide,show,hide", ops())
+		check("and still ends closed", not WorldMapFrame:IsShown())
 		_G.__inCombat = false
-		_G.closeWorldMap()
 
 		ns:ResetDefaults(true)
 	end
@@ -750,21 +758,17 @@ if scenario == "native" or scenario == "no_tooltipfunc" then
 			title and tostring(title.text):find("|cff", 1, true) == nil,
 			title and tostring(title.text) or "no title")
 
-		if scenario ~= "no_tooltipfunc" then
-			check("an experimental option's name is orange in the panel",
-				expBox and expBox.data.name:find("|cffff8019", 1, true) ~= nil,
-				expBox and expBox.data.name or "none")
-			check("a normal option's name is not",
-				normalBox and normalBox.data.name:find("|cffff8019", 1, true) == nil,
-				normalBox and normalBox.data.name or "none")
-		else
-			-- No SetTooltipFunc means no way to keep the title white while the
-			-- label is orange, so the AddOn takes neither. A plain label is a
-			-- cosmetic loss; an orange tooltip title is the reported bug.
-			check("without SetTooltipFunc the label stays plain rather than orange",
-				expBox and expBox.data.name:find("|cff", 1, true) == nil,
-				expBox and expBox.data.name or "none")
-		end
+		-- No colour on the label either, and that is settled rather than
+		-- pending. [G23] dumped a checkbox initializer's whole key set: the
+		-- label and the tooltip title both come from `data.name`, and there is
+		-- no SetTooltipFunc to take the tooltip over with. Orange in both or
+		-- neither, so neither -- an orange tooltip title is a defect and a
+		-- plain label is only a preference unmet.
+		check("no option's name is coloured in this panel",
+			(expBox and expBox.data.name:find("|cff", 1, true) == nil)
+				and (normalBox and normalBox.data.name:find("|cff", 1, true) == nil),
+			(expBox and expBox.data.name or "none") .. " / "
+				.. (normalBox and normalBox.data.name or "none"))
 	end
 	check("the Experimental heading is orange",
 		expHeader and expHeader:find("|cffff8019", 1, true) ~= nil, tostring(expHeader))

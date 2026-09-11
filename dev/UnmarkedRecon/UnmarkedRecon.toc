@@ -2,7 +2,7 @@
 ## Title: Unmarked Recon
 ## Notes: Throwaway probe. Reports which quest-helper UI globals exist on this client.
 ## Author: wickoc
-## Version: 0.24
+## Version: 0.25
 ## SavedVariables: UnmarkedReconDB
 
 Recon.lua

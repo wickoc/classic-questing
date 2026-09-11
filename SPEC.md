@@ -231,11 +231,11 @@ where it was still hidden behind a hover.
 title, which stays white. The thing that is experimental is the option, so the option is what
 carries the mark in the list you scan.
 
-In the native panel those two are **drawn from the same string**, which is how v1.0.0 turned the
-tooltip title orange along with the label. The registered setting name is therefore always plain,
-and the colour is applied to the initializer's own copy only once a tooltip the AddOn controls has
-been installed in place of the one that would inherit it. Either both or neither: a plain label is
-a cosmetic loss, an orange title is a defect.
+**In the native panel it is neither**, and `[G23b]` settles why: the checkbox label and the
+tooltip's first line are both drawn from `data.name`, and a checkbox initializer has no
+`SetTooltipFunc` to take the tooltip over with. Orange in both or neither, so neither — an orange
+title is a defect, a plain label is only a preference unmet. The name is registered plain and
+takes Blizzard's own yellow label and white title.
 
 **Shipped defaults are the Vanilla preset** — every non-experimental option on. That is what
 people install the AddOn for; neither "all off" nor a subset picked to the author's taste is a
@@ -962,15 +962,11 @@ It should be a line of description text — always visible, between the heading 
 checkbox, the shape Blizzard's own panels use where a heading needs a sentence. The **canvas
 panel** draws it as a small orange font string, which is exactly right.
 
-The **native panel** cannot, yet. Drawing it with `CreateSettingsListSectionHeaderInitializer` —
-the one text element this client is known to have — was tried, and it reads as a second heading,
-because that is what it is. So in that panel the note stays on the heading's **tooltip** until
-there is something better to draw it with.
-
-**`[G23]`** asks what that is: it enumerates every `CreateSettings*`/`SettingsList*` global that
-actually exists, lists the `SettingsList*` mixins, dumps a header initializer so its template name
-can be read off it, and dumps the layout's own methods. A negative result is an answer — it means
-the tooltip is the best this client offers and the AddOn stops looking.
+The **native panel** cannot. Drawing it with `CreateSettingsListSectionHeaderInitializer` — the
+one text element this client is known to have — was tried, and it reads as a second heading,
+because that is what it is. `[G23]` then enumerated every `CreateSettings*`/`SettingsList*` global
+that exists: nine, and **not one of them draws a paragraph**. So in that panel the note stays on
+the heading's tooltip. One candidate is left, `[G24]`; if it comes back negative this is final.
 
 #### Outline Mode says what it costs
 
@@ -1004,13 +1000,24 @@ rather than assumed.
 the change up when the **map pane is closed and opened again**. Asking the tracker to redraw is
 not the same as whatever the map does on its way out and back in, and nothing found so far reaches
 that any other way. So for `questPOI` — flagged `cyclesMap` on the rule, nothing else — the map is
-shut and reopened when it is already on screen.
+taken through a round trip, and **ends closed** either way:
+
+| Map was | What happens |
+| --- | --- |
+| open | close, open, close |
+| shut | open, close |
+
+A shut map is opened for an instant on purpose: half a round trip does not refresh the helper.
 
 `HideUIPanel` and `ShowUIPanel` have never been probed here, so they are existence-checked with
 the frame's own `Hide`/`Show` as the fallback; they are preferred because they keep the panel
-manager's idea of what is open in step. **Never in combat** — showing a UI panel then is how taint
-starts, and the cost of skipping is that the player reopens the map themselves, which is what they
-do today anyway.
+manager's idea of what is open in step.
+
+**In combat too**, at the author's request, and it is the one place this AddOn touches a UI panel
+during combat. A considered exception rather than an oversight: the world map is not a protected
+frame on this client, so there is nothing for the client to block, and a stale quest helper in
+combat is exactly when it matters. Every call is wrapped and a failure says so once, which is how
+a future build that did protect it would show up.
 
 Turning that on exposed a real defect next door: `Disable` restored its variable on **every**
 `ApplyAll`, whether or not the value had moved. Harmless while it was only a redundant write —
@@ -1747,28 +1754,70 @@ and watching it name the exact line. `run.sh` also compiles the probe now, which
 the probe never loads in the harness, so a syntax error in it would have reached the client before
 it reached the suite.
 
-#### G23 — a description element for the settings list? — OPEN
+#### G23 — a description element for the settings list? — ANSWERED, negative
 
-The Experimental heading needs a sentence under it, before the first checkbox. The canvas panel
-draws that as a small orange font string and it looks right. The native panel has to use
-`CreateSettingsListSectionHeaderInitializer`, because that is the only text element any probe has
-found here — so it renders in the heading font.
+**There is no description element on this client.** The probe walked `_G` for every function whose
+name starts `CreateSettings` or `SettingsList` and found nine. Eight are controls, one is a
+heading, and none of them draws a paragraph:
 
-`[G23]` settles whether that is a limit of the client or a limit of what has been looked for. It:
+```
+CreateSettingsAddOnDisabledLabelInitializer     CreateSettingsCheckboxWithColorSwatchInitializer
+CreateSettingsButtonInitializer                 CreateSettingsExpandableSectionInitializer
+CreateSettingsCheckboxDropdownInitializer       CreateSettingsListSearchCategoryInitializer
+CreateSettingsCheckboxSliderInitializer         CreateSettingsListSectionHeaderInitializer
+CreateSettingsCheckboxWithButtonInitializer
+```
 
-- walks `_G` for every function whose name starts `CreateSettings` or `SettingsList`, rather than
-  testing a list of names I expect — the difference between "not present" and "I guessed wrong";
-- lists every `SettingsList*` **mixin** table, since a description element would have one and the
-  mixin names carry the template names;
-- builds a header initializer with **both** arguments and dumps it, including `GetTemplate()` if
-  it has one, so the XML template a sibling element would use can be read off it;
-- dumps the layout object's methods filtered to `add`/`desc`/`text`/`header`/`init`.
+The mixins say the same: `SettingsListElementInitializer`, `SettingsListElementMixin`,
+`SettingsListMixin`, `SettingsListPanelInitializer`, `SettingsListSearchCategoryMixin`,
+`SettingsListSectionHeaderMixin`. No description, no label mixin.
 
-A negative result is an answer: it means the heading font is the best this client offers, and the
-AddOn stops looking.
+So **the Experimental note stays on the heading's tooltip** in the native panel. The canvas panel,
+which builds its own font strings, keeps the real description line.
 
-It also reports whether the initializer's **second argument** lands in `data.tooltip`. `[G17]`
-established that a header built from a name alone leaves that field nil; whether passing one sets
-it has never been checked, and the v1.0.0 heading tooltip was built on the assumption that it
-does. That assumption is now retired — the note is description text — but the answer is worth
-having recorded.
+One candidate survives and is `[G24]`: `CreateSettingsAddOnDisabledLabelInitializer` is a *label*,
+not a heading or a control — Blizzard uses it to say an AddOn is switched off, so it draws a
+sentence. Whether it will draw an arbitrary one is the last question before this closes for good.
+
+#### G23b — the orange option name is not reachable, and that is final
+
+The same run dumped a checkbox initializer's whole key set — 41 keys — and it settles the other
+half of the question:
+
+- `data` holds **`name`, `options`, `setting`, `tooltip`**. The checkbox label and the tooltip's
+  first line are both drawn from `data.name`. One string, one colour: colour it and both go
+  orange, which is exactly what v1.0.0 shipped.
+- There is **no `SetTooltipFunc`**. `GetTooltip` is there; nothing sets one. So the tooltip cannot
+  be taken over, and there is no way to keep the title white while the label is orange.
+
+Orange in both or neither, so **neither**. An orange tooltip title is a defect; a plain label is a
+preference unmet. The name is registered plain and takes Blizzard's own colours — a yellow label
+and a white title, which is what the panel is supposed to look like. The mark still reaches the
+player twice: `/vq status` colours the name, and the tooltip body carries the experimental note in
+orange.
+
+The `markExperimental` machinery written against the hope of `SetTooltipFunc` is removed rather
+than left dead.
+
+#### G17, closed properly
+
+The header's **second argument does land in `data.tooltip`** — the probe passed `PROBETIP` and
+read it straight back. `[G17]` had only established that the field is nil when a name alone is
+passed, which is a different thing and had been standing in for this answer. The heading tooltip
+the Experimental note rides on is therefore doing what it is supposed to, not working by accident.
+
+`GetTemplate()` on a header returns **`SettingsListSectionHeaderTemplate`**, which is what makes
+the negative above conclusive: the template is a heading, and there is no sibling of it to use.
+
+### v0.25 probe
+
+#### G24 — one candidate left for description text — OPEN
+
+`CreateSettingsAddOnDisabledLabelInitializer` is the only one of the nine that is a **label**
+rather than a heading or a control. Blizzard uses it to say an AddOn is switched off, which means
+it draws a sentence. Whether it will draw an arbitrary one is the question.
+
+The probe calls it with a string and with nothing, dumps what comes back, reads `GetTemplate()`
+off it — the route that identified `SettingsListSectionHeaderTemplate` — and checks whether the
+string landed anywhere in `.data` at all. If it did not, the element draws its own text and cannot
+be borrowed, and the Experimental note stays a tooltip for good.

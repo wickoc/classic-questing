@@ -118,7 +118,7 @@ only when this client lacks something the AddOn expected, so most players never 
 | `PANEL.CATEGORY` | Blizzard's AddOn list | `<AddOn name>` | Same variable as `ID.NAME`. |
 | `PANEL.VERSION` | Grey heading at the foot of the list | `v<version>` in `COLOR.MUTED` | Read from the `.toc`, never typed. |
 | `PANEL.SECTION_EXPERIMENTAL` | Heading above the experimental options | `Experimental` in `COLOR.EXPERIMENTAL` | |
-| `PANEL.OPTION_NAME` | Each checkbox label | `TITLE_*` from section 5, in `COLOR.EXPERIMENTAL` where the option is experimental, otherwise the panel's own colour | The **name** carries the mark, never the tooltip title — that stays white. In the native panel both are drawn from one string, so the orange is applied only once a tooltip the AddOn controls is in place; where that is not possible the label stays plain rather than the title turning orange. |
+| `PANEL.OPTION_NAME` | Each checkbox label | `TITLE_*` from section 5. Orange (`COLOR.EXPERIMENTAL`) for an experimental option in the **canvas** panel only | The native panel draws the label and the tooltip title from one string and offers no way to separate them (`[G23b]`), so it is left uncoloured there — Blizzard's yellow label, white title. An orange tooltip title would be worse than a plain label. |
 | `PANEL.PRESET_LABEL` | The dropdown's own label | `Preset` | |
 
 ### Preset choices
@@ -166,9 +166,9 @@ Shown differently in the two panels, because of what each can draw:
 
 - **Canvas panel** — a line of text between the heading and the first checkbox, in
   `COLOR.EXPERIMENTAL`, always visible. This is the intended form.
-- **Native panel** — on the `Experimental` heading's **tooltip**, until a real description element
-  is found on this client. Drawing it with the heading element was tried and read as a second
-  heading. See `[G23]`.
+- **Native panel** — on the `Experimental` heading's **tooltip**. There is no description element
+  on this client: `[G23]` enumerated all nine and none of them draws a paragraph, and drawing it
+  with the heading element read as a second heading.
 
 | ID | Text |
 | --- | --- |

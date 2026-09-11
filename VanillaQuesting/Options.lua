@@ -1068,50 +1068,22 @@ local function registerNative()
 	-- so this panel and /vq status cannot drift apart.
 	local ordered = ns:SortedModules()
 
-	-- Mark an experimental option's NAME orange, but only if the tooltip's
-	-- TITLE can be kept white at the same time.
+	-- The option name is NOT marked in this panel, and [G23] is why.
 	--
-	-- v1.0.0 coloured the registered setting name and the orange came through
-	-- in both places, because this client draws the checkbox label and the
-	-- tooltip's first line from the same string. Blizzard paints that first
-	-- line white and it should stay white; the thing that is experimental is
-	-- the option.
+	-- The checkbox label and the tooltip's first line are both drawn from
+	-- `data.name` -- one string, one colour. v1.0.0 coloured it and the
+	-- tooltip title went orange with the label. The way out would have been to
+	-- own the tooltip, but the probe dumped a checkbox initializer's whole key
+	-- set and there is **no SetTooltipFunc on it**: 41 keys, `GetTooltip` among
+	-- them, nothing that sets one.
 	--
-	-- So the name is registered PLAIN -- which is always correct, and is what
-	-- happens if anything below is missing -- and the colour is only applied
-	-- once a tooltip we control has been installed to replace the one that
-	-- would inherit it. Either both, or neither, never the orange title.
+	-- So it is orange in both or neither, and neither is what ships: an orange
+	-- tooltip title is a defect, a plain label is a preference unmet. The name
+	-- is registered plain and takes Blizzard's own colours -- yellow label,
+	-- white title -- which is what this panel is supposed to look like.
 	--
-	-- Whether SetTooltipFunc exists on a checkbox initializer here is what
-	-- [G23] asks. Everything is existence-checked, so a client without it
-	-- keeps a plain label and Blizzard's own tooltip.
-	local function markExperimental(init, m)
-		if type(init) ~= "table" then return false end
-		if type(init.SetTooltipFunc) ~= "function" then return false end
-
-		local body = tooltipFor(m)
-		local title = m.title or m.key
-		local ok = pcall(init.SetTooltipFunc, init, function(tooltip)
-			if not tooltip then return end
-			-- White, explicitly, rather than relying on the default: the
-			-- point of this whole function is that the title is not orange.
-			if type(tooltip.SetText) == "function" then
-				tooltip:SetText(title, 1, 1, 1)
-			elseif type(tooltip.AddLine) == "function" then
-				tooltip:AddLine(title, 1, 1, 1)
-			end
-			if body and body ~= "" and type(tooltip.AddLine) == "function" then
-				tooltip:AddLine(body, 1, 0.82, 0, true)
-			end
-		end)
-		if not ok then return false end
-
-		-- Only now is it safe to colour the label.
-		local data = rawget(init, "data")
-		if type(data) ~= "table" then return false end
-		local okd = pcall(function() data.name = ORANGE .. title .. "|r" end)
-		return okd and true or false
-	end
+	-- The mark still reaches the player twice: `/vq status` colours the name,
+	-- and the tooltip body carries the experimental note in orange.
 
 	local function addCheckbox(m)
 		local oks, setting = pcall(Settings.RegisterAddOnSetting,
@@ -1121,10 +1093,9 @@ local function registerNative()
 
 		if m.needsApply then askForApply(setting) end
 
-		local okc, init = pcall(Settings.CreateCheckbox, category, setting, tooltipFor(m))
-		if not okc then return false end
-
-		if m.experimental then markExperimental(init, m) end
+		if not pcall(Settings.CreateCheckbox, category, setting, tooltipFor(m)) then
+			return false
+		end
 
 		pcall(setting.SetValueChangedCallback, setting, function() onSettingChanged(m) end)
 		nativeSettings[m.key] = setting

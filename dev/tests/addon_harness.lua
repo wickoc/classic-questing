@@ -27,22 +27,22 @@ _G.__questPaneUpdates = 0
 QuestMapFrame_UpdateAll = function() _G.__questPaneUpdates = _G.__questPaneUpdates + 1 end
 
 -- The map being shut and opened again is the only thing that makes the
--- on-screen quest helper pick up a questPOI change. Counted, because "the
--- tracker was asked to redraw" was true the whole time it was not working.
-_G.__mapCycles = 0
+-- on-screen quest helper pick up a questPOI change. A COUNT of cycles was not
+-- enough once the sequence itself became the specification -- close/open/close
+-- from open, open/close from shut, ending closed either way -- so this records
+-- the operations in order and the tests assert the sequence.
+_G.__mapOps = {}
+_G.__clearMapOps = function() _G.__mapOps = {} end
 HideUIPanel = function(frame)
 	if frame == WorldMapFrame then
+		_G.__mapOps[#_G.__mapOps + 1] = "hide"
 		WorldMapFrame.__shown = false
-		WorldMapFrame.__cycling = true
 	end
 end
 ShowUIPanel = function(frame)
 	if frame == WorldMapFrame then
+		_G.__mapOps[#_G.__mapOps + 1] = "show"
 		WorldMapFrame.__shown = true
-		if WorldMapFrame.__cycling then
-			WorldMapFrame.__cycling = nil
-			_G.__mapCycles = _G.__mapCycles + 1
-		end
 		if _G.__mapOnShow then _G.__mapOnShow() end
 	end
 end

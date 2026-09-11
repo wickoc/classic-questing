@@ -172,36 +172,57 @@ local function mapIsOpen()
 	return ok and shown and true or false
 end
 
--- Shut the world map and open it again.
+-- Take the world map through a close and an open, and leave it closed.
 --
 -- Asking the tracker to redraw was not enough: reported from play, the
--- on-screen quest helper only picks up a questPOI change when the map pane
--- closes and reopens. Whatever the map does on the way out and back in is not
+-- on-screen quest helper only picks a questPOI change up when the map pane
+-- closes and reopens. Whatever the map does on that round trip is not
 -- reachable any other way that has been found, so this does the thing that
 -- works rather than the thing that ought to.
+--
+-- The map ends CLOSED either way, which is the shape the author asked for
+-- after testing it:
+--
+--   already open  ->  close, open, close
+--   already shut  ->  open, close
+--
+-- So a shut map is opened for an instant. That is deliberate: the round trip
+-- is what refreshes the helper, and half of one does not.
 --
 -- HideUIPanel and ShowUIPanel have never been probed on this client, so they
 -- are existence-checked and the frame's own Hide and Show -- which every Frame
 -- has -- are the fallback. The panel functions are preferred because they keep
 -- the UI panel manager's idea of what is open in step with reality.
 --
--- Never in combat. Showing a UI panel then is how taint starts, and safety
--- rule 1 says queue it rather than force it. The cost of skipping is that the
--- player reopens the map themselves, which is what they do today.
+-- IN COMBAT TOO, at the author's request. This is the one place the AddOn
+-- touches a UI panel during combat, and it is a considered exception rather
+-- than an oversight: the world map is not a protected frame on this client, so
+-- there is nothing here for the client to block. Every call is wrapped, and a
+-- failure says so once instead of failing silently -- which is how this would
+-- show up if a future build did protect it.
 local function cycleWorldMap()
-	if not mapIsOpen() then return false end
-	if type(InCombatLockdown) == "function" then
-		local okc, inCombat = pcall(InCombatLockdown)
-		if okc and inCombat then return false end
-	end
+	if type(WorldMapFrame) ~= "table" then return false end
 
 	local hide = (type(HideUIPanel) == "function") and HideUIPanel or WorldMapFrame.Hide
 	local show = (type(ShowUIPanel) == "function") and ShowUIPanel or WorldMapFrame.Show
 	if type(hide) ~= "function" or type(show) ~= "function" then return false end
 
-	local okh = pcall(hide, WorldMapFrame)
-	local oks = pcall(show, WorldMapFrame)
-	return okh and oks
+	local ok = true
+	local function step(fn)
+		local done = pcall(fn, WorldMapFrame)
+		ok = ok and done
+	end
+
+	if mapIsOpen() then step(hide) end
+	step(show)
+	step(hide)
+
+	if not ok then
+		ns:Warn("map:cycle",
+			"could not reopen the world map to refresh the quest helper; " ..
+			"open and close it yourself if it looks stale.")
+	end
+	return ok
 end
 
 local function refreshQuestUI(rule)
@@ -211,9 +232,9 @@ local function refreshQuestUI(rule)
 	if type(QuestMapFrame_UpdateAll) == "function" and mapIsOpen() then
 		pcall(QuestMapFrame_UpdateAll)
 	end
-	-- Only the rules that change what the map and the tracker draw, and only
-	-- while the map is open. Cycling it for a variable it does not read would
-	-- be a visible jolt for nothing.
+	-- Only the rules the map and the tracker actually read. Cycling the map
+	-- for a variable it does not look at would be a visible jolt for nothing,
+	-- and this now fires whether or not the map is already open.
 	if rule and rule.cyclesMap then cycleWorldMap() end
 end
 
