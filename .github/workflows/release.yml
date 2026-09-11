@@ -1,0 +1,73 @@
+# Build and publish a release when a version tag is pushed.
+#
+#   git tag -a v1.0.0 -m "v1.0.0" && git push origin v1.0.0
+#
+# The tag is the trigger, the .toc is the source of truth for the version, and
+# this fails loudly if the two disagree -- which is the rule this project has
+# had since the probe once shipped announcing 0.4 with 0.3 in its .toc.
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read the version from the .toc, and check it against the tag
+        id: version
+        run: |
+          toc_version=$(sed -n 's/^## Version:[[:space:]]*//p' VanillaQuesting/VanillaQuesting.toc | tr -d '\r')
+          tag_version="${GITHUB_REF_NAME#v}"
+          echo "toc=$toc_version" >> "$GITHUB_OUTPUT"
+          if [ "$toc_version" != "$tag_version" ]; then
+            echo "::error::Tag is $GITHUB_REF_NAME but VanillaQuesting.toc says $toc_version."
+            echo "::error::The .toc is the single source of truth. Fix it and re-tag."
+            exit 1
+          fi
+
+      - name: Run the test suite
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq lua5.1
+          cd dev/tests && ./run.sh
+
+      - name: Build the AddOn zip
+        id: package
+        run: |
+          name="VanillaQuesting-${{ steps.version.outputs.toc }}.zip"
+          # A top-level VanillaQuesting/ folder, so it extracts straight into
+          # Interface\AddOns\. Nothing from dev/ or the docs goes in it.
+          zip -qr "$name" VanillaQuesting
+          unzip -l "$name"
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+
+      - name: Take this version's section out of the CHANGELOG
+        run: |
+          awk -v v="## ${{ steps.version.outputs.toc }}" '
+            $0 == v { grab = 1; next }
+            grab && /^## / { exit }
+            grab { print }
+          ' CHANGELOG.md > body.md
+          if [ ! -s body.md ]; then
+            echo "::warning::No '## ${{ steps.version.outputs.toc }}' section in CHANGELOG.md."
+            echo "See CHANGELOG.md." > body.md
+          fi
+          cat .github/release-footer.md >> body.md
+          cat body.md
+
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            --title "Vanilla Questing ${{ steps.version.outputs.toc }}" \
+            --notes-file body.md \
+            "${{ steps.package.outputs.name }}"

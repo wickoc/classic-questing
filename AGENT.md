@@ -60,6 +60,8 @@ VanillaQuesting/
 
 ```
 AGENT.md                this file
+CHANGELOG.md            short, per-version, user-facing. The release workflow reads it.
+.github/workflows/release.yml   builds the zip and publishes on a version tag
 SPEC.md                 the living record: work list, architecture, rules, version history,
                         recon conclusions. Long. Structured as
                         core -> Version history -> Recon results.
@@ -83,7 +85,7 @@ Change one of these and the others are part of the same change, not a follow-up.
 
 | If I change… | …then also |
 | --- | --- |
-| **The version** | `VanillaQuesting.toc` **only** — everything reads it back through `GetAddOnMetadata`. Then the stub in `dev/tests/addon_harness.lua`, and a GitHub release with a short changelog. |
+| **The version** | `VanillaQuesting.toc` **only** — everything reads it back through `GetAddOnMetadata`. Then the stub in `dev/tests/addon_harness.lua`, a `## <version>` section in `CHANGELOG.md`, and the tag (see Releasing). |
 | **Any player-visible string** | `STRINGS.md`, in the same pass. Both panels if it appears in both. |
 | **An option's description or limitation** | `STRINGS.md`, `README.md` if it is user-facing behaviour, the native tooltip *and* the canvas fallback tooltip — they have drifted apart twice. |
 | **A module** | Give it a unique `order`; add it to the panel and to `/vq status` (all three are guarded by tests). Update `SPEC.md`'s work list. |
@@ -149,6 +151,26 @@ the behaviour is, why it matters, and what has already been ruled out.
   discovery route, and it is how `instantQuestText` was found.
 - **A tooltip's height is set by the client *after* every hook in the frame.** The only correction
   that is not a frame late is inside `OnSizeChanged`.
+
+---
+
+## Releasing
+
+`.github/workflows/release.yml` does it. Push a tag and it runs the tests, builds
+`VanillaQuesting-<version>.zip` with a top-level `VanillaQuesting/` folder (so it extracts
+straight into `Interface\AddOns\`), takes the release notes from that version's section of
+`CHANGELOG.md`, and publishes.
+
+```
+git tag -a v1.2.3 -m "v1.2.3" && git push origin v1.2.3
+```
+
+The job **fails on purpose** if the tag and the `.toc` disagree about the version. That is the
+check, not an inconvenience.
+
+**I cannot do this part myself.** This session's GitHub token is refused for creating releases and
+for pushing tags, so the tag push is the author's to run. Everything up to it — the `.toc`, the
+changelog section, the workflow — is mine.
 
 ---
 
