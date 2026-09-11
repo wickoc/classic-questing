@@ -369,8 +369,15 @@ to trace back to their cause.
 
 ## Release notes — CurseForge listing
 
-**Open — [issue #8](https://github.com/wickoc/vanilla-questing/issues/8).** Write the CurseForge
-description, and give it a **Known limitations** section. It must include, at minimum:
+**Written — `dev/CURSEFORGE.md`.** The listing copy lives there so it stays in step with the
+AddOn rather than drifting once it is pasted into the dashboard. CurseForge is marketing and the
+readme is "how do I use it"; where they overlap they must agree.
+
+Three of CurseForge's own rules shaped it: donation links go **at the bottom**, civil in size, and
+must never advertise paywalled features; off-platform links go at the bottom too; and the summary
+says what the project does, not who made it.
+
+Its **Known limitations** section must include, at minimum:
 
 - **Quest objects show either an outline or loot sparkles — never neither.** The two are
   alternatives in the engine, so the sparkles cannot simply be taken away. The `outlineMode`

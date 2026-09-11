@@ -12,6 +12,20 @@ is planned.
 adds quest data of its own, never tells you where anything is, and leaves no trace when turned
 off — every value it changes is remembered first and put back.
 
+## Install
+
+**[Download the latest release](https://github.com/wickoc/vanilla-questing/releases/latest)**, or
+get it from CurseForge.
+
+Extract the zip into:
+
+```
+World of Warcraft\_classic_\Interface\AddOns\
+```
+
+You should end up with `Interface\AddOns\VanillaQuesting\VanillaQuesting.toc`. Restart the game
+or `/reload`, then type `/vq` to open the options.
+
 ## Commands
 
 | Command | What it does |
@@ -115,6 +129,38 @@ agree, and the AddOn says in chat which way it went. Your interface wins.
 
 Built and tested against interface **50504**, client 5.5.4 build 69585.
 
+Every Blizzard function the AddOn touches is checked for existence before use. A missing one
+disables that single feature and says so in chat, rather than breaking your interface — so a
+future client patch degrades this gracefully instead of loudly.
+
+Settings are **account-wide**. Whether that should be a choice is
+[issue #10](https://github.com/wickoc/vanilla-questing/issues/10).
+
+## Bugs and requests
+
+**[Open an issue](https://github.com/wickoc/vanilla-questing/issues)** — bug reports are genuinely
+welcome, and most of the fixes in v1.0.0 came from someone saying "that still looks wrong".
+
+Useful in a report: what you did, what you expected, what happened instead, and whether any other
+AddOns were running. A screenshot settles most things.
+
+## Support the project
+
+This AddOn is free and stays free. Nothing is held back for anyone who chips in.
+
+If it is making your adventures better, you can support development with a coffee:
+**[☕ Ko-fi](https://ko-fi.com/wickoc)**
+
+## Licence
+
+*To be decided — see the note in `dev/CURSEFORGE.md`.*
+
 ## Create a release
 
-Releases → "Draft a new release" → Create new tag: "vX.X.X" → Publish. The .github/workflows/ script will create the zip and fill out details from the changelog.
+Releases → "Draft a new release" → Create new tag: `vX.X.X` → Publish. The workflow in
+`.github/workflows/` builds the zip and fills in the notes from the changelog.
+
+---
+
+*Vanilla Questing is a fan-made AddOn and is not affiliated with or endorsed by Blizzard
+Entertainment.*

@@ -76,6 +76,8 @@ dev/recon-log-*.txt     raw probe output. Every conclusion in SPEC.md is evidenc
                         Kept, never pruned: a later run switches settled sections off, so an
                         earlier log is often the only remaining record of an answer.
 dev/BLIP-TEXTURE-WORKFLOW.md   how the minimap blip atlas would be replaced
+dev/CURSEFORGE.md       the listing copy, kept in step with the AddOn. CurseForge
+                        is marketing; README.md is "how do I use it".
 dev/tests/              the off-client suite. ./run.sh: static checks first
                         (lint_forward_refs.py, luac on every Lua file including
                         the probe, XML well-formedness), then twelve scenarios.
@@ -93,7 +95,8 @@ Change one of these and the others are part of the same change, not a follow-up.
 | **Any player-visible string** | `STRINGS.md`, in the same pass. Both panels if it appears in both. |
 | **An option's description or limitation** | `STRINGS.md`, `README.md` if it is user-facing behaviour, the native tooltip *and* the canvas fallback tooltip — they have drifted apart twice. |
 | **A module** | Give it a unique `order`; add it to the panel and to `/vq status` (all three are guarded by tests). Update `SPEC.md`'s work list. |
-| **Anything about what the AddOn can't do** | `README.md` Known limitations, `SPEC.md` Known limitations, and the CurseForge notes section. All three say the same thing or one of them is wrong. |
+| **Anything about what the AddOn can't do** | `README.md` Known limitations, `SPEC.md` Known limitations, and `dev/CURSEFORGE.md`. All three say the same thing or one of them is wrong. |
+| **A feature, or a command** | `dev/CURSEFORGE.md` too — the listing is a public promise and goes stale silently. |
 | **A rule I learn the hard way** | This file. |
 
 ### Backlog and bugs do **not** live in a file
