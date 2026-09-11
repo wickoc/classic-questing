@@ -16,28 +16,15 @@ First release.
   did.
 - The note that the Vanilla preset leaves experimental options alone moved to the Experimental
   heading's tooltip, out of chat and the preset tooltip.
-- Boss portrait messages said "creature portraits" where the option said "boss".
-- Dropped a redundant hint line from `/vq status`.
-
-## 0.18.1
-
-- Quest progress tooltips no longer leave a gap where the removed lines were, on a tooltip reused
-  without hiding first.
 
 ## 0.18.0
 
 - Applied a full review of every player-visible string.
 - Five option categories, in both panels.
 - Turning off the minimap option now restores Blizzard's Track Quest POIs default.
-- Quest progress tooltips close the gap left by the removed lines.
-
-## 0.17.1
-
-- Quest progress tooltips keep their corrected height when the client re-lays them out.
 
 ## 0.17.0
 
-- Renamed to **Vanilla Questing**.
 - Fixed two pairs of options that could swap places in the panel between logins.
 - Every option is guaranteed to appear in both the panel and `/vq status`.
 
@@ -54,11 +41,6 @@ First release.
 ## 0.15.1
 
 - Repository audit; the test suite moved into the repository.
-
-## 0.15.0
-
-- Outline Mode keeps a value you already chose instead of overwriting it.
-- Presets leave experimental options exactly as you set them.
 
 ## 0.14.3
 
