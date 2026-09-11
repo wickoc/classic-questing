@@ -69,7 +69,7 @@ STRINGS.md              every player-visible string, labelled. A RECORD of what 
 README.md               the public front page
 dev/README.md           what the probe is, why old logs are kept, how to run the tests
 dev/UnmarkedRecon/      the probe AddOn. Dev-only, never folded into Vanilla Questing.
-                        Sections G1..G26, switched on and off by the ACTIVE table.
+                        Sections G1..G26, all answered; the ACTIVE table switches them on and off.
 dev/recon-log-*.txt     raw probe output. Every conclusion in SPEC.md is evidence from one.
                         Kept, never pruned: a later run switches settled sections off, so an
                         earlier log is often the only remaining record of an answer.
@@ -175,15 +175,15 @@ the **Releases → Draft a new release** page on GitHub, which creates the tag i
 - **`CreateSettingsListSectionHeaderInitializer(name[, tooltip])`** is a plain global; the second
   argument **does** land in `data.tooltip` (`[G23]`), and `GetTemplate()` is
   `SettingsListSectionHeaderTemplate`.
-- **Description text: almost certainly impossible, pending one look.** `[G23]` found no
-  description among the nine `CreateSettings*` constructors. `[G25]` walked 625 initializers and
-  found the text in none of their `data`, then censused all 22 templates Blizzard uses — every one
-  a control, a section header, or a purpose-built widget. The paragraphs live inside
-  `ColorblindSelectorTemplate` and the RTTS/STT templates. `[G26]` renders the candidates in a
-  real panel to convert that inference into a result. Until then the note rides on a heading's
-  tooltip.
-- **Two wrong answers came from reasoning about lists instead of rendering something.** When the
-  question is "can this be drawn", draw it.
+- **No Blizzard settings element takes a paragraph.** Settled across `[G23]`, `[G25]` and
+  `[G26]`: of every template this client has, only `SettingsListSectionHeaderTemplate` (a heading)
+  and `SettingsLanguageRestartNeededTemplate` (a control label, ellipsised) draw arbitrary text.
+  Description text in the native panel needs **an XML template this AddOn ships itself**, fed to
+  `Settings.CreateElementInitializer`. Until then the note rides on a heading's tooltip.
+- **An initializer this client ACCEPTS is not one it can RENDER.** Three templates built without
+  error, added without error, and drew no frame. Building it proves nothing; only looking does.
+- **Three wrong answers on one question came from reasoning about lists instead of rendering
+  something.** When the question is "can this be drawn", draw it.
 - **A checkbox's label and its tooltip title both come from `data.name`, and there is no
   `SetTooltipFunc`** (`[G23b]`). One string, one colour — so an option's name cannot be coloured
   in the native panel without colouring its tooltip title too. Settled; do not retry.

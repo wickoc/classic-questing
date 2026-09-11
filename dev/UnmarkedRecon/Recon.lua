@@ -100,10 +100,13 @@ local ACTIVE = {
 	             --   baked into ColorblindSelectorTemplate and the RTTS/STT
 	             --   templates, not drawn by any reusable element.
 
-	-- Still open.
-	g26 = true, -- the census read as "no general text element", which is an
-	            --   INFERENCE. This renders the candidates in a real panel so
-	            --   one look settles it.
+	g26 = false, -- ANSWERED v0.28: of five candidates only two render at all.
+	             --   The header draws a heading; SettingsLanguageRestartNeeded
+	             --   draws an option ROW -- text in the label column, ellipsised
+	             --   at the width a control label gets. The other three draw
+	             --   nothing. No Blizzard element takes a paragraph.
+
+	-- Nothing open. The next probe section goes with the next question.
 }
 
 

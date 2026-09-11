@@ -1869,22 +1869,35 @@ widgets, not drawn by anything reusable.
 
 ### v0.28 probe
 
-#### G26 — look at it, rather than reasoning from the list — OPEN
+#### G26 — no Blizzard element takes a paragraph — ANSWERED
 
-The paragraph above is an **inference**, and this project has now been wrong twice by reasoning
-from a list instead of looking. `[G23]` concluded "no description element" from a list of
-constructors; `[G25]` found the text in no initializer's data. Both were true and neither was the
-question.
+All five candidates built and were accepted by the layout. **Only two rendered anything at all.**
 
-So `[G26]` builds a real category with a real layout and puts one row in it per candidate
-template through `Settings.CreateElementInitializer`, each handed a name and a tooltip — then says
-so in the log and asks for a glance at **Options → AddOns → "Unmarked Recon G26"**. A row showing
-`PROBE <template>` as body text is the answer. A row showing a heading, a control, or nothing is a
-no.
+| Template | What it drew |
+| --- | --- |
+| `SettingsListSectionHeaderTemplate` | a heading — the baseline, as expected |
+| `SettingsLanguageRestartNeededTemplate` | an **option row without a checkbox**: the text in the label column, **ellipsised** at the width a control label gets, with the rest on a tooltip |
+| `SettingsAdvancedQualitySectionTemplate` | nothing |
+| `SettingsKeybindingSectionTemplate` | nothing |
+| `SettingsListElementTemplate` | nothing |
 
-Candidates are every non-control template from the census, plus `SettingsListElementTemplate`
-derived from the `SettingsListElementMixin` that `[G23]` found — marked as derived, because
-whether it exists is itself worth knowing.
+So the inference from the census was right, and now it is a result. `SettingsLanguageRestartNeeded`
+is the only one that draws arbitrary text, and it draws it **as a control's label** — a single
+short line, truncated. That is worse than the tooltip for a sentence, which is the whole point of
+having one.
 
-One glance settles it either way. Still [issue #12](https://github.com/wickoc/vanilla-questing/issues/12),
-still not a v1.0.0 blocker.
+**The three that drew nothing are the more interesting half.** They were built without error and
+added without error, and produced no frame. An initializer this client accepts is not an
+initializer it can render — so "it was accepted" proves nothing, and only looking does. That is
+the third time on this question that a perfectly true finding was not an answer.
+
+#### Where that leaves the Experimental note
+
+On the heading's tooltip in the native panel, and as a proper description line in the canvas
+panel. Unchanged, and now on evidence rather than on a gap in the search.
+
+**It is not impossible — it needs an element of our own.** `Settings.CreateElementInitializer`
+takes any template name, so a `VanillaQuestingDescriptionTemplate` defined in an XML file this
+AddOn ships would render exactly what is wanted. That is a new file in the `.toc` and the first
+XML this project would carry, which is a real change and not a v1.0.0 one. Recorded on
+[issue #12](https://github.com/wickoc/vanilla-questing/issues/12).
