@@ -18,7 +18,7 @@ First release.
   Experimental heading, out of chat and the preset tooltip.
 - Experimental options are named in orange, in the panel and in `/vq status`.
 - Changing an option from chat with the world map open now redraws the map's quest list, instead
-  of leaving it stale until a reload.
+  of leaving it stale until a reload. ([#11](https://github.com/wickoc/vanilla-questing/issues/11))
 
 ## 0.18.0
 

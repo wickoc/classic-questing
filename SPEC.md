@@ -982,7 +982,7 @@ Turning the field on turned up a drift while doing it: the **canvas fallback nev
 `limitation` at all**, so the two panels disagreed about what an option costs. One line, and the
 same order as the native panel: description, cost, experimental note.
 
-#### A CVar change now redraws the frames that read it
+#### A CVar change now redraws the frames that read it — [issue #11](https://github.com/wickoc/vanilla-questing/issues/11)
 
 Reported from play: with the world map pane open, toggling `hideMapQuestHelper` from chat updated
 the map and left the quest list beside it showing its old contents until a `/reload`.
