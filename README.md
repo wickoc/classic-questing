@@ -118,4 +118,4 @@ Built and tested against interface **50504**, client 5.5.4 build 69585.
 ## Create a release
 
 Releases → "Draft a new release" → Create new tag: "vX.X.X" → Publish
-The /.github/workflows/ script will create the zip and fill out details from the changelog.
+The .github/workflows/ script will create the zip and fill out details from the changelog.
