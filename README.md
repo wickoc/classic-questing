@@ -101,20 +101,13 @@ Two other ways round it were tried and rejected. `particleDensity` removes the s
 particles on lootable corpses with it, which *is* Classic behaviour. `ffxGlow` does not touch it
 at all.
 
-### Questgiver `!` marks on the minimap are still there
-
-MoP shows an exclamation mark on the minimap for nearby questgivers; Classic never did. The mark
-comes from a shared texture atlas the client packs many icons into, so removing it means
-replacing artwork rather than flipping a switch. Not solved yet, and
-[tracked](https://github.com/wickoc/vanilla-questing/issues/3) rather than abandoned.
-
 ## Where it overlaps Blizzard's own options
 
 Three of these settings have a Blizzard checkbox of their own: **Instant Quest Text**,
 **Automatic Quest Tracking** and **Outline Mode**. Their tooltips are annotated to say Vanilla
 Questing is driving them.
 
-Change one of those in Blizzard's options and **Vanilla Questing follows you** — the matching
+Change one of those in Blizzard's options and **Vanilla Questing follows** — the matching
 option turns off, and turns back on if you put the option back. Whichever window you use, the two
 agree, and the AddOn says in chat which way it went. Your interface wins.
 
