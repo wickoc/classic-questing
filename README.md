@@ -6,7 +6,7 @@ A World of Warcraft AddOn that turns off the quest helper, so questing feels lik
 game again: you read the quest text and go and look, instead of following a marker.
 
 Built and tested against **Mists of Pandaria Classic** (5.5.4). Support for other client versions
-is planned — the AddOn is deliberately named without one.
+is planned.
 
 **Everything it does is subtractive.** It hides or switches off parts of Blizzard's UI. It never
 adds quest data of its own, never tells you where anything is, and leaves no trace when turned
