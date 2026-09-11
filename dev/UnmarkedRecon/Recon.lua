@@ -106,8 +106,46 @@ local ACTIVE = {
 	             --   at the width a control label gets. The other three draw
 	             --   nothing. No Blizzard element takes a paragraph.
 
-	-- Nothing open. The next probe section goes with the next question.
+	-- Still open.
+	g27 = true, -- does a template the ADDON ships render in Blizzard's
+	            --   settings list? If so, description text is solved.
 }
+
+---------------------------------------------------------------------
+-- [G27] The description row's frame script.
+--
+-- A global rather than a mixin table, and hung on the frame by hand in
+-- OnLoad, because the point of this probe is to find out whether an
+-- AddOn-supplied template renders AT ALL. Anything clever in here would
+-- become a second thing that could be the reason it did not.
+--
+-- Init is the method Blizzard's settings list calls on an element frame,
+-- passing the initializer. Everything is existence-checked: if the list calls
+-- something else instead, the row renders with its placeholder text and that
+-- is itself the finding.
+---------------------------------------------------------------------
+
+function UnmarkedRecon_DescriptionOnLoad(self)
+	self.Init = function(frame, initializer)
+		local data
+		if initializer then
+			if type(initializer.GetData) == "function" then
+				local ok, d = pcall(initializer.GetData, initializer)
+				if ok then data = d end
+			end
+			data = data or rawget(initializer, "data")
+		end
+		local text = type(data) == "table" and data.name or nil
+		if frame.Text then
+			frame.Text:SetText(text or "INIT CALLED, but no data.name")
+		end
+	end
+	if self.Text then
+		-- Visible if Init is never called, which is the other answer worth
+		-- being able to tell apart.
+		self.Text:SetText("OnLoad ran, Init did NOT")
+	end
+end
 
 
 local lines = {}
@@ -2354,6 +2392,103 @@ local function sectionDescriptionRender()
 	add("   text, as a heading, as a control, or not at all.")
 end
 
+-- [G27] Does a template the ADDON ships render in Blizzard's settings list?
+--
+-- [G26] proved no Blizzard element takes a paragraph. But
+-- Settings.CreateElementInitializer takes ANY template name, not just
+-- Blizzard's -- so the remaining question is whether the settings list will
+-- render a template that came out of an AddOn's own XML.
+--
+-- Templates.xml defines UnmarkedReconDescriptionTemplate: a plain Frame, a
+-- FontString with a fixed width and no height so it WRAPS rather than
+-- ellipsising, and an OnLoad that hangs an Init method on by hand. The
+-- ellipsis is what ruled out SettingsLanguageRestartNeededTemplate, so a long
+-- string is rendered here on purpose.
+--
+-- The row's text says which stage it reached, so a glance distinguishes three
+-- outcomes rather than two:
+--
+--   the real text          -> Init was called with our data. Solved.
+--   "Init CALLED, no data" -> the list renders it but the data does not arrive.
+--   "OnLoad ran, Init NOT" -> the frame renders; the list never initialises it.
+--   nothing at all         -> an AddOn template is not rendered. Closed.
+local function sectionOwnTemplate()
+	head("[G27] Does an AddOn's own template render in the settings list?")
+
+	if type(Settings) ~= "table"
+		or type(Settings.RegisterVerticalLayoutCategory) ~= "function"
+		or type(Settings.CreateElementInitializer) ~= "function"
+		or type(Settings.RegisterAddOnCategory) ~= "function" then
+		add("   Settings API incomplete; cannot build a panel.")
+		return
+	end
+
+	-- Does the template exist at all? A virtual XML frame is not a global, so
+	-- this is the only way to ask before using it.
+	local okTest, testFrame = pcall(CreateFrame, "Frame", nil, UIParent,
+		"UnmarkedReconDescriptionTemplate")
+	if not okTest or type(testFrame) ~= "table" then
+		add("   Templates.xml did NOT load -- the template does not exist.")
+		add("   (" .. tostring(testFrame):sub(1, 80) .. ")")
+		return
+	end
+	add("   template exists; CreateFrame against it works.")
+	add("   its OnLoad " .. (type(testFrame.Init) == "function" and "ran and hung Init on"
+		or "did NOT hang Init on") .. " the frame.")
+	pcall(testFrame.Hide, testFrame)
+
+	local ok, category, layout = pcall(Settings.RegisterVerticalLayoutCategory, "Unmarked Recon G27")
+	if not ok or type(layout) ~= "table" or type(layout.AddInitializer) ~= "function" then
+		add("   could not build a category to render into.")
+		return
+	end
+
+	-- A heading first, so the panel is identifiable even if every row below
+	-- it draws nothing.
+	if type(CreateSettingsListSectionHeaderInitializer) == "function" then
+		local okh, h = pcall(CreateSettingsListSectionHeaderInitializer, "G27 -- own template")
+		if okh and type(h) == "table" then pcall(layout.AddInitializer, layout, h) end
+	end
+
+	local ROWS = {
+		{ "SHORT: own template works.", nil },
+		{ "LONG: these are not turned on by the Vanilla preset, and this "
+			.. "sentence is deliberately long enough that it must wrap onto a "
+			.. "second line rather than being cut off with an ellipsis.", nil },
+		{ "WITH EXTENT: same as the long one, but the initializer is handed "
+			.. "an explicit extent in case the list needs telling how tall the "
+			.. "row is before it will draw it.", 48 },
+	}
+
+	for i = 1, #ROWS do
+		local text, extent = ROWS[i][1], ROWS[i][2]
+		local data = { name = text }
+		if extent then data.extent = extent end
+		local oki, init = pcall(Settings.CreateElementInitializer,
+			"UnmarkedReconDescriptionTemplate", data)
+		if not oki or type(init) ~= "table" then
+			add("   row " .. i .. ": initializer REFUSED -- " .. tostring(init):sub(1, 60))
+		else
+			if type(init.GetExtent) == "function" then
+				local oke, e = pcall(init.GetExtent, init)
+				add("   row " .. i .. ": GetExtent() -> " .. (oke and tostring(e) or "error"))
+			end
+			local oka = pcall(layout.AddInitializer, layout, init)
+			add("   row " .. i .. ": built" .. (oka and " and added" or ", ADD FAILED"))
+		end
+	end
+
+	pcall(Settings.RegisterAddOnCategory, category)
+	add("")
+	add("   NOW LOOK: Options -> AddOns -> \"Unmarked Recon G27\".")
+	add("   Three rows under the heading. For each, which is it:")
+	add("     the sentence itself, wrapped        -> SOLVED")
+	add("     \"INIT CALLED, but no data.name\"    -> renders, data missing")
+	add("     \"OnLoad ran, Init did NOT\"         -> renders, never initialised")
+	add("     nothing at all                      -> AddOn templates do not render")
+
+end
+
 local function sectionQuestFrameAndTooltip()
 	head("[G22] Questgiver portrait, and a switch for quest tooltips")
 
@@ -2564,6 +2699,7 @@ local function collect()
 	if ACTIVE.g24  then sectionDescriptionLabel()  end
 	if ACTIVE.g25  then sectionDescriptionText()   end
 	if ACTIVE.g26  then sectionDescriptionRender() end
+	if ACTIVE.g27  then sectionOwnTemplate()      end
 
 	-- Any full method dumps collected via "/unrecon methods <global>" get
 	-- folded in here so they travel inside the readable report rather than

@@ -69,14 +69,15 @@ STRINGS.md              every player-visible string, labelled. A RECORD of what 
 README.md               the public front page
 dev/README.md           what the probe is, why old logs are kept, how to run the tests
 dev/UnmarkedRecon/      the probe AddOn. Dev-only, never folded into Vanilla Questing.
-                        Sections G1..G26, all answered; the ACTIVE table switches them on and off.
+                        Recon.lua + Templates.xml. Sections G1..G27; the ACTIVE
+                        table switches them on and off.
 dev/recon-log-*.txt     raw probe output. Every conclusion in SPEC.md is evidence from one.
                         Kept, never pruned: a later run switches settled sections off, so an
                         earlier log is often the only remaining record of an answer.
 dev/BLIP-TEXTURE-WORKFLOW.md   how the minimap blip atlas would be replaced
 dev/tests/              the off-client suite. ./run.sh: static checks first
-                        (lint_forward_refs.py, then luac on every Lua file
-                        including the probe), then eleven scenarios.
+                        (lint_forward_refs.py, luac on every Lua file including
+                        the probe, XML well-formedness), then eleven scenarios.
 ```
 
 ---
@@ -180,6 +181,8 @@ the **Releases → Draft a new release** page on GitHub, which creates the tag i
   and `SettingsLanguageRestartNeededTemplate` (a control label, ellipsised) draw arbitrary text.
   Description text in the native panel needs **an XML template this AddOn ships itself**, fed to
   `Settings.CreateElementInitializer`. Until then the note rides on a heading's tooltip.
+- **`--` is illegal inside an XML comment** and takes the whole file down with it, which the
+  client then reports as a missing template three steps later. `run.sh` parses every XML file now.
 - **An initializer this client ACCEPTS is not one it can RENDER.** Three templates built without
   error, added without error, and drew no frame. Building it proves nothing; only looking does.
 - **Three wrong answers on one question came from reasoning about lists instead of rendering

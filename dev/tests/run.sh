@@ -24,6 +24,15 @@ lintfail=0
 for f in ../../VanillaQuesting/*.lua ../../dev/UnmarkedRecon/*.lua; do
     luac5.1 -p "$f" || lintfail=1
 done
+
+# XML too, where there is any. The client is far less forgiving than it looks:
+# a "--" inside an XML comment is illegal and silently costs you the whole
+# file, which is a whole round trip to discover in game.
+for f in ../../VanillaQuesting/*.xml ../../dev/UnmarkedRecon/*.xml; do
+    [ -e "$f" ] || continue
+    python3 -c "import sys,xml.dom.minidom; xml.dom.minidom.parse(sys.argv[1])" "$f" \
+        || { echo "  [XML] $f is not well-formed"; lintfail=1; }
+done
 [ "$lintfail" -eq 0 ] && printf 'compiles       ok\n'
 printf '\n'
 for s in $SCENARIOS; do
@@ -36,4 +45,7 @@ for s in $SCENARIOS; do
     printf '%s\n' "$out" | grep '\[FAIL\]\|lua5.1:'
 done
 printf '\n%d checks, %d failed\n' "$total" "$failed"
+# Said again at the end. A static failure scrolls off the top while "0 failed"
+# sits at the bottom looking like a pass.
+[ "$lintfail" -eq 0 ] || printf 'STATIC CHECKS FAILED -- see the top of this output\n'
 [ "$failed" -eq 0 ] && [ "$lintfail" -eq 0 ] || exit 1

@@ -13,9 +13,12 @@ exist?", it now enumerates what is really there — method tables, provider obje
 types, registered settings — so a negative result means "not present" rather than "I guessed the
 wrong name".
 
-Sections are tagged `[G1]`..`[G26]` and map onto the conclusions in `../SPEC.md`. An `ACTIVE`
+Sections are tagged `[G1]`..`[G27]` and map onto the conclusions in `../SPEC.md`. An `ACTIVE`
 table at the top of `Recon.lua` decides which ones print; settled sections are switched off but
 kept in full, one flag away from running again.
+
+`Templates.xml` carries any frame template a probe section needs to render; `[G27]` is the
+first to use one.
 
 ```
 /unrecon              run it, summary to chat and the full report to SavedVariables

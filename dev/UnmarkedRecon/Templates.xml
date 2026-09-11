@@ -1,0 +1,43 @@
+<Ui xmlns="http://www.blizzard.com/wow/ui/">
+
+    <!--
+        [G27] A description row for the settings list, defined here because no
+        Blizzard element draws one. G23, G25 and G26 settled that between them:
+        of every template this client has, only the section header draws
+        arbitrary text as a heading, and only SettingsLanguageRestartNeeded
+        draws it otherwise, as a control's label, ellipsised.
+
+        Settings.CreateElementInitializer takes ANY template name, not just
+        Blizzard's, so the question this answers is whether a template an AddOn
+        ships itself will render in Blizzard's own settings list.
+
+        Deliberately primitive. Nothing here relies on a mixin attribute, a
+        Blizzard mixin table, or any inheritance: a plain Frame, a FontString,
+        and an OnLoad that hangs one method on the frame by hand. If the modern
+        XML features are present they are simply unused; if they are not, this
+        still works. The point is to find out whether the template renders at
+        all, not to write elegant XML.
+
+        The FontString has a fixed width and no height, which is what makes it
+        wrap instead of ellipsising. The ellipsis is the failure mode that
+        ruled SettingsLanguageRestartNeededTemplate out.
+    -->
+    <Frame name="UnmarkedReconDescriptionTemplate" virtual="true">
+        <Size x="600" y="40"/>
+        <Layers>
+            <Layer level="ARTWORK">
+                <FontString parentKey="Text" inherits="GameFontHighlightSmall"
+                            justifyH="LEFT" justifyV="TOP">
+                    <Size x="560" y="0"/>
+                    <Anchors>
+                        <Anchor point="TOPLEFT" x="37" y="-4"/>
+                    </Anchors>
+                </FontString>
+            </Layer>
+        </Layers>
+        <Scripts>
+            <OnLoad function="UnmarkedRecon_DescriptionOnLoad"/>
+        </Scripts>
+    </Frame>
+
+</Ui>

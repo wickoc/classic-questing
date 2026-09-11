@@ -1901,3 +1901,40 @@ takes any template name, so a `VanillaQuestingDescriptionTemplate` defined in an
 AddOn ships would render exactly what is wanted. That is a new file in the `.toc` and the first
 XML this project would carry, which is a real change and not a v1.0.0 one. Recorded on
 [issue #12](https://github.com/wickoc/vanilla-questing/issues/12).
+
+### v0.30 probe
+
+#### G27 — will a template the AddOn ships render in the settings list? — OPEN
+
+`[G26]` proved no Blizzard element draws a paragraph. But
+`Settings.CreateElementInitializer` takes **any** template name, not just Blizzard's, so one
+question is left: does the settings list render a template that came out of an AddOn's own XML?
+
+The probe now ships `Templates.xml` with `UnmarkedReconDescriptionTemplate` — a plain `Frame`, a
+`FontString` with a fixed width and **no height** so it wraps rather than ellipsising, and an
+`OnLoad` that hangs an `Init` method on the frame by hand. Deliberately primitive: no mixin
+attribute, no Blizzard mixin table, no inheritance. Anything clever would become a second thing
+that could be the reason it did not render.
+
+Three rows go into a real category — a short string, a long one that must wrap, and a long one
+with an explicit `extent` — and each row's text says which stage it reached, so a glance separates
+four outcomes rather than two:
+
+| What the row shows | What it means |
+| --- | --- |
+| the sentence itself, wrapped | `Init` was called with our data. **Solved.** |
+| `INIT CALLED, but no data.name` | the list renders it; the data does not arrive |
+| `OnLoad ran, Init did NOT` | the frame renders; the list never initialises it |
+| nothing at all | AddOn templates are not rendered. **Closed.** |
+
+The section also builds the template with `CreateFrame` first, so the log says whether
+`Templates.xml` loaded at all before any of the above is worth reading.
+
+If this works, the same template moves into Vanilla Questing and the Experimental note becomes a
+real description line. [Issue #12](https://github.com/wickoc/vanilla-questing/issues/12).
+
+**The suite now validates XML.** Writing this file cost a round trip to a `--` inside an XML
+comment, which is illegal and takes the whole file down with it — the kind of thing the client
+reports as a missing template three steps later. `run.sh` parses every `.xml` in the AddOn and the
+probe, and says so loudly at the end, because a static failure scrolls off the top while
+"0 failed" sits at the bottom looking like a pass.
