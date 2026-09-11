@@ -166,9 +166,11 @@ Shown differently in the two panels, because of what each can draw:
 
 - **Canvas panel** — a line of text between the heading and the first checkbox, in
   `COLOR.EXPERIMENTAL`, always visible. This is the intended form.
-- **Native panel** — on the `Experimental` heading's **tooltip**. There is no description element
-  on this client: `[G23]` enumerated all nine and none of them draws a paragraph, and drawing it
-  with the heading element read as a second heading.
+- **Native panel** — a description row under the heading, drawn with
+  `VanillaQuestingDescriptionTemplate` from the AddOn's own `Templates.xml`. Blizzard has no
+  element for this (`[G23]`, `[G25]`, `[G26]`), but `[G27]` confirmed an AddOn's own template
+  renders in that list. Where the template is missing it falls back to the heading's **tooltip** —
+  one or the other, never both.
 
 | ID | Text |
 | --- | --- |

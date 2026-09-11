@@ -46,6 +46,35 @@ local EXPERIMENTAL_NOTE =
 local EXPERIMENTAL_HEADER_NOTE =
 	"These are not turned on by the Vanilla preset."
 
+---------------------------------------------------------------------
+-- The description row's frame script
+---------------------------------------------------------------------
+
+-- A global, because Templates.xml names it in an OnLoad attribute. Hung on
+-- the frame by hand rather than through a mixin: see the note in that file.
+--
+-- Init is what Blizzard's settings list calls on an element frame, handing it
+-- the initializer. Everything is existence-checked -- if a client calls
+-- something else instead, the row draws nothing rather than erroring, and the
+-- heading's tooltip below still carries the text.
+function VanillaQuesting_DescriptionOnLoad(self)
+	self.Init = function(frame, initializer)
+		local data
+		if initializer then
+			if type(initializer.GetData) == "function" then
+				local ok, d = pcall(initializer.GetData, initializer)
+				if ok then data = d end
+			end
+			data = data or rawget(initializer, "data")
+		end
+		local text = type(data) == "table" and data.name or nil
+		if frame.Text and text then frame.Text:SetText(text) end
+	end
+	-- Blank until Init arrives, so a client that never calls it shows an empty
+	-- row rather than a placeholder.
+	if self.Text then self.Text:SetText("") end
+end
+
 local panel
 local rows = {}
 local preset = {}
@@ -929,6 +958,49 @@ local function addSectionHeader(text, colour, tooltip)
 	return pcall(nativeLayout.AddInitializer, nativeLayout, init)
 end
 
+-- A line of description text under a heading, drawn with the template this
+-- AddOn ships in Templates.xml.
+--
+-- Blizzard has no element for this. [G23], [G25] and [G26] established that
+-- between them, and [G27] then confirmed in game that a template an AddOn
+-- ships itself renders in that list perfectly well. So the AddOn brings its
+-- own rather than making a heading pretend to be a sentence.
+--
+-- Returns the initializer rather than adding it, because the caller has to
+-- know whether this worked BEFORE it adds the heading: if it did not, the text
+-- falls back to the heading's tooltip, and a tooltip can only be given at the
+-- moment the heading is created.
+local descriptionTemplateOK
+
+local function buildDescription(text, colour)
+	if type(Settings) ~= "table"
+		or type(Settings.CreateElementInitializer) ~= "function" then
+		return nil
+	end
+
+	-- Does this client have the template at all? A virtual XML frame is not a
+	-- global, so building one throwaway frame is the only way to ask. Cached:
+	-- the answer cannot change within a session.
+	if descriptionTemplateOK == nil then
+		descriptionTemplateOK = false
+		if type(CreateFrame) == "function" then
+			local ok, f = pcall(CreateFrame, "Frame", nil, UIParent,
+				"VanillaQuestingDescriptionTemplate")
+			if ok and type(f) == "table" then
+				descriptionTemplateOK = true
+				pcall(f.Hide, f)
+			end
+		end
+	end
+	if not descriptionTemplateOK then return nil end
+
+	local ok, init = pcall(Settings.CreateElementInitializer,
+		"VanillaQuestingDescriptionTemplate",
+		{ name = (colour or "") .. text .. C.close })
+	if not ok or type(init) ~= "table" then return nil end
+	return init
+end
+
 -- Say so on Blizzard's own controls.
 --
 -- Where this AddOn drives something Blizzard also shows a checkbox for --
@@ -1110,18 +1182,23 @@ local function registerNative()
 		local m = ordered[i]
 		if m.group and m.group ~= lastGroup then
 			lastGroup = m.group
-			-- The note belongs UNDER the heading, as description text, the way
-			-- Colorblind Mode has a sentence under its heading. There is no
-			-- description element in this client's Settings API that any probe
-			-- has turned up -- [G23] asks -- and drawing it with the heading
-			-- element instead was tried and looked exactly like what it was:
-			-- a second heading.
+			-- The note sits UNDER the heading, as description text, the way
+			-- Colorblind Mode has a sentence under its heading.
 			--
-			-- So in this panel it stays on the heading's tooltip until G23
-			-- says what the right element is. The canvas panel, which builds
-			-- its own font strings, draws it properly.
+			-- Built BEFORE the heading goes in, because the heading needs to
+			-- know: if the description row cannot be made -- no template on
+			-- this client, no CreateElementInitializer -- the text falls back
+			-- to the heading's own tooltip, and a tooltip has to be passed at
+			-- the moment the heading is created.
+			local note = m.experimental
+				and buildDescription(EXPERIMENTAL_HEADER_NOTE, ORANGE) or nil
+
 			addSectionHeader(m.group, m.experimental and ORANGE or WHITE,
-				m.experimental and EXPERIMENTAL_HEADER_NOTE or nil)
+				(m.experimental and not note) and EXPERIMENTAL_HEADER_NOTE or nil)
+
+			if note and nativeLayout and type(nativeLayout.AddInitializer) == "function" then
+				pcall(nativeLayout.AddInitializer, nativeLayout, note)
+			end
 		end
 		if not addCheckbox(m) then return false end
 	end

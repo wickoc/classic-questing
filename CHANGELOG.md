@@ -15,7 +15,8 @@ First release.
 - The canvas fallback panel now shows an option's known limitation, which only the native panel
   did.
 - The note that the Vanilla preset leaves experimental options alone now sits under the
-  Experimental heading, out of chat and the preset tooltip.
+  Experimental heading as a line of description text, out of chat and the preset tooltip.
+  ([#12](https://github.com/wickoc/vanilla-questing/issues/12))
 - Changing the world map quest helper from chat now refreshes the on-screen quest helper, instead
   of leaving it stale until a reload. The map is taken through a close and an open and left
   closed. ([#11](https://github.com/wickoc/vanilla-questing/issues/11))

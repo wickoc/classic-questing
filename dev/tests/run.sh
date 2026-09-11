@@ -6,7 +6,8 @@
 cd "$(dirname "$0")" || exit 1
 
 SCENARIOS="normal no_settings settings_refuses cvar_refused tracking_refused
-           no_cminimap no_entry no_cvar native native_halfway no_tooltipfunc"
+           no_cminimap no_entry no_cvar native native_halfway no_tooltipfunc
+           no_template"
 
 total=0
 failed=0

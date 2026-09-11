@@ -1904,37 +1904,36 @@ XML this project would carry, which is a real change and not a v1.0.0 one. Recor
 
 ### v0.30 probe
 
-#### G27 — will a template the AddOn ships render in the settings list? — OPEN
+#### G27 — an AddOn's own template renders in the settings list — ANSWERED, positive
 
-`[G26]` proved no Blizzard element draws a paragraph. But
-`Settings.CreateElementInitializer` takes **any** template name, not just Blizzard's, so one
-question is left: does the settings list render a template that came out of an AddOn's own XML?
+`Templates.xml` loaded, `CreateFrame` against the template worked, its `OnLoad` ran and hung
+`Init` on the frame — and **all three rows rendered their sentences**, wrapped, in Blizzard's own
+settings list. The long one and the one with an explicit `extent` looked the same, and
+`GetExtent()` returned `nil` for all three, so no extent is needed.
 
-The probe now ships `Templates.xml` with `UnmarkedReconDescriptionTemplate` — a plain `Frame`, a
-`FontString` with a fixed width and **no height** so it wraps rather than ellipsising, and an
-`OnLoad` that hangs an `Init` method on the frame by hand. Deliberately primitive: no mixin
-attribute, no Blizzard mixin table, no inheritance. Anything clever would become a second thing
-that could be the reason it did not render.
+So the answer to the whole question, four probe sections in: **Blizzard has no description
+element, and it does not matter, because `Settings.CreateElementInitializer` will render a
+template the AddOn brings itself.**
 
-Three rows go into a real category — a short string, a long one that must wrap, and a long one
-with an explicit `extent` — and each row's text says which stage it reached, so a glance separates
-four outcomes rather than two:
+#### Shipped
 
-| What the row shows | What it means |
-| --- | --- |
-| the sentence itself, wrapped | `Init` was called with our data. **Solved.** |
-| `INIT CALLED, but no data.name` | the list renders it; the data does not arrive |
-| `OnLoad ran, Init did NOT` | the frame renders; the list never initialises it |
-| nothing at all | AddOn templates are not rendered. **Closed.** |
+`VanillaQuesting/Templates.xml` now carries `VanillaQuestingDescriptionTemplate`, the same
+deliberately primitive thing the probe proved: a plain `Frame`, a `FontString` with a fixed width
+and **no height** so it wraps rather than ellipsising, and an `OnLoad` that hangs one method on by
+hand. No mixin attribute, no Blizzard mixin table, no inheritance — each would be one more thing
+that could stop working on a client this has not been run on, for no gain.
 
-The section also builds the template with `CreateFrame` first, so the log says whether
-`Templates.xml` loaded at all before any of the above is worth reading.
+The Experimental note is drawn with it, in orange, under the heading. Where the template is
+missing the note falls back to the heading's tooltip — **one or the other, never both**, which is
+why the row is built *before* the heading is added: a tooltip can only be given at the moment a
+heading is created. New scenario `no_template` covers that path, and a guard fails if both appear.
 
-If this works, the same template moves into Vanilla Questing and the Experimental note becomes a
-real description line. [Issue #12](https://github.com/wickoc/vanilla-questing/issues/12).
+#### Two process faults this cost
 
-**The suite now validates XML.** Writing this file cost a round trip to a `--` inside an XML
-comment, which is illegal and takes the whole file down with it — the kind of thing the client
-reports as a missing template three steps later. `run.sh` parses every `.xml` in the AddOn and the
-probe, and says so loudly at the end, because a static failure scrolls off the top while
-"0 failed" sits at the bottom looking like a pass.
+**An edit script that fails an assert part-way leaves the file untouched.** One did. I moved on,
+and `buildDescription` was simply absent for two rounds — the only symptom being the native panel
+quietly falling back to canvas, because the call to a nil global was inside a `pcall`. One edit
+per script from here, and re-read the file when an assert fires.
+
+**A probe with no active section should not be sent out.** v0.29 had every section switched off.
+There was nothing to run and the round trip was wasted.

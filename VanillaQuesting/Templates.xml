@@ -1,0 +1,46 @@
+<Ui xmlns="http://www.blizzard.com/wow/ui/">
+
+    <!--
+        A line of description text for Blizzard's settings list.
+
+        This exists because no Blizzard element draws one. Probes G23, G25 and
+        G26 settled that between them: of every template this client has, only
+        the section header draws arbitrary text, and it draws it as a heading.
+        SettingsLanguageRestartNeededTemplate is the only other element that
+        renders text at all, and it does so as a control's label, cut off with
+        an ellipsis.
+
+        Settings.CreateElementInitializer takes any template name, not just
+        Blizzard's, and G27 confirmed in game that a template an AddOn ships
+        itself renders correctly in that list.
+
+        Deliberately primitive: a plain Frame, a FontString, and an OnLoad that
+        hangs one method on the frame by hand. No mixin attribute, no Blizzard
+        mixin table, no inheritance. Every one of those would be a thing that
+        could stop working on a client this has not been run on, for no gain.
+
+        The FontString has a fixed width and NO height, which is what makes it
+        wrap onto as many lines as it needs instead of ellipsising. That is the
+        whole reason this file exists rather than reusing Blizzard's label.
+
+        The 37px indent lines the text up with the checkbox labels below it.
+    -->
+    <Frame name="VanillaQuestingDescriptionTemplate" virtual="true">
+        <Size x="600" y="40"/>
+        <Layers>
+            <Layer level="ARTWORK">
+                <FontString parentKey="Text" inherits="GameFontHighlightSmall"
+                            justifyH="LEFT" justifyV="TOP">
+                    <Size x="560" y="0"/>
+                    <Anchors>
+                        <Anchor point="TOPLEFT" x="37" y="-4"/>
+                    </Anchors>
+                </FontString>
+            </Layer>
+        </Layers>
+        <Scripts>
+            <OnLoad function="VanillaQuesting_DescriptionOnLoad"/>
+        </Scripts>
+    </Frame>
+
+</Ui>

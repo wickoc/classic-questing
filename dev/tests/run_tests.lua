@@ -658,7 +658,7 @@ end
 
 if fail > 0 then os.exit(1) end
 
-if scenario == "native" or scenario == "no_tooltipfunc" then
+if scenario == "native" or scenario == "no_tooltipfunc" or scenario == "no_template" then
 	-- The whole point of the native path: these are Blizzard's controls, so
 	-- the tests are about the contract with Blizzard, not about our pixels.
 	check("native path taken", ns.optionsNative == true)
@@ -720,16 +720,34 @@ if scenario == "native" or scenario == "no_tooltipfunc" then
 	for _, h in ipairs(headers) do
 		if h:find("Experimental", 1, true) then expHeader = h else verHeader = h end
 	end
+
+	-- The note is a DESCRIPTION ROW, drawn with the template the AddOn ships
+	-- in Templates.xml, because Blizzard has no element for it. Where that
+	-- template is missing the text falls back to the heading's tooltip, and
+	-- the two must never both happen or the player reads it twice.
+	local rows = table.concat(_G.__descriptionRows or {}, "\1")
+	local headTip = _G.__headerTooltips and _G.__headerTooltips["Experimental"]
+	if scenario == "no_template" then
+		check("without the template there is no description row",
+			rows:find(EXPERIMENTAL_NOTE_TEXT, 1, true) == nil, rows)
+		check("and the note falls back to the heading's tooltip",
+			headTip and headTip:find(EXPERIMENTAL_NOTE_TEXT, 1, true) ~= nil,
+			tostring(headTip))
+	else
+		check("the note is a description row under the heading",
+			rows:find(EXPERIMENTAL_NOTE_TEXT, 1, true) ~= nil, rows)
+		check("it is orange",
+			rows:find("|cffff8019", 1, true) ~= nil, rows)
+		check("and the heading has no tooltip, so it is not said twice",
+			headTip == nil, tostring(headTip))
+	end
+
 	-- It is a description, not an instruction. The sentence telling the player
-	-- to switch them on themselves was removed; this guards it staying gone.
+	-- to switch them on themselves was removed; this guards it staying gone,
+	-- wherever the note ends up.
 	check("the experimental note does not tell the player what to do",
-		_G.__headerTooltips and _G.__headerTooltips["Experimental"]
-			and _G.__headerTooltips["Experimental"]:find("yourself", 1, true) == nil,
-		tostring(_G.__headerTooltips and _G.__headerTooltips["Experimental"]))
-	check("the Experimental heading carries the note as its tooltip",
-		_G.__headerTooltips and _G.__headerTooltips["Experimental"]
-			and _G.__headerTooltips["Experimental"]:find(EXPERIMENTAL_NOTE_TEXT, 1, true) ~= nil,
-		tostring(_G.__headerTooltips and _G.__headerTooltips["Experimental"]))
+		(rows .. "\1" .. tostring(headTip)):find("yourself", 1, true) == nil,
+		rows .. " | " .. tostring(headTip))
 
 	-- The option NAME carries the colour, and the tooltip's TITLE must not.
 	-- v1.0.0 coloured the registered setting name, and the orange came through
@@ -1166,7 +1184,7 @@ if scenario == "normal" then
 	ns:ResetDefaults(true)
 end
 
-if scenario == "native" or scenario == "no_tooltipfunc" then
+if scenario == "native" or scenario == "no_tooltipfunc" or scenario == "no_template" then
 	-- ---- Blizzard's own controls get told who is driving them ----
 	--
 	-- A player who finds Blizzard's "Instant Quest Text" checkbox has no way
@@ -1396,7 +1414,7 @@ if scenario == "normal" then
 	ns:ResetDefaults(true)
 end
 
-if scenario == "native" or scenario == "no_tooltipfunc" then
+if scenario == "native" or scenario == "no_tooltipfunc" or scenario == "no_template" then
 	-- ---- experimental options and the preset ----
 	--
 	-- Switching one on used to drop the preset to Custom, and picking Full
@@ -1618,7 +1636,7 @@ if scenario == "normal" then
 		ns.color.experimental == "|cffff8019", ns.color.experimental)
 end
 
-if scenario == "native" or scenario == "no_tooltipfunc" then
+if scenario == "native" or scenario == "no_tooltipfunc" or scenario == "no_template" then
 	-- ---- every module reaches the panel, in a stable order ----
 	--
 	-- Two orders collided (20/20 and 50/50) and table.sort is unstable in
@@ -1740,7 +1758,7 @@ if scenario == "normal" then
 	ns:ResetDefaults(true)
 end
 
-if scenario == "native" or scenario == "no_tooltipfunc" then
+if scenario == "native" or scenario == "no_tooltipfunc" or scenario == "no_template" then
 	-- Every category gets a heading, and the options under it all belong to it.
 	local headings, current, wrong = {}, nil, nil
 	for _, c in ipairs(_G.__nativeControls or {}) do

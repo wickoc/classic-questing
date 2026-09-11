@@ -82,6 +82,10 @@ local KNOWN_TEMPLATES = {
 	UIPanelButtonTemplate = true,
 	UIPanelCloseButton = true,
 	UIPanelScrollFrameTemplate = true,
+	-- The AddOn's own, from Templates.xml. A client that has not loaded that
+	-- file is the "no_template" scenario, where CreateFrame against it throws
+	-- and the note has to fall back to the heading's tooltip.
+	VanillaQuestingDescriptionTemplate = true,
 }
 StaticPopupDialogs = {}
 StaticPopup_Show = function(which)
@@ -539,7 +543,14 @@ elseif scenario == "no_settings" then Settings = nil
 elseif scenario == "settings_refuses" then
 	Settings.RegisterCanvasLayoutCategory = function() error("nope") end
 elseif scenario == "native" or scenario == "native_halfway"
-	or scenario == "no_tooltipfunc" then
+	or scenario == "no_tooltipfunc" or scenario == "no_template" then
+	-- A client where Templates.xml did not load: the description row cannot be
+	-- built and the note has to fall back to the heading's tooltip. Set here
+	-- rather than in its own branch, because this scenario still needs the
+	-- whole native Settings API below it.
+	if scenario == "no_template" then
+		KNOWN_TEMPLATES.VanillaQuestingDescriptionTemplate = nil
+	end
 	-- The real client's Settings API, modelled on the v0.15 probe readback:
 	-- the argument order below is the one that scored 4/4, so a mistake in
 	-- Options.lua shows up here as a scrambled setting rather than passing.
@@ -682,7 +693,12 @@ elseif scenario == "native" or scenario == "native_halfway"
 			initializers = {},
 			AddInitializer = function(self, init)
 				self.initializers[#self.initializers + 1] = init
-				_G.__nativeControls[#_G.__nativeControls + 1] = init
+				-- An element initializer was already recorded when it was
+				-- built, because the AddOn builds it before deciding whether
+				-- to add it at all.
+				if init.kind ~= "element" then
+					_G.__nativeControls[#_G.__nativeControls + 1] = init
+				end
 				if init.kind == "header" then
 					_G.__headers[#_G.__headers + 1] = init.text
 				end
@@ -743,6 +759,26 @@ _G.__renderCheckboxTooltip = function(init)
 	end
 	return lines
 end
+	-- An element built from an arbitrary frame template. [G27] confirmed in
+	-- game that this renders a template the AddOn ships itself, which is how
+	-- the description row is drawn -- Blizzard has no element for it.
+	_G.__descriptionRows = {}
+	Settings.CreateElementInitializer = function(template, data)
+		if type(template) ~= "string" then error("template must be a string") end
+		if not KNOWN_TEMPLATES[template] then
+			error("Unknown template: " .. tostring(template))
+		end
+		local init = {
+			kind = "element",
+			template = template,
+			data = data or {},
+			GetData = function(self) return self.data end,
+		}
+		_G.__nativeControls[#_G.__nativeControls + 1] = init
+		_G.__descriptionRows[#_G.__descriptionRows + 1] = (data and data.name) or ""
+		return init
+	end
+
 	Settings.CreateControlTextContainer = function()
 		local c = { data = {} }
 		function c:Add(value, label) self.data[#self.data + 1] = { value = value, label = label } end

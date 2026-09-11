@@ -46,6 +46,7 @@ So:
 ```
 VanillaQuesting/
   VanillaQuesting.toc   <- the ONLY place the version number exists
+  Templates.xml         the description row for the settings list; Blizzard has none
   Core.lua              addon table, palette, events, saved variables, slash commands
   CVars.lua             table-driven console-variable rules (RULES)
   Minimap.lua           minimap quest markers, via C_Minimap tracking
@@ -77,7 +78,7 @@ dev/recon-log-*.txt     raw probe output. Every conclusion in SPEC.md is evidenc
 dev/BLIP-TEXTURE-WORKFLOW.md   how the minimap blip atlas would be replaced
 dev/tests/              the off-client suite. ./run.sh: static checks first
                         (lint_forward_refs.py, luac on every Lua file including
-                        the probe, XML well-formedness), then eleven scenarios.
+                        the probe, XML well-formedness), then twelve scenarios.
 ```
 
 ---
@@ -142,26 +143,30 @@ the **Releases → Draft a new release** page on GitHub, which creates the tag i
    refreshes, which writes. One boolean was not enough — it took a depth counter. That bug froze
    the client on *any* options panel opening, with 345 green checks.
 5. **`pcall` hides a missing method as easily as a failing one.** Existence-check first when the
-   difference matters.
-6. **A test that reads back what was just written proves nothing about the screen.** Every CVar
+   difference matters. It also hides a function that was never defined: a whole helper once went
+   missing from `Options.lua` and the only symptom was the native panel quietly falling back.
+6. **An edit script that fails an assert part-way leaves the file untouched.** One did, I moved
+   on, and half a feature was missing for two rounds of debugging. **One edit per script**, and
+   re-read the file when an assert fires.
+7. **A test that reads back what was just written proves nothing about the screen.** Every CVar
    check here read the variable back, and all of them passed while the UI sat stale. Count the
    redraw, not the value.
-7. **A conditional diagnostic fires exactly when you do not need it.** A probe's template census
+8. **A conditional diagnostic fires exactly when you do not need it.** A probe's template census
    was gated behind "found nothing", one false-positive match satisfied the gate, and the useful
    half never printed. Dumps are cheap; print them unconditionally.
-8. **An enumeration is only a negative for the thing it enumerates.** Listing the ways to *build*
+9. **An enumeration is only a negative for the thing it enumerates.** Listing the ways to *build*
    an element is not listing the elements that *exist*. Where the game visibly does something, "I
    found no API for it" is a statement about my search, not about the client. Go at it from the
    live UI instead — that is how `instantQuestText` was found, twice over.
-9. **The safety rules are not a checklist to reason around.** Safety rule 1 says never touch a
+10. **The safety rules are not a checklist to reason around.** Safety rule 1 says never touch a
    protected frame in combat; I decided the world map was an exception on an assumption I had not
    probed, and it threw in play — twice, because the second attempt only moved when it ran. When a
    rule and a guess disagree, the rule wins.
-10. **A cosmetic win is never worth a visible defect.** Where a nicety and a correctness
+11. **A cosmetic win is never worth a visible defect.** Where a nicety and a correctness
    requirement are drawn from the same thing, take the correct one and drop the nicety — do not
    ship both half-working. The AddOn takes the orange label only when it can also keep the tooltip
    title white.
-11. **A guard that cannot fail is not a guard.** Break the fix and watch the check go red before
+12. **A guard that cannot fail is not a guard.** Break the fix and watch the check go red before
    believing it. One tracker assertion passed whether or not the fix existed, because another
    code path was already calling the same function.
 
@@ -176,11 +181,10 @@ the **Releases → Draft a new release** page on GitHub, which creates the tag i
 - **`CreateSettingsListSectionHeaderInitializer(name[, tooltip])`** is a plain global; the second
   argument **does** land in `data.tooltip` (`[G23]`), and `GetTemplate()` is
   `SettingsListSectionHeaderTemplate`.
-- **No Blizzard settings element takes a paragraph.** Settled across `[G23]`, `[G25]` and
-  `[G26]`: of every template this client has, only `SettingsListSectionHeaderTemplate` (a heading)
-  and `SettingsLanguageRestartNeededTemplate` (a control label, ellipsised) draw arbitrary text.
-  Description text in the native panel needs **an XML template this AddOn ships itself**, fed to
-  `Settings.CreateElementInitializer`. Until then the note rides on a heading's tooltip.
+- **No Blizzard settings element takes a paragraph** (`[G23]`, `[G25]`, `[G26]`) — but
+  **`Settings.CreateElementInitializer` renders a template the AddOn ships itself**, confirmed in
+  game by `[G27]`. That is `Templates.xml`, and it is how the Experimental note is drawn. A
+  FontString with a fixed width and **no height** is what makes it wrap instead of ellipsising.
 - **`--` is illegal inside an XML comment** and takes the whole file down with it, which the
   client then reports as a missing template three steps later. `run.sh` parses every XML file now.
 - **An initializer this client ACCEPTS is not one it can RENDER.** Three templates built without
