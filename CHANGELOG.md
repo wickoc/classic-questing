@@ -18,8 +18,7 @@ First release.
   Experimental heading, out of chat and the preset tooltip.
 - Changing the world map quest helper from chat now refreshes the on-screen quest helper, instead
   of leaving it stale until a reload. The map is taken through a close and an open and left
-  closed — or, in combat, the moment the fight ends.
-  ([#11](https://github.com/wickoc/vanilla-questing/issues/11))
+  closed. ([#11](https://github.com/wickoc/vanilla-questing/issues/11))
 - Restoring a setting no longer rewrites console variables that had not moved.
 
 ## 0.18.0

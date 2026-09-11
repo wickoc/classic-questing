@@ -211,20 +211,11 @@ local function doCycleWorldMap()
 	return ok
 end
 
--- IN COMBAT, IT WAITS.
---
--- v1.0.0 tried it during combat, on my reading that the world map is not a
--- protected frame here. It is: play reported "Interface action failed because
--- of an AddOn", and the helper was left stale because the cycle never
--- happened. Showing a UI panel from AddOn code in combat is precisely what
--- safety rule 1 forbids, and the rule was right.
---
--- So the cycle is queued and runs on PLAYER_REGEN_ENABLED instead. The player
--- still gets the refresh without a reload; it just lands when the fight ends.
--- Silently -- a chat line explaining a delay nobody has noticed yet is noise,
--- and by the time they look at the map it has already happened.
-local cyclePending = false
-
+-- Not in combat. Showing a UI panel from AddOn code during a fight throws
+-- "Interface action failed because of an AddOn" and does nothing, so the guard
+-- is the whole of the handling: the map is left alone and the player opens it
+-- themselves if it looks stale. Deferring it to the end of the fight was tried
+-- and threw the same error.
 local function inCombat()
 	if type(InCombatLockdown) ~= "function" then return false end
 	local ok, yes = pcall(InCombatLockdown)
@@ -232,18 +223,9 @@ local function inCombat()
 end
 
 local function cycleWorldMap()
-	if inCombat() then
-		cyclePending = true
-		return false
-	end
+	if inCombat() then return false end
 	return doCycleWorldMap()
 end
-
-ns:RegisterEvent("PLAYER_REGEN_ENABLED", function()
-	if not cyclePending then return end
-	cyclePending = false
-	doCycleWorldMap()
-end)
 
 local function refreshQuestUI(rule)
 	if type(WatchFrame_Update) == "function" then

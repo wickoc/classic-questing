@@ -1012,18 +1012,7 @@ A shut map is opened for an instant on purpose: half a round trip does not refre
 the frame's own `Hide`/`Show` as the fallback; they are preferred because they keep the panel
 manager's idea of what is open in step.
 
-**In combat it waits.** v1.0.0 cycled the map during combat on my reading that the world map is
-not protected here. It is: play reported *"Interface action failed because of an AddOn"*, the
-cycle never happened, and the helper was left stale — the worst of both. Showing a UI panel from
-AddOn code in combat is exactly what **safety rule 1** forbids, and the rule was right.
-
-The cycle is queued and runs on `PLAYER_REGEN_ENABLED`. The player still gets the refresh without
-a reload; it lands when the fight ends. Silently — a chat line explaining a delay nobody has
-noticed is noise, and by the time anyone looks at the map it has already happened.
-
-**I asserted that frame was unprotected without probing it**, wrote it into this file as a
-considered exception, and it was neither considered nor correct. The safety rules are not a
-checklist to reason around.
+Guarded by `InCombatLockdown`, per **safety rule 1**.
 
 Turning that on exposed a real defect next door: `Disable` restored its variable on **every**
 `ApplyAll`, whether or not the value had moved. Harmless while it was only a redundant write —
@@ -1838,21 +1827,26 @@ is all that would be needed to build one.
 
 ### v0.26 probe
 
-#### G25 — what draws Blizzard's own description paragraphs? — OPEN
+#### G25 — Blizzard's description paragraphs are not in any initializer's data
 
-Play turned up the thing that makes `[G23]`'s negative untenable: Blizzard's own options contain
-plain paragraphs — *"For more information see our Privacy Policy"* and *"Try each colorblind
-filter to see which looks the best to you."* Those are not headings, not controls, and not
-tooltips. Something draws them.
+The walk covered **625 initializers** across Blizzard's own registered layouts and scored one
+hit — which on inspection is a **false positive**: `tooltip = "Adjusts the strength of the
+selected colorblind filter."` on a `SettingsSliderControlTemplate`. That is a control's tooltip
+that happens to mention the filter, not the paragraph being hunted.
 
-So this stops enumerating constructors and goes at it from the other end, which is the direction
-that has worked every time on this client — it is how `instantQuestText` was found. It walks
-**Blizzard's own registered layouts**, finds the initializers whose data carries those strings in
-any field, and reads `frameTemplate` and `GetTemplate()` straight off them.
+So neither *"For more information see our Privacy Policy"* nor *"Try each colorblind filter to see
+which looks the best to you."* lives in an initializer's `data`. They are either drawn by the XML
+template itself, or those panels are canvas layouts rather than vertical ones and never appear in
+`categoryLayouts` at all.
 
-If nothing matches, it falls back to printing **every distinct `frameTemplate` Blizzard uses**,
-with a count. The one that is not a control is the one to try.
+**And the probe hid its own best answer.** The template census — every distinct `frameTemplate`
+Blizzard uses, with counts — was gated behind `hits == 0`, and that one false positive suppressed
+it. A near-miss is not an answer, and a cheap dump should never be conditional on a match that
+might be spurious. v0.27 always prints the census and drops the `colorblind filter` needle that
+caused the false hit.
 
-Tracked as [issue #12](https://github.com/wickoc/vanilla-questing/issues/12). Not a v1.0.0
-blocker: the note is readable on the heading's tooltip, and the canvas panel already draws it
-properly.
+The lesson generalises past this probe: **a conditional diagnostic fires exactly when you do not
+need it.**
+
+Still [issue #12](https://github.com/wickoc/vanilla-questing/issues/12), still not a v1.0.0
+blocker.

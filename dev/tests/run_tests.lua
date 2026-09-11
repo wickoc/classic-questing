@@ -487,10 +487,11 @@ if scenario == "normal" or scenario == "no_settings" or scenario == "settings_re
 		check("an unrelated option does not touch the map", ops() == "", ops())
 		check("and leaves it open", WorldMapFrame:IsShown())
 
-		-- IN COMBAT IT WAITS. v1.0.0 cycled the map during combat and the
-		-- client threw "Interface action failed because of an AddOn" -- the
-		-- world map IS protected here -- so the cycle never happened and the
-		-- helper stayed stale. It is queued and runs when the fight ends.
+		-- Not in combat. The world map is protected during a fight: cycling
+		-- it throws "Interface action failed because of an AddOn" and does
+		-- nothing. Deferring it to the end of the fight threw the same error,
+		-- so the guard is the whole of the handling -- the player opens the
+		-- map themselves, which is what they would do anyway.
 		ns.db.state.questPOI = "1"
 		SetCVar("questPOI", "0")
 		_G.openWorldMap()
@@ -499,18 +500,7 @@ if scenario == "normal" or scenario == "no_settings" or scenario == "settings_re
 		pcall(SlashCmdList["VANILLAQUESTING"], "off hideMapQuestHelper")
 		check("the map is left alone in combat", ops() == "", ops())
 		check("and is still open, not half-cycled", WorldMapFrame:IsShown())
-
-		-- And lands the moment combat drops.
 		_G.__inCombat = false
-		fire("PLAYER_REGEN_ENABLED")
-		check("the cycle runs on leaving combat", ops() == "hide,show,hide", ops())
-		check("and ends closed", not WorldMapFrame:IsShown())
-
-		-- Once, not on every fight thereafter.
-		_G.openWorldMap()
-		_G.__clearMapOps()
-		fire("PLAYER_REGEN_ENABLED")
-		check("and does not repeat on the next combat drop", ops() == "", ops())
 		_G.closeWorldMap()
 
 		ns:ResetDefaults(true)

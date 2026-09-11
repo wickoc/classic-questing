@@ -2201,7 +2201,12 @@ local function sectionDescriptionText()
 
 	-- Fragments of the two strings seen in game. Matched case-insensitively on
 	-- a lowered copy so wording drift does not hide a hit.
-	local NEEDLES = { "privacy policy", "colorblind filter", "see which looks" }
+	--
+	-- "colorblind filter" is dropped: v0.26 matched it against a SLIDER's
+	-- tooltip -- "Adjusts the strength of the selected colorblind filter." --
+	-- which is a control, not the paragraph being hunted. The remaining two
+	-- are phrases that only appear in the description text itself.
+	local NEEDLES = { "privacy policy", "see which looks the best" }
 
 	local seen, hits = 0, 0
 	for _, layout in pairs(SettingsPanel.categoryLayouts) do
@@ -2241,11 +2246,19 @@ local function sectionDescriptionText()
 	end
 
 	add("   walked " .. seen .. " initializers, " .. hits .. " hit(s).")
-
-	-- Failing a direct hit, the template names themselves are worth having:
-	-- every DISTINCT frameTemplate in Blizzard's layouts, with a count. The
-	-- one that is not a control is the one to try.
 	if hits == 0 then
+		add("   So the paragraphs are not in any initializer's data. They are")
+		add("   either drawn by the template itself, or those panels are canvas")
+		add("   layouts rather than vertical ones. The census below is the lead.")
+	end
+
+	-- The template census, ALWAYS. v0.26 gated this behind `hits == 0` and
+	-- the run scored exactly one hit -- a slider's tooltip that happened to
+	-- mention the colorblind filter, not the description text at all -- so the
+	-- gate suppressed the only genuinely useful half of the section. A
+	-- near-miss is not an answer, and a cheap dump should not be conditional
+	-- on a match that might be a false positive.
+	do
 		local templates = {}
 		for _, layout in pairs(SettingsPanel.categoryLayouts) do
 			local inits = type(layout) == "table" and rawget(layout, "initializers")
