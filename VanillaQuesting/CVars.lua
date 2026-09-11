@@ -17,6 +17,10 @@ local RULES = {
 		cvar       = "questPOI",
 		wanted     = "0",
 		needsApply = true,
+		-- The on-screen quest helper only picks this up when the map pane is
+		-- closed and reopened -- reported from play, and not fixed by asking
+		-- the tracker to redraw. See refreshQuestUI.
+		cyclesMap  = true,
 		default = true,
 		label   = "world map quest helper",
 		onText  = "World map quest markers, blue areas and quest list removed.",
@@ -160,16 +164,57 @@ end
 -- The map is only refreshed when it is actually on screen. The tracker is
 -- refreshed unconditionally -- it is always visible, and WatchFrame_Update is
 -- what every other part of this AddOn already calls to make it rebuild.
-local function refreshQuestUI()
+local function mapIsOpen()
+	if type(WorldMapFrame) ~= "table" or type(WorldMapFrame.IsShown) ~= "function" then
+		return false
+	end
+	local ok, shown = pcall(WorldMapFrame.IsShown, WorldMapFrame)
+	return ok and shown and true or false
+end
+
+-- Shut the world map and open it again.
+--
+-- Asking the tracker to redraw was not enough: reported from play, the
+-- on-screen quest helper only picks up a questPOI change when the map pane
+-- closes and reopens. Whatever the map does on the way out and back in is not
+-- reachable any other way that has been found, so this does the thing that
+-- works rather than the thing that ought to.
+--
+-- HideUIPanel and ShowUIPanel have never been probed on this client, so they
+-- are existence-checked and the frame's own Hide and Show -- which every Frame
+-- has -- are the fallback. The panel functions are preferred because they keep
+-- the UI panel manager's idea of what is open in step with reality.
+--
+-- Never in combat. Showing a UI panel then is how taint starts, and safety
+-- rule 1 says queue it rather than force it. The cost of skipping is that the
+-- player reopens the map themselves, which is what they do today.
+local function cycleWorldMap()
+	if not mapIsOpen() then return false end
+	if type(InCombatLockdown) == "function" then
+		local okc, inCombat = pcall(InCombatLockdown)
+		if okc and inCombat then return false end
+	end
+
+	local hide = (type(HideUIPanel) == "function") and HideUIPanel or WorldMapFrame.Hide
+	local show = (type(ShowUIPanel) == "function") and ShowUIPanel or WorldMapFrame.Show
+	if type(hide) ~= "function" or type(show) ~= "function" then return false end
+
+	local okh = pcall(hide, WorldMapFrame)
+	local oks = pcall(show, WorldMapFrame)
+	return okh and oks
+end
+
+local function refreshQuestUI(rule)
 	if type(WatchFrame_Update) == "function" then
 		pcall(WatchFrame_Update)
 	end
-	if type(QuestMapFrame_UpdateAll) == "function"
-		and type(WorldMapFrame) == "table"
-		and type(WorldMapFrame.IsShown) == "function" then
-		local ok, shown = pcall(WorldMapFrame.IsShown, WorldMapFrame)
-		if ok and shown then pcall(QuestMapFrame_UpdateAll) end
+	if type(QuestMapFrame_UpdateAll) == "function" and mapIsOpen() then
+		pcall(QuestMapFrame_UpdateAll)
 	end
+	-- Only the rules that change what the map and the tracker draw, and only
+	-- while the map is open. Cycling it for a variable it does not read would
+	-- be a visible jolt for nothing.
+	if rule and rule.cyclesMap then cycleWorldMap() end
 end
 
 local function writeCVar(rule, value)
@@ -195,7 +240,7 @@ local function writeCVar(rule, value)
 			", still " .. tostring(now) .. "). Skipping " .. rule.label .. ".")
 		return false
 	end
-	refreshQuestUI()
+	refreshQuestUI(rule)
 	return true
 end
 
@@ -249,10 +294,18 @@ local function makeModule(rule)
 	function M:Disable()
 		local original = ns.db and ns.db.state[rule.cvar]
 		if original == nil or refused[rule.cvar] then return end
+
+		-- Only when it actually moves. ApplyAll re-applies every module on
+		-- every change, so an unconditional restore here writes a value the
+		-- variable already holds -- harmless in itself, but it used to drag
+		-- refreshQuestUI along with it and cycle the world map every time any
+		-- unrelated option was touched.
+		if readCVar(rule.cvar) == original then return end
+
 		applying = true
 		pcall(SetCVar, rule.cvar, original)
 		applying = false
-		refreshQuestUI()
+		refreshQuestUI(rule)
 	end
 
 	function M:Status()

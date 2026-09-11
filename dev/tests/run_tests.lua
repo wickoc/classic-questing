@@ -419,6 +419,14 @@ if scenario == "normal" or scenario == "no_settings" or scenario == "settings_re
 	-- was not, which no check that reads the variable back can ever catch.
 	do
 		ns:ResetDefaults(true)
+		-- The player's own pre-AddOn value, stated explicitly. It is recorded
+		-- once, on the first Enable, and earlier blocks in this scenario leave
+		-- it wherever they left it -- and if it already matches the live value
+		-- there is nothing for a toggle to move, so the redraw never fires and
+		-- the check measures the setup rather than the code.
+		ns.db.state.questPOI = "1"
+		SetCVar("questPOI", "0")
+
 		_G.openWorldMap()
 		local q0 = _G.__questPaneUpdates
 		pcall(SlashCmdList["VANILLAQUESTING"], "off hideMapQuestHelper")
@@ -442,6 +450,48 @@ if scenario == "normal" or scenario == "no_settings" or scenario == "settings_re
 		-- ns:Set re-applies every module, and the tracker module calls
 		-- WatchFrame_Update itself, so a counter on it goes up whether or not
 		-- refreshQuestUI exists. A check that cannot fail is not a check.
+
+		-- Cycling the map. Asking the tracker to redraw was NOT enough: in
+		-- play the on-screen quest helper only picks a questPOI change up when
+		-- the map pane closes and opens again.
+		ns.db.state.questPOI = "1"
+		SetCVar("questPOI", "0")
+		_G.openWorldMap()
+		local c0 = _G.__mapCycles
+		pcall(SlashCmdList["VANILLAQUESTING"], "off hideMapQuestHelper")
+		check("changing the world map helper closes and reopens the map pane",
+			_G.__mapCycles == c0 + 1, _G.__mapCycles .. " vs " .. c0)
+		check("and the map is left open afterwards", WorldMapFrame:IsShown())
+
+		-- An option the map does not read must not jolt it.
+		local c1 = _G.__mapCycles
+		pcall(SlashCmdList["VANILLAQUESTING"], "off hideTooltipsQuestProgress")
+		check("an unrelated option does not cycle the map",
+			_G.__mapCycles == c1, _G.__mapCycles .. " vs " .. c1)
+
+		-- Closed map, nothing to cycle.
+		_G.closeWorldMap()
+		local c2 = _G.__mapCycles
+		SetCVar("questPOI", "1")
+		pcall(SlashCmdList["VANILLAQUESTING"], "on hideMapQuestHelper")
+		check("a closed map is not opened by a change",
+			_G.__mapCycles == c2 and not WorldMapFrame:IsShown(),
+			_G.__mapCycles .. " vs " .. c2)
+
+		-- Safety rule 1: never show a UI panel in combat.
+		ns.db.state.questPOI = "1"
+		SetCVar("questPOI", "0")
+		_G.openWorldMap()
+		_G.__inCombat = true
+		local c3 = _G.__mapCycles
+		pcall(SlashCmdList["VANILLAQUESTING"], "off hideMapQuestHelper")
+		check("the map is not cycled in combat",
+			_G.__mapCycles == c3, _G.__mapCycles .. " vs " .. c3)
+		check("and the map is still open after a combat-time change",
+			WorldMapFrame:IsShown())
+		_G.__inCombat = false
+		_G.closeWorldMap()
+
 		ns:ResetDefaults(true)
 	end
 
@@ -596,7 +646,7 @@ end
 
 if fail > 0 then os.exit(1) end
 
-if scenario == "native" then
+if scenario == "native" or scenario == "no_tooltipfunc" then
 	-- The whole point of the native path: these are Blizzard's controls, so
 	-- the tests are about the contract with Blizzard, not about our pixels.
 	check("native path taken", ns.optionsNative == true)
@@ -639,39 +689,40 @@ if scenario == "native" then
 	end
 
 	-- Two headings: Experimental in orange, and the version as a grey footer.
-	-- Plus one description line under the Experimental heading, which uses the
-	-- same text element because this client's Settings API has no description
-	-- element that any probe has found.
+	-- The experimental note is NOT a heading here -- drawing it with the
+	-- heading element looked like a second heading, so in this panel it rides
+	-- on the Experimental heading's tooltip until [G23] finds a real
+	-- description element. The canvas panel draws it properly.
 	local headers = _G.__headers or {}
-	-- One per category, plus the version footer, plus the experimental note.
+	-- One per category, plus the version footer.
 	local groups = {}
 	for i = 1, #ns.modules do groups[ns.modules[i].group or "?"] = true end
 	local nGroups = 0
 	for _ in pairs(groups) do nGroups = nGroups + 1 end
-	check("a heading for every category, plus the version footer and the experimental note",
-		#headers == nGroups + 2, #headers .. " for " .. nGroups .. " categories")
-	local expHeader, verHeader, noteLine, noteIndex, expIndex
-	for i, h in ipairs(headers) do
-		if h:find(EXPERIMENTAL_NOTE_TEXT, 1, true) then
-			noteLine, noteIndex = h, i
-		elseif h:find("Experimental", 1, true) then
-			expHeader, expIndex = h, i
-		else
-			verHeader = h
-		end
+	check("a heading for every category, plus the version footer",
+		#headers == nGroups + 1, #headers .. " for " .. nGroups .. " categories")
+	check("the experimental note is not drawn as a heading",
+		table.concat(headers, "\1"):find(EXPERIMENTAL_NOTE_TEXT, 1, true) == nil,
+		table.concat(headers, " | "))
+	local expHeader, verHeader
+	for _, h in ipairs(headers) do
+		if h:find("Experimental", 1, true) then expHeader = h else verHeader = h end
 	end
-	check("the experimental note sits directly under the Experimental heading",
-		noteIndex ~= nil and expIndex ~= nil and noteIndex == expIndex + 1,
-		tostring(expIndex) .. " -> " .. tostring(noteIndex))
-	check("the experimental note is orange",
-		noteLine and noteLine:find("|cffff8019", 1, true) ~= nil, tostring(noteLine))
 	-- It is a description, not an instruction. The sentence telling the player
 	-- to switch them on themselves was removed; this guards it staying gone.
 	check("the experimental note does not tell the player what to do",
-		noteLine and noteLine:find("yourself", 1, true) == nil, tostring(noteLine))
+		_G.__headerTooltips and _G.__headerTooltips["Experimental"]
+			and _G.__headerTooltips["Experimental"]:find("yourself", 1, true) == nil,
+		tostring(_G.__headerTooltips and _G.__headerTooltips["Experimental"]))
+	check("the Experimental heading carries the note as its tooltip",
+		_G.__headerTooltips and _G.__headerTooltips["Experimental"]
+			and _G.__headerTooltips["Experimental"]:find(EXPERIMENTAL_NOTE_TEXT, 1, true) ~= nil,
+		tostring(_G.__headerTooltips and _G.__headerTooltips["Experimental"]))
 
-	-- The option NAME carries the colour, not the tooltip header. Blizzard
-	-- paints a tooltip's first line white itself and that stays as it is.
+	-- The option NAME carries the colour, and the tooltip's TITLE must not.
+	-- v1.0.0 coloured the registered setting name, and the orange came through
+	-- in both -- this client draws the label and the tooltip's first line from
+	-- the same string.
 	do
 		local expBox, normalBox
 		for _, b in ipairs(boxes) do
@@ -682,16 +733,38 @@ if scenario == "native" then
 				normalBox = normalBox or b
 			end
 		end
-		check("an experimental option's name is orange in the panel",
-			expBox and expBox.setting:GetName():find("|cffff8019", 1, true) ~= nil,
+
+		-- The registered name is always plain. That is what makes the fallback
+		-- safe: if nothing below works, the label is white, never orange.
+		check("the registered setting name is never coloured",
+			expBox and expBox.setting:GetName():find("|cff", 1, true) == nil,
 			expBox and expBox.setting:GetName() or "none")
-		check("a normal option's name is not",
-			normalBox and normalBox.setting:GetName():find("|cffff8019", 1, true) == nil,
-			normalBox and normalBox.setting:GetName() or "none")
-		check("the experimental option's tooltip header is not orange",
-			expBox and (expBox.tooltip == nil
-				or expBox.tooltip:sub(1, 10):find("|cffff8019", 1, true) == nil),
-			expBox and tostring(expBox.tooltip):sub(1, 40) or "none")
+
+		local expTip = expBox and _G.__renderCheckboxTooltip(expBox)
+		local title = expTip and expTip[1]
+		check("the experimental option's tooltip title is white",
+			title and title.r == 1 and title.g == 1 and title.b == 1,
+			title and (tostring(title.r) .. "," .. tostring(title.g) .. "," .. tostring(title.b))
+				or "no title")
+		check("and carries no colour escape of its own",
+			title and tostring(title.text):find("|cff", 1, true) == nil,
+			title and tostring(title.text) or "no title")
+
+		if scenario ~= "no_tooltipfunc" then
+			check("an experimental option's name is orange in the panel",
+				expBox and expBox.data.name:find("|cffff8019", 1, true) ~= nil,
+				expBox and expBox.data.name or "none")
+			check("a normal option's name is not",
+				normalBox and normalBox.data.name:find("|cffff8019", 1, true) == nil,
+				normalBox and normalBox.data.name or "none")
+		else
+			-- No SetTooltipFunc means no way to keep the title white while the
+			-- label is orange, so the AddOn takes neither. A plain label is a
+			-- cosmetic loss; an orange tooltip title is the reported bug.
+			check("without SetTooltipFunc the label stays plain rather than orange",
+				expBox and expBox.data.name:find("|cff", 1, true) == nil,
+				expBox and expBox.data.name or "none")
+		end
 	end
 	check("the Experimental heading is orange",
 		expHeader and expHeader:find("|cffff8019", 1, true) ~= nil, tostring(expHeader))
@@ -1085,7 +1158,7 @@ if scenario == "normal" then
 	ns:ResetDefaults(true)
 end
 
-if scenario == "native" then
+if scenario == "native" or scenario == "no_tooltipfunc" then
 	-- ---- Blizzard's own controls get told who is driving them ----
 	--
 	-- A player who finds Blizzard's "Instant Quest Text" checkbox has no way
@@ -1315,7 +1388,7 @@ if scenario == "normal" then
 	ns:ResetDefaults(true)
 end
 
-if scenario == "native" then
+if scenario == "native" or scenario == "no_tooltipfunc" then
 	-- ---- experimental options and the preset ----
 	--
 	-- Switching one on used to drop the preset to Custom, and picking Full
@@ -1537,7 +1610,7 @@ if scenario == "normal" then
 		ns.color.experimental == "|cffff8019", ns.color.experimental)
 end
 
-if scenario == "native" then
+if scenario == "native" or scenario == "no_tooltipfunc" then
 	-- ---- every module reaches the panel, in a stable order ----
 	--
 	-- Two orders collided (20/20 and 50/50) and table.sort is unstable in
@@ -1659,19 +1732,13 @@ if scenario == "normal" then
 	ns:ResetDefaults(true)
 end
 
-if scenario == "native" then
+if scenario == "native" or scenario == "no_tooltipfunc" then
 	-- Every category gets a heading, and the options under it all belong to it.
 	local headings, current, wrong = {}, nil, nil
 	for _, c in ipairs(_G.__nativeControls or {}) do
 		if c.kind == "header" then
-			local text = (c.text:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""))
-			-- The experimental note is drawn with the same element as a
-			-- heading, but it is a description: it does not start a category,
-			-- and the options after it still belong to the heading above it.
-			if text ~= EXPERIMENTAL_NOTE_TEXT then
-				current = text
-				headings[#headings + 1] = current
-			end
+			current = (c.text:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""))
+			headings[#headings + 1] = current
 		elseif c.kind == "checkbox" then
 			local key = c.setting:GetVariable():gsub("VanillaQuesting_", "")
 			if ns.modules[key].group ~= current then

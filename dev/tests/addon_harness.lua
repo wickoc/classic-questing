@@ -26,6 +26,30 @@ WorldMapFrame = {
 _G.__questPaneUpdates = 0
 QuestMapFrame_UpdateAll = function() _G.__questPaneUpdates = _G.__questPaneUpdates + 1 end
 
+-- The map being shut and opened again is the only thing that makes the
+-- on-screen quest helper pick up a questPOI change. Counted, because "the
+-- tracker was asked to redraw" was true the whole time it was not working.
+_G.__mapCycles = 0
+HideUIPanel = function(frame)
+	if frame == WorldMapFrame then
+		WorldMapFrame.__shown = false
+		WorldMapFrame.__cycling = true
+	end
+end
+ShowUIPanel = function(frame)
+	if frame == WorldMapFrame then
+		WorldMapFrame.__shown = true
+		if WorldMapFrame.__cycling then
+			WorldMapFrame.__cycling = nil
+			_G.__mapCycles = _G.__mapCycles + 1
+		end
+		if _G.__mapOnShow then _G.__mapOnShow() end
+	end
+end
+
+_G.__inCombat = false
+InCombatLockdown = function() return _G.__inCombat end
+
 _G.openWorldMap = function()
 	WorldMapFrame.__shown = true
 	if _G.__mapOnShow then _G.__mapOnShow() end
@@ -514,7 +538,8 @@ elseif scenario == "no_cvar" then cvars.questPOI = nil
 elseif scenario == "no_settings" then Settings = nil
 elseif scenario == "settings_refuses" then
 	Settings.RegisterCanvasLayoutCategory = function() error("nope") end
-elseif scenario == "native" or scenario == "native_halfway" then
+elseif scenario == "native" or scenario == "native_halfway"
+	or scenario == "no_tooltipfunc" then
 	-- The real client's Settings API, modelled on the v0.15 probe readback:
 	-- the argument order below is the one that scored 4/4, so a mistake in
 	-- Options.lua shows up here as a scrambled setting rather than passing.
@@ -582,7 +607,12 @@ elseif scenario == "native" or scenario == "native_halfway" then
 	end
 
 	_G.__headers = {}
+	-- Keyed by the heading's plain text, so a test can ask what a given
+	-- heading's tooltip says without caring where it sits in the list.
+	_G.__headerTooltips = {}
 	CreateSettingsListSectionHeaderInitializer = function(text, tooltip)
+		local plain = (text:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""))
+		if tooltip then _G.__headerTooltips[plain] = tooltip end
 		return { kind = "header", text = text, data = { name = text, tooltip = tooltip } }
 	end
 
@@ -673,9 +703,46 @@ elseif scenario == "native" or scenario == "native_halfway" then
 		if type(setting) ~= "table" or type(setting.GetVariable) ~= "function" then
 			error("CreateCheckbox needs a setting object")
 		end
-		created[#created + 1] = { kind = "checkbox", setting = setting, tooltip = tooltip }
-		return created[#created]
+		-- The client draws the checkbox LABEL and the tooltip's first line
+		-- from the same string, which is how colouring the setting name turned
+		-- the tooltip header orange. data.name is that string.
+		local init = {
+			kind = "checkbox",
+			setting = setting,
+			tooltip = tooltip,
+			data = { name = setting:GetName(), tooltip = tooltip },
+		}
+		-- Whether a checkbox initializer really carries SetTooltipFunc here is
+		-- open -- [G23] asks. The scenario "no_tooltipfunc" models a client
+		-- without it, because the AddOn must degrade to a plain label rather
+		-- than to an orange tooltip title.
+		if scenario ~= "no_tooltipfunc" then
+			function init:SetTooltipFunc(fn) self.__tooltipFunc = fn end
+		end
+		created[#created + 1] = init
+		return init
 	end
+-- Render whatever tooltip a control would actually show: the AddOn's own
+-- function if it installed one, otherwise the client's default of the name
+-- followed by the tooltip string.
+_G.__renderCheckboxTooltip = function(init)
+	local lines = {}
+	local tip = {
+		SetText = function(_, t, r, g, b)
+			lines[#lines + 1] = { text = t, r = r, g = g, b = b }
+		end,
+		AddLine = function(_, t, r, g, b)
+			lines[#lines + 1] = { text = t, r = r, g = g, b = b }
+		end,
+	}
+	if init.__tooltipFunc then
+		init.__tooltipFunc(tip)
+	else
+		tip:SetText(init.data.name, 1, 1, 1)
+		if init.tooltip then tip:AddLine(init.tooltip, 1, 0.82, 0, true) end
+	end
+	return lines
+end
 	Settings.CreateControlTextContainer = function()
 		local c = { data = {} }
 		function c:Add(value, label) self.data[#self.data + 1] = { value = value, label = label } end

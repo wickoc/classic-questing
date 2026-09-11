@@ -6,10 +6,26 @@
 cd "$(dirname "$0")" || exit 1
 
 SCENARIOS="normal no_settings settings_refuses cvar_refused tracking_refused
-           no_cminimap no_entry no_cvar native native_halfway"
+           no_cminimap no_entry no_cvar native native_halfway no_tooltipfunc"
 
 total=0
 failed=0
+
+# Static checks first. These catch things the scenarios cannot: a call to a
+# file-local function declared further down resolves as a nil global, which
+# `luac -p` accepts and every scenario passes right over.
+lintfail=0
+( cd ../.. && python3 dev/tests/lint_forward_refs.py \
+    "VanillaQuesting/*.lua" "dev/UnmarkedRecon/*.lua" ) || lintfail=1
+
+# And the probe has to at least compile. It is not covered by any scenario --
+# it never loads here -- so a syntax error in it would otherwise reach the
+# client before it reached this suite.
+for f in ../../VanillaQuesting/*.lua ../../dev/UnmarkedRecon/*.lua; do
+    luac5.1 -p "$f" || lintfail=1
+done
+[ "$lintfail" -eq 0 ] && printf 'compiles       ok\n'
+printf '\n'
 for s in $SCENARIOS; do
     out=$(lua5.1 run_tests.lua "$s" 2>&1)
     ok=$(printf '%s\n' "$out" | grep -c '\[ok\]')
@@ -20,4 +36,4 @@ for s in $SCENARIOS; do
     printf '%s\n' "$out" | grep '\[FAIL\]\|lua5.1:'
 done
 printf '\n%d checks, %d failed\n' "$total" "$failed"
-[ "$failed" -eq 0 ] || exit 1
+[ "$failed" -eq 0 ] && [ "$lintfail" -eq 0 ] || exit 1

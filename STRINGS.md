@@ -118,7 +118,7 @@ only when this client lacks something the AddOn expected, so most players never 
 | `PANEL.CATEGORY` | Blizzard's AddOn list | `<AddOn name>` | Same variable as `ID.NAME`. |
 | `PANEL.VERSION` | Grey heading at the foot of the list | `v<version>` in `COLOR.MUTED` | Read from the `.toc`, never typed. |
 | `PANEL.SECTION_EXPERIMENTAL` | Heading above the experimental options | `Experimental` in `COLOR.EXPERIMENTAL` | |
-| `PANEL.OPTION_NAME` | Each checkbox label | `TITLE_*` from section 5, in `COLOR.EXPERIMENTAL` where the option is experimental, otherwise the panel's own colour | The **name** carries the mark, not the tooltip header — Blizzard paints that white and it stays white. |
+| `PANEL.OPTION_NAME` | Each checkbox label | `TITLE_*` from section 5, in `COLOR.EXPERIMENTAL` where the option is experimental, otherwise the panel's own colour | The **name** carries the mark, never the tooltip title — that stays white. In the native panel both are drawn from one string, so the orange is applied only once a tooltip the AddOn controls is in place; where that is not possible the label stays plain rather than the title turning orange. |
 | `PANEL.PRESET_LABEL` | The dropdown's own label | `Preset` | |
 
 ### Preset choices
@@ -160,10 +160,15 @@ Blizzard paints the first line — the option's name — white by itself. Everyt
 
 ### The Experimental heading's description
 
-A line of text between the `Experimental` heading and the first checkbox under it, in
-`COLOR.EXPERIMENTAL`. Not a tooltip: it is always visible, the way a Blizzard heading that needs
-a sentence has one. It is the only place the AddOn says that the Vanilla preset leaves
-experimental options alone.
+The only place the AddOn says that the Vanilla preset leaves experimental options alone.
+
+Shown differently in the two panels, because of what each can draw:
+
+- **Canvas panel** — a line of text between the heading and the first checkbox, in
+  `COLOR.EXPERIMENTAL`, always visible. This is the intended form.
+- **Native panel** — on the `Experimental` heading's **tooltip**, until a real description element
+  is found on this client. Drawing it with the heading element was tried and read as a second
+  heading. See `[G23]`.
 
 | ID | Text |
 | --- | --- |

@@ -69,12 +69,14 @@ STRINGS.md              every player-visible string, labelled. A RECORD of what 
 README.md               the public front page
 dev/README.md           what the probe is, why old logs are kept, how to run the tests
 dev/UnmarkedRecon/      the probe AddOn. Dev-only, never folded into Vanilla Questing.
-                        Sections G1..G22, switched on and off by the ACTIVE table.
+                        Sections G1..G23, switched on and off by the ACTIVE table.
 dev/recon-log-*.txt     raw probe output. Every conclusion in SPEC.md is evidence from one.
                         Kept, never pruned: a later run switches settled sections off, so an
                         earlier log is often the only remaining record of an answer.
 dev/BLIP-TEXTURE-WORKFLOW.md   how the minimap blip atlas would be replaced
-dev/tests/              the off-client suite. ./run.sh, ten scenarios.
+dev/tests/              the off-client suite. ./run.sh: static checks first
+                        (lint_forward_refs.py, then luac on every Lua file
+                        including the probe), then eleven scenarios.
 ```
 
 ---
@@ -126,8 +128,10 @@ the **Releases → Draft a new release** page on GitHub, which creates the tag i
 ## Lua traps this project has actually hit
 
 1. **Forward references.** A `local` declared halfway down a file resolves as a **nil global** in
-   everything above it. Three silent failures, all swallowed by a `pcall`. **File-level locals go
-   at the top of the file.**
+   everything above it. Four times now: three silent failures inside `pcall`s in the AddOn, and
+   once in the probe, where it stopped `/unrecon` running at all. `luac -p` accepts it and every
+   scenario passes over it. **File-level locals go at the top of the file**, and
+   `dev/tests/lint_forward_refs.py` (run first by `run.sh`) now catches it.
 2. **`table.sort` is not stable in 5.1.** Two modules sharing an `order` could swap between
    logins. Every module has a unique order, and a test guards it.
 3. **A guard flag raised too early.** An early `return` past the reset leaves the guard stuck on,
@@ -141,7 +145,11 @@ the **Releases → Draft a new release** page on GitHub, which creates the tag i
 6. **A test that reads back what was just written proves nothing about the screen.** Every CVar
    check here read the variable back, and all of them passed while the UI sat stale. Count the
    redraw, not the value.
-7. **A guard that cannot fail is not a guard.** Break the fix and watch the check go red before
+7. **A cosmetic win is never worth a visible defect.** Where a nicety and a correctness
+   requirement are drawn from the same thing, take the correct one and drop the nicety — do not
+   ship both half-working. The AddOn takes the orange label only when it can also keep the tooltip
+   title white.
+8. **A guard that cannot fail is not a guard.** Break the fix and watch the check go red before
    believing it. One tracker assertion passed whether or not the fix existed, because another
    code path was already calling the same function.
 
@@ -156,8 +164,13 @@ the **Releases → Draft a new release** page on GitHub, which creates the tag i
 - **`CreateSettingsListSectionHeaderInitializer(name[, tooltip])`** is a plain global. `[G17]`
   found `data.tooltip` nil when only a name is passed; whether a second argument lands there has
   never been confirmed. It is also the **only text element in the settings list any probe has
-  found** — description text has to borrow it and renders in the heading font. `[G23]` is open on
-  whether a real description element exists.
+  found**, and it is *not* usable as description text — tried, and it reads as a second heading.
+  `[G23]` is open on whether a real description element exists.
+- **The native panel draws a checkbox's label and its tooltip title from one string.** Colouring
+  the registered setting name colours both. To mark one without the other, the AddOn must own the
+  tooltip (`SetTooltipFunc`, existence unconfirmed — also `[G23]`).
+- **`HideUIPanel` / `ShowUIPanel` / `ToggleWorldMap` have never been probed.** Existence-check
+  them; `Frame:Hide`/`Show` are the certain fallback. Never show a UI panel in combat.
 - **`Outline` is not a boolean.** 1, 2 and 3 all mean on; only 0 is off. `2` is Blizzard's default.
 - **`C_Console.GetAllCommands` is absent**, so CVars cannot be enumerated. Blizzard's settings
   registry (`SettingsPanel.categoryLayouts` → `initializers` → `init:GetSetting()`) is the

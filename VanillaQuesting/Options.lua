@@ -1068,27 +1068,63 @@ local function registerNative()
 	-- so this panel and /vq status cannot drift apart.
 	local ordered = ns:SortedModules()
 
-	local function addCheckbox(m)
-		-- An experimental option's NAME is orange. Not its tooltip header --
-		-- Blizzard paints that white itself and it should stay that way; the
-		-- thing that is experimental is the option, so the option is what
-		-- carries the colour in the list you scan.
-		--
-		-- Colour escapes are honoured by font strings generally, which is the
-		-- same bet the section headings make and win. If this control draws
-		-- its label some other way the codes simply will not take, and the
-		-- option is still there reading correctly.
-		local label = m.title or m.key
-		if m.experimental then label = ORANGE .. label .. "|r" end
+	-- Mark an experimental option's NAME orange, but only if the tooltip's
+	-- TITLE can be kept white at the same time.
+	--
+	-- v1.0.0 coloured the registered setting name and the orange came through
+	-- in both places, because this client draws the checkbox label and the
+	-- tooltip's first line from the same string. Blizzard paints that first
+	-- line white and it should stay white; the thing that is experimental is
+	-- the option.
+	--
+	-- So the name is registered PLAIN -- which is always correct, and is what
+	-- happens if anything below is missing -- and the colour is only applied
+	-- once a tooltip we control has been installed to replace the one that
+	-- would inherit it. Either both, or neither, never the orange title.
+	--
+	-- Whether SetTooltipFunc exists on a checkbox initializer here is what
+	-- [G23] asks. Everything is existence-checked, so a client without it
+	-- keeps a plain label and Blizzard's own tooltip.
+	local function markExperimental(init, m)
+		if type(init) ~= "table" then return false end
+		if type(init.SetTooltipFunc) ~= "function" then return false end
 
+		local body = tooltipFor(m)
+		local title = m.title or m.key
+		local ok = pcall(init.SetTooltipFunc, init, function(tooltip)
+			if not tooltip then return end
+			-- White, explicitly, rather than relying on the default: the
+			-- point of this whole function is that the title is not orange.
+			if type(tooltip.SetText) == "function" then
+				tooltip:SetText(title, 1, 1, 1)
+			elseif type(tooltip.AddLine) == "function" then
+				tooltip:AddLine(title, 1, 1, 1)
+			end
+			if body and body ~= "" and type(tooltip.AddLine) == "function" then
+				tooltip:AddLine(body, 1, 0.82, 0, true)
+			end
+		end)
+		if not ok then return false end
+
+		-- Only now is it safe to colour the label.
+		local data = rawget(init, "data")
+		if type(data) ~= "table" then return false end
+		local okd = pcall(function() data.name = ORANGE .. title .. "|r" end)
+		return okd and true or false
+	end
+
+	local function addCheckbox(m)
 		local oks, setting = pcall(Settings.RegisterAddOnSetting,
 			category, "VanillaQuesting_" .. m.key, m.key, ns.db.settings,
-			varType("Boolean"), label, ns.defaults[m.key] and true or false)
+			varType("Boolean"), m.title or m.key, ns.defaults[m.key] and true or false)
 		if not oks or type(setting) ~= "table" then return false end
 
 		if m.needsApply then askForApply(setting) end
 
-		if not pcall(Settings.CreateCheckbox, category, setting, tooltipFor(m)) then return false end
+		local okc, init = pcall(Settings.CreateCheckbox, category, setting, tooltipFor(m))
+		if not okc then return false end
+
+		if m.experimental then markExperimental(init, m) end
 
 		pcall(setting.SetValueChangedCallback, setting, function() onSettingChanged(m) end)
 		nativeSettings[m.key] = setting
@@ -1103,15 +1139,18 @@ local function registerNative()
 		local m = ordered[i]
 		if m.group and m.group ~= lastGroup then
 			lastGroup = m.group
-			addSectionHeader(m.group, m.experimental and ORANGE or WHITE)
-			-- A sentence between the heading and the first checkbox. There is
-			-- no description element in this client's Settings API that any
-			-- probe has turned up -- see [G23] -- so this reuses the one text
-			-- element known to work, which is what the version footer does
-			-- too. It renders in the heading font until G23 finds better.
-			if m.experimental then
-				addSectionHeader(EXPERIMENTAL_HEADER_NOTE, ORANGE)
-			end
+			-- The note belongs UNDER the heading, as description text, the way
+			-- Colorblind Mode has a sentence under its heading. There is no
+			-- description element in this client's Settings API that any probe
+			-- has turned up -- [G23] asks -- and drawing it with the heading
+			-- element instead was tried and looked exactly like what it was:
+			-- a second heading.
+			--
+			-- So in this panel it stays on the heading's tooltip until G23
+			-- says what the right element is. The canvas panel, which builds
+			-- its own font strings, draws it properly.
+			addSectionHeader(m.group, m.experimental and ORANGE or WHITE,
+				m.experimental and EXPERIMENTAL_HEADER_NOTE or nil)
 		end
 		if not addCheckbox(m) then return false end
 	end

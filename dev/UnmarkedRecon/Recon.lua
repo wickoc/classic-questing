@@ -1987,6 +1987,117 @@ end
 --      for it, that is a switch instead -- and the settings registry is
 --      exactly where instantQuestText was found after the console search
 --      failed. So look there before settling for the surgery.
+-- [G23] The Experimental heading needs a sentence under it, before the first
+-- checkbox -- the shape Blizzard's own panels use where a heading needs
+-- explaining. The AddOn currently draws that with
+-- CreateSettingsListSectionHeaderInitializer, the one text element known to
+-- work here, so it renders in the heading font.
+--
+-- The question is whether this client has a real description element. Nothing
+-- assumed: this enumerates every CreateSettings*Initializer global that
+-- actually exists, dumps what a header initializer is made of so its template
+-- name can be read off it, and lists the layout's own methods. A negative
+-- result is an answer -- it means the heading font is the best available and
+-- the AddOn should stop looking.
+local function sectionListDescription()
+	head("[G23] A description element for the settings list?")
+
+	-- Every global whose name looks like a settings-list initializer. Walking
+	-- _G rather than testing a list of names I expect: that is the difference
+	-- between "not present" and "I guessed wrong".
+	local found = {}
+	for k, v in pairs(_G) do
+		if type(k) == "string" and type(v) == "function"
+			and (k:find("^CreateSettings") or k:find("^SettingsList")) then
+			found[#found + 1] = k
+		end
+	end
+	table.sort(found)
+	if #found == 0 then
+		add("   no CreateSettings*/SettingsList* globals at all.")
+	else
+		add("   " .. #found .. " initializer-shaped globals:")
+		for i = 1, #found do add("	 " .. found[i]) end
+	end
+
+	-- Mixins carry the template names. A description element would have one.
+	local mixins = {}
+	for k, v in pairs(_G) do
+		if type(k) == "string" and type(v) == "table" and k:find("^SettingsList") then
+			mixins[#mixins + 1] = k
+		end
+	end
+	table.sort(mixins)
+	add("   SettingsList* mixins: " .. (#mixins > 0 and table.concat(mixins, ", ") or "none"))
+
+	-- What a header initializer is actually made of. Its frameTemplate names
+	-- the XML template, which is the thing a description element would have a
+	-- sibling of.
+	if type(CreateSettingsListSectionHeaderInitializer) == "function" then
+		local ok, init = pcall(CreateSettingsListSectionHeaderInitializer, "PROBE", "PROBETIP")
+		if ok and type(init) == "table" then
+			dumpTable(init, "   header initializer", 40)
+			local data = rawget(init, "data")
+			if type(data) == "table" then dumpTable(data, "   header .data", 40) end
+			if type(init.GetTemplate) == "function" then
+				local okt, tmpl = pcall(init.GetTemplate, init)
+				add("   GetTemplate() -> " .. (okt and tostring(tmpl) or "error"))
+			end
+			-- Did the second argument land? This is also the check on whether
+			-- passing a tooltip works at all on this client.
+			add("   tooltip from arg 2: " ..
+				tostring(type(data) == "table" and data.tooltip or init.tooltip))
+		else
+			add("   could not build a header initializer.")
+		end
+	end
+
+	-- The layout object takes the initializers. If it has an AddAnchorPoint,
+	-- AddDescription or similar, that is the answer outright.
+	if type(Settings) == "table"
+		and type(Settings.RegisterVerticalLayoutCategory) == "function" then
+		local ok, _, layout = pcall(Settings.RegisterVerticalLayoutCategory, "PROBE G23")
+		if ok and type(layout) == "table" then
+			dumpMethods(layout, "   layout", { "add", "desc", "text", "header", "init" })
+		else
+			add("   could not build a layout to inspect.")
+		end
+	else
+		add("   Settings.RegisterVerticalLayoutCategory missing.")
+	end
+
+	-- And the checkbox initializer, which is the other half of the question:
+	-- an experimental option's NAME should be orange while its tooltip TITLE
+	-- stays white, and both are currently drawn from the same string. If this
+	-- initializer carries SetTooltipFunc, or keeps the label and the title in
+	-- separate fields, that is the way to have both.
+	if type(Settings) == "table"
+		and type(Settings.RegisterVerticalLayoutCategory) == "function"
+		and type(Settings.RegisterAddOnSetting) == "function"
+		and type(Settings.CreateCheckbox) == "function" then
+		local okc, cat2 = pcall(Settings.RegisterVerticalLayoutCategory, "PROBE G23b")
+		if okc and type(cat2) == "table" then
+			local tbl = {}
+			local oks, setting = pcall(Settings.RegisterAddOnSetting, cat2,
+				"UnmarkedReconProbe", "probeKey", tbl, "boolean", "PROBE NAME", false)
+			if oks and type(setting) == "table" then
+				local oki, init = pcall(Settings.CreateCheckbox, cat2, setting, "PROBE TIP")
+				if oki and type(init) == "table" then
+					dumpTable(init, "   checkbox initializer", 40)
+					local d = rawget(init, "data")
+					if type(d) == "table" then dumpTable(d, "   checkbox .data", 40) end
+					dumpMethods(init, "   checkbox init",
+						{ "tooltip", "name", "text", "label", "template" })
+				else
+					add("   could not build a checkbox initializer.")
+				end
+			else
+				add("   could not register a probe setting.")
+			end
+		end
+	end
+end
+
 local function sectionQuestFrameAndTooltip()
 	head("[G22] Questgiver portrait, and a switch for quest tooltips")
 
@@ -2194,82 +2305,6 @@ local function collect()
 	if ACTIVE.g21  then sectionBlizzardTooltips() end
 	if ACTIVE.g22  then sectionQuestFrameAndTooltip() end
 	if ACTIVE.g23  then sectionListDescription()   end
-
-
--- [G23] The Experimental heading needs a sentence under it, before the first
--- checkbox -- the shape Blizzard's own panels use where a heading needs
--- explaining. The AddOn currently draws that with
--- CreateSettingsListSectionHeaderInitializer, the one text element known to
--- work here, so it renders in the heading font.
---
--- The question is whether this client has a real description element. Nothing
--- assumed: this enumerates every CreateSettings*Initializer global that
--- actually exists, dumps what a header initializer is made of so its template
--- name can be read off it, and lists the layout's own methods. A negative
--- result is an answer -- it means the heading font is the best available and
--- the AddOn should stop looking.
-local function sectionListDescription()
-	head("[G23] A description element for the settings list?")
-
-	-- Every global whose name looks like a settings-list initializer. Walking
-	-- _G rather than testing a list of names I expect: that is the difference
-	-- between "not present" and "I guessed wrong".
-	local found = {}
-	for k, v in pairs(_G) do
-		if type(k) == "string" and type(v) == "function"
-			and (k:find("^CreateSettings") or k:find("^SettingsList")) then
-			found[#found + 1] = k
-		end
-	end
-	table.sort(found)
-	if #found == 0 then
-		add("   no CreateSettings*/SettingsList* globals at all.")
-	else
-		add("   " .. #found .. " initializer-shaped globals:")
-		for i = 1, #found do add("	 " .. found[i]) end
-	end
-
-	-- Mixins carry the template names. A description element would have one.
-	local mixins = {}
-	for k, v in pairs(_G) do
-		if type(k) == "string" and type(v) == "table" and k:find("^SettingsList") then
-			mixins[#mixins + 1] = k
-		end
-	end
-	table.sort(mixins)
-	add("   SettingsList* mixins: " .. (#mixins > 0 and table.concat(mixins, ", ") or "none"))
-
-	-- What a header initializer is actually made of. Its frameTemplate names
-	-- the XML template, which is the thing a description element would have a
-	-- sibling of.
-	if type(CreateSettingsListSectionHeaderInitializer) == "function" then
-		local ok, init = pcall(CreateSettingsListSectionHeaderInitializer, "PROBE", "PROBETIP")
-		if ok and type(init) == "table" then
-			dumpTable(init, "   header initializer", 40)
-			local data = rawget(init, "data")
-			if type(data) == "table" then dumpTable(data, "   header .data", 40) end
-			if type(init.GetTemplate) == "function" then
-				local okt, tmpl = pcall(init.GetTemplate, init)
-				add("   GetTemplate() -> " .. (okt and tostring(tmpl) or "error"))
-			end
-			-- Did the second argument land? This is also the check on whether
-			-- passing a tooltip works at all on this client.
-			add("   tooltip from arg 2: " ..
-				tostring(type(data) == "table" and data.tooltip or init.tooltip))
-		else
-			add("   could not build a header initializer.")
-		end
-	end
-
-	-- The layout object takes the initializers. If it has an AddAnchorPoint,
-	-- AddDescription or similar, that is the answer outright.
-	local ok, cat, layout = pcall(Settings.RegisterVerticalLayoutCategory, "PROBE G23")
-	if ok and type(layout) == "table" then
-		dumpMethods(layout, "   layout", { "add", "desc", "text", "header", "init" })
-	else
-		add("   could not build a layout to inspect.")
-	end
-end
 
 	-- Any full method dumps collected via "/unrecon methods <global>" get
 	-- folded in here so they travel inside the readable report rather than

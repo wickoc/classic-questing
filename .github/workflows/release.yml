@@ -63,11 +63,40 @@ jobs:
           cat .github/release-footer.md >> body.md
           cat body.md
 
-      - name: Publish
+      - name: Publish, or fill in a release that already exists
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" \
-            --title "Vanilla Questing ${{ steps.version.outputs.toc }}" \
-            --notes-file body.md \
-            "${{ steps.package.outputs.name }}"
+          # Both routes to a release end up here, and neither should fail
+          # because the other got there first:
+          #
+          #   * push a tag           -> this job creates the release;
+          #   * "Draft a new release" on GitHub, which makes the tag itself
+          #                          -> the release exists before this runs.
+          #
+          # So create it if it is not there, and otherwise fill in what the
+          # web form cannot: the built zip, and the notes from CHANGELOG.md.
+          name="${{ steps.package.outputs.name }}"
+          title="Vanilla Questing ${{ steps.version.outputs.toc }}"
+
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            echo "Release $GITHUB_REF_NAME already exists; updating it."
+
+            # Notes written by hand on the web form are not overwritten. Only
+            # an empty body gets filled in, so the author always wins.
+            body=$(gh release view "$GITHUB_REF_NAME" --json body --jq '.body')
+            if [ -z "$body" ]; then
+              gh release edit "$GITHUB_REF_NAME" --title "$title" --notes-file body.md
+            else
+              echo "It already has notes. Leaving them alone."
+              gh release edit "$GITHUB_REF_NAME" --title "$title"
+            fi
+
+            # --clobber so a re-run replaces the asset rather than erroring.
+            gh release upload "$GITHUB_REF_NAME" "$name" --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" \
+              --title "$title" \
+              --notes-file body.md \
+              "$name"
+          fi

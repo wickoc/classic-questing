@@ -17,8 +17,10 @@ First release.
 - The note that the Vanilla preset leaves experimental options alone now sits under the
   Experimental heading, out of chat and the preset tooltip.
 - Experimental options are named in orange, in the panel and in `/vq status`.
-- Changing an option from chat with the world map open now redraws the map's quest list, instead
-  of leaving it stale until a reload. ([#11](https://github.com/wickoc/vanilla-questing/issues/11))
+- Changing the world map quest helper from chat with the map open now refreshes the quest helper,
+  instead of leaving it stale until a reload.
+  ([#11](https://github.com/wickoc/vanilla-questing/issues/11))
+- Restoring a setting no longer rewrites console variables that had not moved.
 
 ## 0.18.0
 

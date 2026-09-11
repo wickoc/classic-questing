@@ -227,9 +227,15 @@ description text under the Experimental heading, and nowhere else: it was in the
 and in chat, which repeated it at people who had not asked, and then on the heading's tooltip,
 where it was still hidden behind a hover.
 
-**An experimental option's name is orange, in the panel and in `/vq status`.** Not its tooltip
-header — Blizzard paints a tooltip's first line white itself, and that is right. The thing that is
-experimental is the option, so the option is what carries the mark in the list you scan.
+**An experimental option's name is orange, in the panel and in `/vq status`.** Never its tooltip
+title, which stays white. The thing that is experimental is the option, so the option is what
+carries the mark in the list you scan.
+
+In the native panel those two are **drawn from the same string**, which is how v1.0.0 turned the
+tooltip title orange along with the label. The registered setting name is therefore always plain,
+and the colour is applied to the initializer's own copy only once a tooltip the AddOn controls has
+been installed in place of the one that would inherit it. Either both or neither: a plain label is
+a cosmetic loss, an orange title is a defect.
 
 **Shipped defaults are the Vanilla preset** — every non-experimental option on. That is what
 people install the AddOn for; neither "all off" nor a subset picked to the author's taste is a
@@ -952,17 +958,19 @@ Three player-facing lines went, all of them saying something the player did not 
 - `hideBossPortraits` said "Creature portraits" in chat and "creature portraits" in warnings while
   its title and description had already become "Boss". One name per feature, everywhere.
 
-It is a line of description text, not a tooltip — always visible, between the heading and the
-first checkbox, the shape Blizzard's own panels use where a heading needs a sentence. The canvas
-panel draws it as a small orange font string, which is exactly right. **The native panel draws it
-with `CreateSettingsListSectionHeaderInitializer`**, the one text element this client is known to
-have, so it renders in the heading font rather than a description font.
+It should be a line of description text — always visible, between the heading and the first
+checkbox, the shape Blizzard's own panels use where a heading needs a sentence. The **canvas
+panel** draws it as a small orange font string, which is exactly right.
 
-That is a compromise, and it is marked as one: **`[G23]`** enumerates every
-`CreateSettings*`/`SettingsList*` global that actually exists, dumps a header initializer so its
-template name can be read off it, and lists the layout's own methods. If a real description element
-is there, the next pass uses it; if the probe comes back with nothing, the heading font is the best
-this client offers and the AddOn stops looking. Either is an answer.
+The **native panel** cannot, yet. Drawing it with `CreateSettingsListSectionHeaderInitializer` —
+the one text element this client is known to have — was tried, and it reads as a second heading,
+because that is what it is. So in that panel the note stays on the heading's **tooltip** until
+there is something better to draw it with.
+
+**`[G23]`** asks what that is: it enumerates every `CreateSettings*`/`SettingsList*` global that
+actually exists, lists the `SettingsList*` mixins, dumps a header initializer so its template name
+can be read off it, and dumps the layout's own methods. A negative result is an answer — it means
+the tooltip is the best this client offers and the AddOn stops looking.
 
 #### Outline Mode says what it costs
 
@@ -985,16 +993,33 @@ same order as the native panel: description, cost, experimental note.
 #### A CVar change now redraws the frames that read it — [issue #11](https://github.com/wickoc/vanilla-questing/issues/11)
 
 Reported from play: with the world map pane open, toggling `hideMapQuestHelper` from chat updated
-the map and left the quest list beside it showing its old contents until a `/reload`.
+the map and left the on-screen quest helper showing its old contents until a `/reload`.
 
 Nothing tells a frame that a console variable it reads has moved, so it keeps whatever it last
-drew. `writeCVar` and `Disable` now ask for a redraw: `WatchFrame_Update` always, and
-`QuestMapFrame_UpdateAll` when the map is actually on screen. Both are confirmed present by the
-v0.9 probe rather than assumed, and both are existence-checked anyway.
+drew. `writeCVar` and `Disable` ask for a redraw: `WatchFrame_Update` always, and
+`QuestMapFrame_UpdateAll` when the map is on screen. Both are confirmed present by the v0.9 probe
+rather than assumed.
+
+**That was not enough.** The second report was precise about it: the on-screen helper only picks
+the change up when the **map pane is closed and opened again**. Asking the tracker to redraw is
+not the same as whatever the map does on its way out and back in, and nothing found so far reaches
+that any other way. So for `questPOI` — flagged `cyclesMap` on the rule, nothing else — the map is
+shut and reopened when it is already on screen.
+
+`HideUIPanel` and `ShowUIPanel` have never been probed here, so they are existence-checked with
+the frame's own `Hide`/`Show` as the fallback; they are preferred because they keep the panel
+manager's idea of what is open in step. **Never in combat** — showing a UI panel then is how taint
+starts, and the cost of skipping is that the player reopens the map themselves, which is what they
+do today anyway.
+
+Turning that on exposed a real defect next door: `Disable` restored its variable on **every**
+`ApplyAll`, whether or not the value had moved. Harmless while it was only a redundant write —
+until it started dragging a map cycle with it, and touching any unrelated option jolted the map.
+It now returns early when the variable already holds the value it would write.
 
 **The variable was correct and the UI was not**, which is a shape no check that reads the variable
-back can ever catch — every test this AddOn had for CVar rules did exactly that. The new guard
-counts redraws instead.
+back can ever catch — and every test this AddOn had for CVar rules did exactly that. The new
+guards count redraws and map cycles instead.
 
 #### The tooltip stutter — [issue #2](https://github.com/wickoc/vanilla-questing/issues/2)
 
@@ -1709,6 +1734,18 @@ object rather than using two, so they cannot be separated. Both go, which is the
 `IconBorder` is a different thing — the item-quality border — and is left alone.
 
 ### v0.24 probe
+
+**The probe did not run at all when v0.24 was first written**, and the reason is the forward
+reference: `sectionListDescription` was defined *after* the line that calls it, inside the same
+function, so it resolved as a nil global. `luac -p` accepts that, every scenario passed over it,
+and `/unrecon` failed on the client.
+
+That is the fourth time this trap has been sprung in this project. It is now a static check —
+`dev/tests/lint_forward_refs.py`, run first by `run.sh` — which reports any call to a file-local
+function that appears above its definition. It was verified by running it against the broken file
+and watching it name the exact line. `run.sh` also compiles the probe now, which no scenario did:
+the probe never loads in the harness, so a syntax error in it would have reached the client before
+it reached the suite.
 
 #### G23 — a description element for the settings list? — OPEN
 
