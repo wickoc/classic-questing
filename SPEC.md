@@ -1830,23 +1830,61 @@ is all that would be needed to build one.
 #### G25 — Blizzard's description paragraphs are not in any initializer's data
 
 The walk covered **625 initializers** across Blizzard's own registered layouts and scored one
-hit — which on inspection is a **false positive**: `tooltip = "Adjusts the strength of the
-selected colorblind filter."` on a `SettingsSliderControlTemplate`. That is a control's tooltip
-that happens to mention the filter, not the paragraph being hunted.
+hit — a **false positive**: `tooltip = "Adjusts the strength of the selected colorblind filter."`
+on a `SettingsSliderControlTemplate`. A control's tooltip that mentions the filter, not the
+paragraph.
 
-So neither *"For more information see our Privacy Policy"* nor *"Try each colorblind filter to see
-which looks the best to you."* lives in an initializer's `data`. They are either drawn by the XML
-template itself, or those panels are canvas layouts rather than vertical ones and never appear in
-`categoryLayouts` at all.
+**And the probe hid its own best answer.** The template census was gated behind `hits == 0`, and
+that one spurious match suppressed it. A near-miss is not an answer, and a cheap dump should never
+be conditional on a match that might be false. The lesson generalises: **a conditional diagnostic
+fires exactly when you do not need it.**
 
-**And the probe hid its own best answer.** The template census — every distinct `frameTemplate`
-Blizzard uses, with counts — was gated behind `hits == 0`, and that one false positive suppressed
-it. A near-miss is not an answer, and a cheap dump should never be conditional on a match that
-might be spurious. v0.27 always prints the census and drops the `colorblind filter` needle that
-caused the false hit.
+### v0.27 probe
 
-The lesson generalises past this probe: **a conditional diagnostic fires exactly when you do not
-need it.**
+#### G25, with the census — every template Blizzard uses
 
-Still [issue #12](https://github.com/wickoc/vanilla-questing/issues/12), still not a v1.0.0
-blocker.
+Re-run with the needle that caused the false hit removed and the census unconditional. **0 hits**,
+and 22 distinct templates across 625 initializers:
+
+| Template | Count | |
+| --- | ---: | --- |
+| `KeyBindingFrameBindingTemplate` | 299 | control |
+| `SettingsCheckboxControlTemplate` | 139 | control |
+| `SettingsDropdownControlTemplate` | 81 | control |
+| `SettingsSliderControlTemplate` | 48 | control |
+| `SettingsListSectionHeaderTemplate` | 18 | heading |
+| `SettingsKeybindingSectionTemplate` | 17 | section |
+| `SettingsCheckboxSliderControlTemplate` | 5 | control |
+| `SettingButtonControlTemplate`, `SettingsCheckboxDropdownControlTemplate`, `SettingsCheckboxWithButtonControlTemplate` | 2 each | controls |
+| `AutoLootDropdownControlTemplate`, `ColorblindSelectorTemplate`, `NamePlatePreviewTemplate`, `RTTSTemplate`, `RaidFramePreviewTemplate`, `STTTemplate`, `SettingsAdvancedQualitySectionTemplate`, `SettingsAudioLocaleTemplate`, `SettingsLanguageRestartNeededTemplate`, `SettingsLanguageTemplate`, `VoicePushToTalkTemplate`, `VoiceTestMicrophoneTemplate` | 1 each | purpose-built widgets |
+
+**There is no generic text or description template in that list.** Every entry is a control, a
+section header, or a widget built for one job.
+
+Which explains where the two paragraphs actually live: *"Try each colorblind filter to see which
+looks the best to you."* is inside **`ColorblindSelectorTemplate`**, and *"For more information see
+our Privacy Policy"* inside **`RTTSTemplate`** or **`STTTemplate`** — RTTS and STT being
+text-to-speech and speech-to-text, which carry privacy notices. Baked into the XML of purpose-built
+widgets, not drawn by anything reusable.
+
+### v0.28 probe
+
+#### G26 — look at it, rather than reasoning from the list — OPEN
+
+The paragraph above is an **inference**, and this project has now been wrong twice by reasoning
+from a list instead of looking. `[G23]` concluded "no description element" from a list of
+constructors; `[G25]` found the text in no initializer's data. Both were true and neither was the
+question.
+
+So `[G26]` builds a real category with a real layout and puts one row in it per candidate
+template through `Settings.CreateElementInitializer`, each handed a name and a tooltip — then says
+so in the log and asks for a glance at **Options → AddOns → "Unmarked Recon G26"**. A row showing
+`PROBE <template>` as body text is the answer. A row showing a heading, a control, or nothing is a
+no.
+
+Candidates are every non-control template from the census, plus `SettingsListElementTemplate`
+derived from the `SettingsListElementMixin` that `[G23]` found — marked as derived, because
+whether it exists is itself worth knowing.
+
+One glance settles it either way. Still [issue #12](https://github.com/wickoc/vanilla-questing/issues/12),
+still not a v1.0.0 blocker.

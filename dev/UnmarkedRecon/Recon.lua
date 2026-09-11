@@ -94,11 +94,16 @@ local ACTIVE = {
 	             --   renders SettingsAddOnDisabledLabelTemplate with an EMPTY
 	             --   data table and ignores anything passed to it
 
+	g25 = false, -- ANSWERED v0.27: 625 initializers, 0 hits, and the template
+	             --   census shows 22 templates -- all controls, section
+	             --   headers or purpose-built widgets. The paragraphs are
+	             --   baked into ColorblindSelectorTemplate and the RTTS/STT
+	             --   templates, not drawn by any reusable element.
+
 	-- Still open.
-	g25 = true, -- Blizzard DOES render plain description text in its own
-	            --   options ("...see our Privacy Policy", "Try each colorblind
-	            --   filter..."). Find those initializers in the live panel and
-	            --   read the template off them.
+	g26 = true, -- the census read as "no general text element", which is an
+	            --   INFERENCE. This renders the candidates in a real panel so
+	            --   one look settles it.
 }
 
 
@@ -2279,6 +2284,73 @@ local function sectionDescriptionText()
 	end
 end
 
+-- [G26] [G25] left an inference, not a result.
+--
+-- The census named all 22 frameTemplates Blizzard uses, and every one of them
+-- reads as a control, a section header, or a purpose-built widget. So the
+-- paragraphs seen in game are almost certainly baked into
+-- ColorblindSelectorTemplate and the RTTS/STT templates rather than drawn by
+-- anything reusable. "Almost certainly" is not an answer, and this project has
+-- been wrong twice already by reasoning from a list instead of looking.
+--
+-- So: build a real category with a real layout, put one row in it per
+-- candidate template through Settings.CreateElementInitializer, and hand each
+-- a name and a tooltip. Then OPEN THE PANEL AND LOOK. A row that shows
+-- "PROBE <template>" as a line of body text is the answer; a row that shows a
+-- heading, a control, or nothing at all is a no.
+--
+-- This is the cheapest possible definitive test, and it costs one glance.
+local function sectionDescriptionRender()
+	head("[G26] Render each candidate template and look at it")
+
+	if type(Settings) ~= "table"
+		or type(Settings.RegisterVerticalLayoutCategory) ~= "function"
+		or type(Settings.CreateElementInitializer) ~= "function"
+		or type(Settings.RegisterAddOnCategory) ~= "function" then
+		add("   Settings API incomplete; cannot build a panel to look at.")
+		return
+	end
+
+	-- Every non-control template from the v0.27 census, plus one derived from
+	-- the SettingsListElementMixin name that [G23] found. The derived one is
+	-- marked as such: if it does not exist, that is worth knowing too.
+	local CANDIDATES = {
+		{ "SettingsListSectionHeaderTemplate",   "baseline -- known to render its name as a heading" },
+		{ "SettingsLanguageRestartNeededTemplate", "a one-line notice; the closest thing to a paragraph" },
+		{ "SettingsAdvancedQualitySectionTemplate", "a section wrapper" },
+		{ "SettingsKeybindingSectionTemplate",   "a section wrapper" },
+		{ "SettingsListElementTemplate",         "DERIVED from SettingsListElementMixin, may not exist" },
+	}
+
+	local ok, category, layout = pcall(Settings.RegisterVerticalLayoutCategory, "Unmarked Recon G26")
+	if not ok or type(layout) ~= "table" or type(layout.AddInitializer) ~= "function" then
+		add("   could not build a category to render into.")
+		return
+	end
+
+	for i = 1, #CANDIDATES do
+		local template, note = CANDIDATES[i][1], CANDIDATES[i][2]
+		local oki, init = pcall(Settings.CreateElementInitializer, template, {
+			name    = "PROBE " .. template,
+			tooltip = "PROBE tooltip for " .. template,
+		})
+		if not oki or type(init) ~= "table" then
+			add("   " .. template .. ": initializer REFUSED -- " ..
+				tostring(init):sub(1, 60))
+		else
+			local oka = pcall(layout.AddInitializer, layout, init)
+			add("   " .. template .. ": built" .. (oka and " and added" or ", ADD FAILED"))
+			add("      (" .. note .. ")")
+		end
+	end
+
+	pcall(Settings.RegisterAddOnCategory, category)
+	add("")
+	add("   NOW LOOK: Options -> AddOns -> \"Unmarked Recon G26\".")
+	add("   Report, for each row, whether it shows PROBE <template> as body")
+	add("   text, as a heading, as a control, or not at all.")
+end
+
 local function sectionQuestFrameAndTooltip()
 	head("[G22] Questgiver portrait, and a switch for quest tooltips")
 
@@ -2488,6 +2560,7 @@ local function collect()
 	if ACTIVE.g23  then sectionListDescription()   end
 	if ACTIVE.g24  then sectionDescriptionLabel()  end
 	if ACTIVE.g25  then sectionDescriptionText()   end
+	if ACTIVE.g26  then sectionDescriptionRender() end
 
 	-- Any full method dumps collected via "/unrecon methods <global>" get
 	-- folded in here so they travel inside the readable report rather than

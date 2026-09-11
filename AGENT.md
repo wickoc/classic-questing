@@ -69,7 +69,7 @@ STRINGS.md              every player-visible string, labelled. A RECORD of what 
 README.md               the public front page
 dev/README.md           what the probe is, why old logs are kept, how to run the tests
 dev/UnmarkedRecon/      the probe AddOn. Dev-only, never folded into Vanilla Questing.
-                        Sections G1..G25, switched on and off by the ACTIVE table.
+                        Sections G1..G26, switched on and off by the ACTIVE table.
 dev/recon-log-*.txt     raw probe output. Every conclusion in SPEC.md is evidence from one.
                         Kept, never pruned: a later run switches settled sections off, so an
                         earlier log is often the only remaining record of an answer.
@@ -175,12 +175,15 @@ the **Releases → Draft a new release** page on GitHub, which creates the tag i
 - **`CreateSettingsListSectionHeaderInitializer(name[, tooltip])`** is a plain global; the second
   argument **does** land in `data.tooltip` (`[G23]`), and `GetTemplate()` is
   `SettingsListSectionHeaderTemplate`.
-- **Description text: unresolved.** `[G23]` enumerated the nine `CreateSettings*` constructor
-  globals, found no description among them, and I called it settled — wrongly, since Blizzard's
-  own options visibly render paragraphs. `[G25]` then walked 625 initializers in Blizzard's live
-  layouts and found the text is not in any of their `data` either, so it is drawn by the template
-  or those panels are canvas layouts. Until it is found, the note rides on a heading's tooltip.
-  `Settings.CreateElementInitializer` exists, so a template name is all that is needed.
+- **Description text: almost certainly impossible, pending one look.** `[G23]` found no
+  description among the nine `CreateSettings*` constructors. `[G25]` walked 625 initializers and
+  found the text in none of their `data`, then censused all 22 templates Blizzard uses — every one
+  a control, a section header, or a purpose-built widget. The paragraphs live inside
+  `ColorblindSelectorTemplate` and the RTTS/STT templates. `[G26]` renders the candidates in a
+  real panel to convert that inference into a result. Until then the note rides on a heading's
+  tooltip.
+- **Two wrong answers came from reasoning about lists instead of rendering something.** When the
+  question is "can this be drawn", draw it.
 - **A checkbox's label and its tooltip title both come from `data.name`, and there is no
   `SetTooltipFunc`** (`[G23b]`). One string, one colour — so an option's name cannot be coloured
   in the native panel without colouring its tooltip title too. Settled; do not retry.
