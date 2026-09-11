@@ -37,13 +37,14 @@ local GREY   = C.muted
 local EXPERIMENTAL_NOTE =
 	"Experimental: untested and potentially unstable. Use at your own discretion."
 
--- The Vanilla preset deliberately leaves experimental options where the
--- player put them. That used to be spelled out in the preset tooltip and in
--- chat, where it was noise on every single use. It belongs on the Experimental
--- heading instead: read once, by someone already looking at the thing it
--- describes.
+-- The Vanilla preset deliberately leaves experimental options where the player
+-- put them. That was spelled out in the preset tooltip and in chat, where it
+-- was noise on every single use; then on the heading's tooltip, where it was
+-- still hidden behind a hover. It sits under the heading now, as a line of
+-- description text -- the shape Blizzard's own panels use, where a heading
+-- needs a sentence before the controls start.
 local EXPERIMENTAL_HEADER_NOTE =
-	"These are not turned on by the Vanilla preset. Switch them on yourself."
+	"These are not turned on by the Vanilla preset."
 
 local panel
 local rows = {}
@@ -568,21 +569,19 @@ local function build()
 			local head = fs(panel, "GameFontNormalLarge", c[1], c[2], c[3])
 			head:SetPoint("TOPLEFT", 16, y)
 			head:SetText(m.group)
-
-			-- A FontString takes no scripts, so a hoverable heading needs an
-			-- invisible button sitting on top of it. Only the experimental
-			-- heading has anything worth saying.
-			if m.experimental then
-				local hit = CreateFrame("Button", nil, panel)
-				if hit then
-					hit:SetPoint("TOPLEFT", head, "TOPLEFT", 0, 0)
-					hit:SetSize(math.max(head:GetStringWidth() or 100, 40),
-						math.max(head:GetStringHeight() or 16, 14))
-					attachTooltip(hit, function() return m.group end,
-						function() return ORANGE .. EXPERIMENTAL_HEADER_NOTE .. C.close end)
-				end
-			end
 			y = y - 26
+
+			-- A sentence between the heading and the first checkbox, in the
+			-- small font, in the group's own colour. Only the experimental
+			-- group has one.
+			if m.experimental then
+				local note = fs(panel, "GameFontNormalSmall", c[1], c[2], c[3])
+				note:SetPoint("TOPLEFT", 16, y + 6)
+				note:SetWidth(560)
+				note:SetJustifyH("LEFT")
+				note:SetText(EXPERIMENTAL_HEADER_NOTE)
+				y = y - (note:GetStringHeight() or 12) - 6
+			end
 		end
 
 		-- The whole row is clickable and hoverable, as Blizzard's rows are.
@@ -597,9 +596,16 @@ local function build()
 		if cb then
 			cb:SetPoint("LEFT", 12, 0)
 
+			-- An experimental option's NAME is orange. Not its tooltip header,
+			-- which stays white like every other tooltip title -- the thing
+			-- that is experimental is the option, and that is what should be
+			-- marked in the list you scan.
 			local label = fs(row, "GameFontNormal")
 			label:SetPoint("LEFT", cb, "RIGHT", 4, 0)
 			label:SetText(m.title or m.key)
+			if m.experimental then
+				label:SetTextColor(1, 0.502, 0.098)
+			end
 
 			-- Issue #7: the live status readout is useful while developing
 			-- and meaningless to a player. It stays for now because this
@@ -1063,9 +1069,21 @@ local function registerNative()
 	local ordered = ns:SortedModules()
 
 	local function addCheckbox(m)
+		-- An experimental option's NAME is orange. Not its tooltip header --
+		-- Blizzard paints that white itself and it should stay that way; the
+		-- thing that is experimental is the option, so the option is what
+		-- carries the colour in the list you scan.
+		--
+		-- Colour escapes are honoured by font strings generally, which is the
+		-- same bet the section headings make and win. If this control draws
+		-- its label some other way the codes simply will not take, and the
+		-- option is still there reading correctly.
+		local label = m.title or m.key
+		if m.experimental then label = ORANGE .. label .. "|r" end
+
 		local oks, setting = pcall(Settings.RegisterAddOnSetting,
 			category, "VanillaQuesting_" .. m.key, m.key, ns.db.settings,
-			varType("Boolean"), m.title or m.key, ns.defaults[m.key] and true or false)
+			varType("Boolean"), label, ns.defaults[m.key] and true or false)
 		if not oks or type(setting) ~= "table" then return false end
 
 		if m.needsApply then askForApply(setting) end
@@ -1085,8 +1103,15 @@ local function registerNative()
 		local m = ordered[i]
 		if m.group and m.group ~= lastGroup then
 			lastGroup = m.group
-			addSectionHeader(m.group, m.experimental and ORANGE or WHITE,
-				m.experimental and EXPERIMENTAL_HEADER_NOTE or nil)
+			addSectionHeader(m.group, m.experimental and ORANGE or WHITE)
+			-- A sentence between the heading and the first checkbox. There is
+			-- no description element in this client's Settings API that any
+			-- probe has turned up -- see [G23] -- so this reuses the one text
+			-- element known to work, which is what the version footer does
+			-- too. It renders in the heading font until G23 finds better.
+			if m.experimental then
+				addSectionHeader(EXPERIMENTAL_HEADER_NOTE, ORANGE)
+			end
 		end
 		if not addCheckbox(m) then return false end
 	end

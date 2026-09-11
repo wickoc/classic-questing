@@ -1,7 +1,7 @@
 ## Interface: 50504
 ## Title: Vanilla Questing
 ## Notes: Turn off the quest helper and experience questing as in the original game.
-## Author: Baoh
+## Author: wickoc
 ## Version: 1.0.0
 ## SavedVariables: VanillaQuestingDB
 

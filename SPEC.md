@@ -222,9 +222,14 @@ Three entries, in this order: **Vanilla (Default)**, **Custom**, **Disabled**.
 - *Disabled* — every option off, experimental included.
 
 Experimental options do not enter into whether the settings read as Vanilla. See
-"Presets and experimental options". That they are left alone is said on the Experimental
-heading's own tooltip, and nowhere else: it was in the preset tooltip and in chat, which
-repeated it at people who had not asked.
+"Presets and experimental options". That they are left alone is said **once**, as a line of
+description text under the Experimental heading, and nowhere else: it was in the preset tooltip
+and in chat, which repeated it at people who had not asked, and then on the heading's tooltip,
+where it was still hidden behind a hover.
+
+**An experimental option's name is orange, in the panel and in `/vq status`.** Not its tooltip
+header — Blizzard paints a tooltip's first line white itself, and that is right. The thing that is
+experimental is the option, so the option is what carries the mark in the list you scan.
 
 **Shipped defaults are the Vanilla preset** — every non-experimental option on. That is what
 people install the AddOn for; neither "all off" nor a subset picked to the author's taste is a
@@ -939,20 +944,25 @@ reach or a piece of work with its own issue.
 Three player-facing lines went, all of them saying something the player did not need told:
 
 - `/vq on` no longer adds *"Experimental options must be activated manually."* The preset tooltip
-  no longer carries it either, in **both** panels. It is said once now, on the Experimental
-  heading's own tooltip: *"These are not turned on by the Vanilla preset. Switch them on
-  yourself."* That is where someone is already looking at the thing it describes, rather than in
-  chat on every use.
+  no longer carries it either, in **both** panels. It is said once now, under the Experimental
+  heading: *"These are not turned on by the Vanilla preset."* No instruction to switch them on —
+  the reader can see the checkboxes.
 - `/vq status` no longer ends with *"/vq help lists every command."* Its dead `example` local went
   with it.
 - `hideBossPortraits` said "Creature portraits" in chat and "creature portraits" in warnings while
   its title and description had already become "Boss". One name per feature, everywhere.
 
-The heading tooltip is the second argument to `CreateSettingsListSectionHeaderInitializer`, with
-`data.tooltip` set directly as well in case this client's initializer ignores it. `[G17]` had
-already established that a header built from a name alone leaves that field nil and falls back to
-the mixin's own hover text — which is what every heading showed before, and what a heading has no
-use for.
+It is a line of description text, not a tooltip — always visible, between the heading and the
+first checkbox, the shape Blizzard's own panels use where a heading needs a sentence. The canvas
+panel draws it as a small orange font string, which is exactly right. **The native panel draws it
+with `CreateSettingsListSectionHeaderInitializer`**, the one text element this client is known to
+have, so it renders in the heading font rather than a description font.
+
+That is a compromise, and it is marked as one: **`[G23]`** enumerates every
+`CreateSettings*`/`SettingsList*` global that actually exists, dumps a header initializer so its
+template name can be read off it, and lists the layout's own methods. If a real description element
+is there, the next pass uses it; if the probe comes back with nothing, the heading font is the best
+this client offers and the AddOn stops looking. Either is an answer.
 
 #### Outline Mode says what it costs
 
@@ -971,6 +981,20 @@ only ask for the outline. Fixed here, in `README.md` and in the CurseForge notes
 Turning the field on turned up a drift while doing it: the **canvas fallback never rendered
 `limitation` at all**, so the two panels disagreed about what an option costs. One line, and the
 same order as the native panel: description, cost, experimental note.
+
+#### A CVar change now redraws the frames that read it
+
+Reported from play: with the world map pane open, toggling `hideMapQuestHelper` from chat updated
+the map and left the quest list beside it showing its old contents until a `/reload`.
+
+Nothing tells a frame that a console variable it reads has moved, so it keeps whatever it last
+drew. `writeCVar` and `Disable` now ask for a redraw: `WatchFrame_Update` always, and
+`QuestMapFrame_UpdateAll` when the map is actually on screen. Both are confirmed present by the
+v0.9 probe rather than assumed, and both are existence-checked anyway.
+
+**The variable was correct and the UI was not**, which is a shape no check that reads the variable
+back can ever catch — every test this AddOn had for CVar rules did exactly that. The new guard
+counts redraws instead.
 
 #### The tooltip stutter — [issue #2](https://github.com/wickoc/vanilla-questing/issues/2)
 
@@ -1683,3 +1707,31 @@ a quest item and the `!` on an item that *starts* a quest. Blizzard swaps the te
 object rather than using two, so they cannot be separated. Both go, which is the Classic result.
 
 `IconBorder` is a different thing — the item-quality border — and is left alone.
+
+### v0.24 probe
+
+#### G23 — a description element for the settings list? — OPEN
+
+The Experimental heading needs a sentence under it, before the first checkbox. The canvas panel
+draws that as a small orange font string and it looks right. The native panel has to use
+`CreateSettingsListSectionHeaderInitializer`, because that is the only text element any probe has
+found here — so it renders in the heading font.
+
+`[G23]` settles whether that is a limit of the client or a limit of what has been looked for. It:
+
+- walks `_G` for every function whose name starts `CreateSettings` or `SettingsList`, rather than
+  testing a list of names I expect — the difference between "not present" and "I guessed wrong";
+- lists every `SettingsList*` **mixin** table, since a description element would have one and the
+  mixin names carry the template names;
+- builds a header initializer with **both** arguments and dumps it, including `GetTemplate()` if
+  it has one, so the XML template a sibling element would use can be read off it;
+- dumps the layout object's methods filtered to `add`/`desc`/`text`/`header`/`init`.
+
+A negative result is an answer: it means the heading font is the best this client offers, and the
+AddOn stops looking.
+
+It also reports whether the initializer's **second argument** lands in `data.tooltip`. `[G17]`
+established that a header built from a name alone leaves that field nil; whether passing one sets
+it has never been checked, and the v1.0.0 heading tooltip was built on the assumption that it
+does. That assumption is now retired — the note is description text — but the answer is worth
+having recorded.

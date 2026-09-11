@@ -101,6 +101,10 @@ elsewhere.
 **Every issue I open gets:** a label, the repository owner as assignee, and a body that says what
 the behaviour is, why it matters, and what has already been ruled out.
 
+**I cannot create releases or push tags** — this session's GitHub token is refused for both. What
+I can do is get everything ready and say precisely what is left to run. The author tags, or uses
+the **Releases → Draft a new release** page on GitHub, which creates the tag itself.
+
 ---
 
 ## Conventions
@@ -134,6 +138,12 @@ the behaviour is, why it matters, and what has already been ruled out.
    the client on *any* options panel opening, with 345 green checks.
 5. **`pcall` hides a missing method as easily as a failing one.** Existence-check first when the
    difference matters.
+6. **A test that reads back what was just written proves nothing about the screen.** Every CVar
+   check here read the variable back, and all of them passed while the UI sat stale. Count the
+   redraw, not the value.
+7. **A guard that cannot fail is not a guard.** Break the fix and watch the check go red before
+   believing it. One tracker assertion passed whether or not the fix existed, because another
+   code path was already calling the same function.
 
 ---
 
@@ -143,14 +153,20 @@ the behaviour is, why it matters, and what has already been ruled out.
   `WatchFrameItem<N>`, `WatchFrameAutoQuest_*`.
 - **`QuestModelScene`** is the questgiver portrait frame. `QuestNPCModel` is only a region prefix.
 - **`Settings.RegisterVerticalLayoutCategory` returns `category, layout`** — two values.
-- **`CreateSettingsListSectionHeaderInitializer(name[, tooltip])`** is a plain global; the tooltip
-  lands at `init.data.tooltip`.
+- **`CreateSettingsListSectionHeaderInitializer(name[, tooltip])`** is a plain global. `[G17]`
+  found `data.tooltip` nil when only a name is passed; whether a second argument lands there has
+  never been confirmed. It is also the **only text element in the settings list any probe has
+  found** — description text has to borrow it and renders in the heading font. `[G23]` is open on
+  whether a real description element exists.
 - **`Outline` is not a boolean.** 1, 2 and 3 all mean on; only 0 is off. `2` is Blizzard's default.
 - **`C_Console.GetAllCommands` is absent**, so CVars cannot be enumerated. Blizzard's settings
   registry (`SettingsPanel.categoryLayouts` → `initializers` → `init:GetSetting()`) is the
   discovery route, and it is how `instantQuestText` was found.
 - **A tooltip's height is set by the client *after* every hook in the frame.** The only correction
   that is not a frame late is inside `OnSizeChanged`.
+- **Nothing tells a frame that a CVar it reads has changed.** It keeps what it last drew. After
+  writing one, ask for the redraw: `WatchFrame_Update`, and `QuestMapFrame_UpdateAll` when the map
+  is on screen. Both confirmed present by the v0.9 probe.
 
 ---
 

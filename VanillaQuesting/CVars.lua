@@ -146,6 +146,32 @@ local function readCVar(name)
 	return v
 end
 
+-- Redraw the frames whose contents depend on a variable we just changed.
+--
+-- Changing questPOI with the world map pane open updated the map but left the
+-- quest tracker showing its old POI numbers: nothing tells the tracker that a
+-- variable it reads has moved, so it keeps whatever it last drew until some
+-- other event makes it rebuild. A reload fixed it, which is not a fix.
+--
+-- Both of these are confirmed present on this client by the probe (v0.9 log)
+-- rather than assumed. Existence-checked and pcall'd anyway, per safety rule
+-- 5: a client without one of them loses the redraw, not the feature.
+--
+-- The map is only refreshed when it is actually on screen. The tracker is
+-- refreshed unconditionally -- it is always visible, and WatchFrame_Update is
+-- what every other part of this AddOn already calls to make it rebuild.
+local function refreshQuestUI()
+	if type(WatchFrame_Update) == "function" then
+		pcall(WatchFrame_Update)
+	end
+	if type(QuestMapFrame_UpdateAll) == "function"
+		and type(WorldMapFrame) == "table"
+		and type(WorldMapFrame.IsShown) == "function" then
+		local ok, shown = pcall(WorldMapFrame.IsShown, WorldMapFrame)
+		if ok and shown then pcall(QuestMapFrame_UpdateAll) end
+	end
+end
+
 local function writeCVar(rule, value)
 	if refused[rule.cvar] then return false end
 
@@ -169,6 +195,7 @@ local function writeCVar(rule, value)
 			", still " .. tostring(now) .. "). Skipping " .. rule.label .. ".")
 		return false
 	end
+	refreshQuestUI()
 	return true
 end
 
@@ -225,6 +252,7 @@ local function makeModule(rule)
 		applying = true
 		pcall(SetCVar, rule.cvar, original)
 		applying = false
+		refreshQuestUI()
 	end
 
 	function M:Status()

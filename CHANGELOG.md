@@ -14,8 +14,11 @@ First release.
 - Outline Mode states its known limitation on the option itself.
 - The canvas fallback panel now shows an option's known limitation, which only the native panel
   did.
-- The note that the Vanilla preset leaves experimental options alone moved to the Experimental
-  heading's tooltip, out of chat and the preset tooltip.
+- The note that the Vanilla preset leaves experimental options alone now sits under the
+  Experimental heading, out of chat and the preset tooltip.
+- Experimental options are named in orange, in the panel and in `/vq status`.
+- Changing an option from chat with the world map open now redraws the map's quest list, instead
+  of leaving it stale until a reload.
 
 ## 0.18.0
 

@@ -23,7 +23,7 @@ a colour there to change it everywhere it is used, or override it on a single ro
 | --- | --- | --- | --- |
 | `ID.NAME` | Everywhere in game: chat prefix, options category, tooltips | `Vanilla Questing` | One variable, `ns.title`. Changing it here changes every use. |
 | `ID.NOTES` | The AddOn list, under the name | `Turn off the quest helper and experience questing as in the original game.` | From the `.toc`. |
-| `ID.AUTHOR` | The AddOn list | `Baoh` | From the `.toc`. |
+| `ID.AUTHOR` | The AddOn list | `wickoc` | From the `.toc`. |
 
 ---
 
@@ -47,7 +47,7 @@ Every line is prefixed automatically. Do not repeat the name inside a message.
 | ID | Trigger | Text |
 | --- | --- | --- |
 | `CHAT.STATUS_TITLE` | `/vq status` | `<AddOn name> v<version> - Status and list of options` |
-| `CHAT.STATUS_ROW` | one per option | two spaces, then `on ` in `COLOR.ON` or `off ` in `COLOR.OFF`, two spaces, `<optionKey>` in `COLOR.HIGHLIGHT`, then ` (experimental)` in `COLOR.EXPERIMENTAL` where it applies |
+| `CHAT.STATUS_ROW` | one per option | two spaces, then `on ` in `COLOR.ON` or `off ` in `COLOR.OFF`, two spaces, `<optionKey>` in `COLOR.HIGHLIGHT` — or in `COLOR.EXPERIMENTAL` where the option is experimental — then ` (experimental)` in `COLOR.EXPERIMENTAL` where it applies |
 | `CHAT.HELP_TITLE` | `/vq help` | `<AddOn name> v<version> - List of commands` |
 | `CHAT.HELP_ROW` | one per command | two spaces, `<command>` in `COLOR.HIGHLIGHT`, then `  -  `, then the description below |
 
@@ -118,6 +118,7 @@ only when this client lacks something the AddOn expected, so most players never 
 | `PANEL.CATEGORY` | Blizzard's AddOn list | `<AddOn name>` | Same variable as `ID.NAME`. |
 | `PANEL.VERSION` | Grey heading at the foot of the list | `v<version>` in `COLOR.MUTED` | Read from the `.toc`, never typed. |
 | `PANEL.SECTION_EXPERIMENTAL` | Heading above the experimental options | `Experimental` in `COLOR.EXPERIMENTAL` | |
+| `PANEL.OPTION_NAME` | Each checkbox label | `TITLE_*` from section 5, in `COLOR.EXPERIMENTAL` where the option is experimental, otherwise the panel's own colour | The **name** carries the mark, not the tooltip header — Blizzard paints that white and it stays white. |
 | `PANEL.PRESET_LABEL` | The dropdown's own label | `Preset` | |
 
 ### Preset choices
@@ -146,7 +147,9 @@ in `COLOR.BODY` on the same line. Rows separated by a blank line.
 
 Blizzard paints the first line — the option's name — white by itself. Everything below is ours:
 
-1. `DESC_*` from section 5, in `COLOR.BODY`.
+1. `DESC_*` from section 5, in `COLOR.BODY`. The tooltip's first line is the option's name,
+   painted white by Blizzard — it is **not** orange for an experimental option, even though the
+   checkbox label is.
 2. A blank line, then `LIMIT_*` if the option has one, in `COLOR.EXPERIMENTAL`.
 3. A blank line, then `EXPERIMENTAL_NOTE` if it is experimental, in `COLOR.EXPERIMENTAL`.
 4. A blank line, then `/<optionKey>` in `COLOR.MUTED`.
@@ -155,15 +158,16 @@ Blizzard paints the first line — the option's name — white by itself. Everyt
 | --- | --- |
 | `TIP.EXPERIMENTAL_NOTE` | `Experimental: untested and potentially unstable. Use at your own discretion.` |
 
-### The Experimental heading's tooltip
+### The Experimental heading's description
 
-Shown on hover over the `Experimental` heading in both panels, in `COLOR.EXPERIMENTAL`. It is the
-only place the AddOn says that the Vanilla preset leaves experimental options alone — it used to
-be in the preset tooltip and on every `/vq on`, which repeated it at people who had not asked.
+A line of text between the `Experimental` heading and the first checkbox under it, in
+`COLOR.EXPERIMENTAL`. Not a tooltip: it is always visible, the way a Blizzard heading that needs
+a sentence has one. It is the only place the AddOn says that the Vanilla preset leaves
+experimental options alone.
 
 | ID | Text |
 | --- | --- |
-| `TIP.EXPERIMENTAL_HEADER` | `These are not turned on by the Vanilla preset. Switch them on yourself.` |
+| `PANEL.EXPERIMENTAL_DESC` | `These are not turned on by the Vanilla preset.` |
 
 ### On Blizzard's own controls
 

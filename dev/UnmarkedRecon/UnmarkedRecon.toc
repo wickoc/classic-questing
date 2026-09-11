@@ -1,8 +1,8 @@
 ## Interface: 50504
 ## Title: Unmarked Recon
 ## Notes: Throwaway probe. Reports which quest-helper UI globals exist on this client.
-## Author: Wictor
-## Version: 0.23
+## Author: wickoc
+## Version: 0.24
 ## SavedVariables: UnmarkedReconDB
 
 Recon.lua

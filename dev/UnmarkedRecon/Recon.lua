@@ -81,8 +81,12 @@ local ACTIVE = {
 	g21 = false, -- ANSWERED v0.21: all three are strings, and all three took
 	             --   the annotation
 
+	g22 = false, -- ANSWERED v0.22: QuestModelScene is the portrait frame, and
+	             --   there is no CVar for quest tooltips
+
 	-- Still open.
-	g22 = true, -- the questgiver portrait frame, and a switch for quest tooltips
+	g23 = true, -- is there a DESCRIPTION element for the settings list, or is
+	            --   a section header the only text element there is?
 }
 
 
@@ -2189,6 +2193,83 @@ local function collect()
 	if ACTIVE.g20  then sectionDefaultsAndApply() end
 	if ACTIVE.g21  then sectionBlizzardTooltips() end
 	if ACTIVE.g22  then sectionQuestFrameAndTooltip() end
+	if ACTIVE.g23  then sectionListDescription()   end
+
+
+-- [G23] The Experimental heading needs a sentence under it, before the first
+-- checkbox -- the shape Blizzard's own panels use where a heading needs
+-- explaining. The AddOn currently draws that with
+-- CreateSettingsListSectionHeaderInitializer, the one text element known to
+-- work here, so it renders in the heading font.
+--
+-- The question is whether this client has a real description element. Nothing
+-- assumed: this enumerates every CreateSettings*Initializer global that
+-- actually exists, dumps what a header initializer is made of so its template
+-- name can be read off it, and lists the layout's own methods. A negative
+-- result is an answer -- it means the heading font is the best available and
+-- the AddOn should stop looking.
+local function sectionListDescription()
+	head("[G23] A description element for the settings list?")
+
+	-- Every global whose name looks like a settings-list initializer. Walking
+	-- _G rather than testing a list of names I expect: that is the difference
+	-- between "not present" and "I guessed wrong".
+	local found = {}
+	for k, v in pairs(_G) do
+		if type(k) == "string" and type(v) == "function"
+			and (k:find("^CreateSettings") or k:find("^SettingsList")) then
+			found[#found + 1] = k
+		end
+	end
+	table.sort(found)
+	if #found == 0 then
+		add("   no CreateSettings*/SettingsList* globals at all.")
+	else
+		add("   " .. #found .. " initializer-shaped globals:")
+		for i = 1, #found do add("	 " .. found[i]) end
+	end
+
+	-- Mixins carry the template names. A description element would have one.
+	local mixins = {}
+	for k, v in pairs(_G) do
+		if type(k) == "string" and type(v) == "table" and k:find("^SettingsList") then
+			mixins[#mixins + 1] = k
+		end
+	end
+	table.sort(mixins)
+	add("   SettingsList* mixins: " .. (#mixins > 0 and table.concat(mixins, ", ") or "none"))
+
+	-- What a header initializer is actually made of. Its frameTemplate names
+	-- the XML template, which is the thing a description element would have a
+	-- sibling of.
+	if type(CreateSettingsListSectionHeaderInitializer) == "function" then
+		local ok, init = pcall(CreateSettingsListSectionHeaderInitializer, "PROBE", "PROBETIP")
+		if ok and type(init) == "table" then
+			dumpTable(init, "   header initializer", 40)
+			local data = rawget(init, "data")
+			if type(data) == "table" then dumpTable(data, "   header .data", 40) end
+			if type(init.GetTemplate) == "function" then
+				local okt, tmpl = pcall(init.GetTemplate, init)
+				add("   GetTemplate() -> " .. (okt and tostring(tmpl) or "error"))
+			end
+			-- Did the second argument land? This is also the check on whether
+			-- passing a tooltip works at all on this client.
+			add("   tooltip from arg 2: " ..
+				tostring(type(data) == "table" and data.tooltip or init.tooltip))
+		else
+			add("   could not build a header initializer.")
+		end
+	end
+
+	-- The layout object takes the initializers. If it has an AddAnchorPoint,
+	-- AddDescription or similar, that is the answer outright.
+	local ok, cat, layout = pcall(Settings.RegisterVerticalLayoutCategory, "PROBE G23")
+	if ok and type(layout) == "table" then
+		dumpMethods(layout, "   layout", { "add", "desc", "text", "header", "init" })
+	else
+		add("   could not build a layout to inspect.")
+	end
+end
 
 	-- Any full method dumps collected via "/unrecon methods <global>" get
 	-- folded in here so they travel inside the readable report rather than

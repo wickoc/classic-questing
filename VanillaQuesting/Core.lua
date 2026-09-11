@@ -282,8 +282,12 @@ local function status()
 		local on = ns.db and ns.db.settings[m.key]
 		-- The live CVar readout is for developer eyes; the player wants to
 		-- know what is on.
+		-- An experimental option's NAME is orange too, not just the note after
+		-- it. Same rule as the panel: the thing that is experimental is the
+		-- option, so the option is what carries the colour.
+		local nameColour = m.experimental and C.experimental or C.highlight
 		ns:Print("  " .. (on and (C.on .. "on " .. C.close) or (C.off .. "off " .. C.close)) ..
-			"  " .. C.highlight .. tostring(m.key) .. C.close ..
+			"  " .. nameColour .. tostring(m.key) .. C.close ..
 			(m.experimental and (" " .. C.experimental .. "(experimental)" .. C.close) or ""))
 	end
 end

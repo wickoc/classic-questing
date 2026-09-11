@@ -8,13 +8,29 @@ wipe = function(t) for k in pairs(t) do t[k]=nil end return t end
 local chat = {}
 _G.__tooltipLines = {}
 _G.__mapRefreshes = 0
+-- The map remembers whether it is open, because a redraw of the map pane is
+-- only worth asking for while it is on screen -- and because the bug this
+-- models only happens with the pane already open.
 WorldMapFrame = {
+	__shown = false,
 	RefreshAllDataProviders = function() _G.__mapRefreshes = _G.__mapRefreshes + 1 end,
+	IsShown = function(self) return self.__shown end,
 	HookScript = function(self, which, fn)
 		if which == "OnShow" then _G.__mapOnShow = fn end
 	end,
 }
-_G.openWorldMap = function() if _G.__mapOnShow then _G.__mapOnShow() end end
+-- The quest pane inside the world map. Changing questPOI updated the map and
+-- left the tracker showing its old POI numbers, which is the whole reason
+-- these two counters exist: nothing tells a frame that a variable it reads has
+-- moved, so "the CVar is correct" was never the same as "the UI is correct".
+_G.__questPaneUpdates = 0
+QuestMapFrame_UpdateAll = function() _G.__questPaneUpdates = _G.__questPaneUpdates + 1 end
+
+_G.openWorldMap = function()
+	WorldMapFrame.__shown = true
+	if _G.__mapOnShow then _G.__mapOnShow() end
+end
+_G.closeWorldMap = function() WorldMapFrame.__shown = false end
 
 DEFAULT_CHAT_FRAME = { AddMessage = function(_, m) chat[#chat+1]=m; print("CHAT| "..tostring(m)) end }
 SlashCmdList = {}
