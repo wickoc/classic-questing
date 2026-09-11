@@ -62,11 +62,13 @@ What goes is everything MoP bolted onto it.
   you read
 - Quest item use buttons beside tracked quests. Quest items are used from your bags
 - Automatic tracking of newly accepted quests
-- Turn-in pop-up bubbles *(experimental)*
 
 **Experimental**
 
-- Asking the client for quest object outlines instead of sparkles — see Known limitations
+These are never switched on by the **Vanilla (Default)** preset. Turn them on yourself.
+
+- Turn-in pop-up bubbles
+- Loot sparkles on quest objects, replaced with an outline — see Known limitations
 
 Every option is individually switchable. The **Vanilla (Default)** preset turns on every normal
 option and leaves the experimental ones exactly as you set them; **Disabled** turns everything
@@ -86,31 +88,31 @@ buttons and does not mark which is which, so there is no way to disable one with
 If you track achievements and want them clickable, leave that one option off. Everything else
 still works.
 
-### Quest object sparkles cannot be removed
+### Quest objects show either an outline or loot sparkles — never neither
 
-Quest objects in the world glimmer with a sparkle effect that Classic did not have. The client
-is supposed to draw an outline instead, and Blizzard's own **Outline** option is meant to control
-it — but on this client the outline does not render at all, and the game falls back to the
-sparkles. This is a client rendering fault, not something an AddOn can reach: setting the CVar
-works, and changes nothing. `particleDensity` and `ffxGlow` were both tried and rejected.
+The two are alternatives in the engine, so the loot sparkles on quest objects cannot simply be
+taken away. What an AddOn can do is ask for the outline instead, which is what **Outline Mode**
+does. Where a client fails to render the outline, loot sparkles are shown automatically.
 
-The **Quest object outline** option is offered as an experiment in case a future client build
-fixes the rendering. It is off by default because on this build it does nothing.
+It is experimental and off by default for that reason: whether you see any difference depends on
+your client.
 
-Note that the same sparkle marks lootable corpses, which *is* Classic behaviour — so removing it
-wholesale would cost more than it gained even if it were possible.
+Two other ways round it were tried and rejected. `particleDensity` removes the sparkle — and the
+particles on lootable corpses with it, which *is* Classic behaviour. `ffxGlow` does not touch it
+at all.
 
-### Questgiver `!` marks on the minimap
+### Questgiver `!` marks on the minimap are still there
 
 MoP shows an exclamation mark on the minimap for nearby questgivers; Classic never did. The mark
-comes from a shared texture atlas the client packs many icons into, so it cannot be switched off
-without replacing the artwork. Parked rather than solved.
+comes from a shared texture atlas the client packs many icons into, so removing it means
+replacing artwork rather than flipping a switch. Not solved yet, and
+[tracked](https://github.com/wickoc/vanilla-questing/issues/3) rather than abandoned.
 
 ## Where it overlaps Blizzard's own options
 
 Three of these settings have a Blizzard checkbox of their own: **Instant Quest Text**,
 **Automatic Quest Tracking** and **Outline Mode**. Their tooltips are annotated to say Vanilla
-Questing is driving them, so a checkbox that moves on its own is not a mystery.
+Questing is driving them.
 
 Change one of those in Blizzard's options and **Vanilla Questing follows you** — the matching
 option turns off, and turns back on if you put the option back. Whichever window you use, the two
@@ -118,7 +120,4 @@ agree, and the AddOn says in chat which way it went. Your interface wins.
 
 ## Compatibility
 
-Built and tested against interface **50504**, client 5.5.4 build 69585. It reads its own version
-from the `.toc` rather than carrying it in code, and every Blizzard function it touches is checked
-for existence before use — a missing one disables that feature and says so, rather than breaking
-the UI.
+Built and tested against interface **50504**, client 5.5.4 build 69585.

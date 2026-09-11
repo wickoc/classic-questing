@@ -1,10 +1,15 @@
 # In-game text
 
-Every string a player can see, labelled for editing. Send this back with your rewrites and I will
-put each one where it belongs.
+Every string a player can see, labelled. **This is a record of what ships, not a queue of things
+waiting to be written** — it is kept in step with the AddOn, and a row here matches the string in
+the code. When the two disagree, the code is the bug or this file is stale; either way one of
+them gets corrected in the same pass.
+
+It is still the place to edit wording. Mark up a row, send it back, and the change is made in the
+code and reflected here.
 
 **How to read a row.** `Text` is what appears on screen. Anything in `<angle brackets>` is a
-variable filled in at runtime — leave the brackets in place and I will wire them up.
+variable filled in at runtime — leave the brackets in place.
 
 **Colours** use WoW's escape format: `|cffRRGGBB` opens a colour, `|r` closes it. `|n` is a line
 break inside a tooltip; `\n` is one in chat and in dialogs. The palette is at the bottom — change
@@ -17,7 +22,7 @@ a colour there to change it everywhere it is used, or override it on a single ro
 | ID | Where | Text | Notes |
 | --- | --- | --- | --- |
 | `ID.NAME` | Everywhere in game: chat prefix, options category, tooltips | `Vanilla Questing` | One variable, `ns.title`. Changing it here changes every use. |
-| `ID.NOTES` | The AddOn list, under the name | `Turn off the quest helper and experience questing as in the original game.` | From the `.toc`. Kept short: long values were suspected in the tooltip layout bug. |
+| `ID.NOTES` | The AddOn list, under the name | `Turn off the quest helper and experience questing as in the original game.` | From the `.toc`. |
 | `ID.AUTHOR` | The AddOn list | `Baoh` | From the `.toc`. |
 
 ---
@@ -150,6 +155,16 @@ Blizzard paints the first line — the option's name — white by itself. Everyt
 | --- | --- |
 | `TIP.EXPERIMENTAL_NOTE` | `Experimental: untested and potentially unstable. Use at your own discretion.` |
 
+### The Experimental heading's tooltip
+
+Shown on hover over the `Experimental` heading in both panels, in `COLOR.EXPERIMENTAL`. It is the
+only place the AddOn says that the Vanilla preset leaves experimental options alone — it used to
+be in the preset tooltip and on every `/vq on`, which repeated it at people who had not asked.
+
+| ID | Text |
+| --- | --- |
+| `TIP.EXPERIMENTAL_HEADER` | `These are not turned on by the Vanilla preset. Switch them on yourself.` |
+
 ### On Blizzard's own controls
 
 Appended to the tooltips of *Instant Quest Text*, *Automatic Quest Tracking* and *Outline Mode*,
@@ -201,7 +216,7 @@ so they should start uppercase.
 
 The **key** column is what the player types after `/vq on` and what appears in tooltips.
 
-### worldMapMarkers -> hideMapQuestHelper
+### hideMapQuestHelper
 
 | ID | Text |
 | --- | --- |
@@ -211,7 +226,7 @@ The **key** column is what the player types after `/vq on` and what appears in t
 | `OFF_hideMapQuestHelper` | `World map quest helper restored.` |
 | `LABEL_hideMapQuestHelper` | `world map quest helper` |
 
-### minimapMarkers -> hideMinimapQuestHelper
+### hideMinimapQuestHelper
 
 | ID | Text |
 | --- | --- |
@@ -221,7 +236,7 @@ The **key** column is what the player types after `/vq on` and what appears in t
 | `OFF_hideMinimapQuestHelper` | `Minimap quest helper restored.` |
 | `LABEL_hideMinimapQuestHelper` | `minimap quest helper` |
 
-### questTextTypesOut -> noInstantQuestText
+### noInstantQuestText
 
 | ID | Text |
 | --- | --- |
@@ -231,7 +246,7 @@ The **key** column is what the player types after `/vq on` and what appears in t
 | `OFF_noInstantQuestText` | `quest text appear instantly` |
 | `LABEL_noInstantQuestText` | `instant quest text` |
 
-### autoQuestTracking -> noAutoQuestTracking
+### noAutoQuestTracking
 
 | ID | Text |
 | --- | --- |
@@ -241,7 +256,7 @@ The **key** column is what the player types after `/vq on` and what appears in t
 | `OFF_noAutoQuestTracking` | `Newly accepted quests are tracked automatically.` |
 | `LABEL_noAutoQuestTracking` | `automatic tracking of new quests` |
 
-### questGiverPortrait -> hideCharacterFrame
+### hideCharacterFrame
 
 | ID | Text |
 | --- | --- |
@@ -251,7 +266,7 @@ The **key** column is what the player types after `/vq on` and what appears in t
 | `OFF_hideCharacterFrame` | `Character frame restored.` |
 | `LABEL_hideCharacterFrame` | `character frame` |
 
-### questProgressTooltips -> hideTooltipsQuestProgress
+### hideTooltipsQuestProgress
 
 | ID | Text |
 | --- | --- |
@@ -261,7 +276,7 @@ The **key** column is what the player types after `/vq on` and what appears in t
 | `OFF_hideTooltipsQuestProgress` | `Quest progress in tooltips restored.` |
 | `LABEL_hideTooltipsQuestProgress` | `quest progress in tooltips` |
 
-### mapCreaturePortraits -> hideBossPortraits
+### hideBossPortraits
 
 | ID | Text |
 | --- | --- |
@@ -271,7 +286,7 @@ The **key** column is what the player types after `/vq on` and what appears in t
 | `OFF_hideBossPortraits` | `Boss portraits restored.` |
 | `LABEL_hideBossPortraits` | `boss portraits` |
 
-### trackerClickToTrack -> trackerPlainText
+### trackerPlainText
 
 | ID | Text |
 | --- | --- |
@@ -282,7 +297,7 @@ The **key** column is what the player types after `/vq on` and what appears in t
 | `LABEL_trackerPlainText` | `plain text quest tracker` |
 | `LIMIT_trackerPlainText` | `Known limitation: tracked achievements stop being clickable too.` |
 
-### trackerItemButtons -> hideTrackerItemButtons
+### hideTrackerItemButtons
 
 | ID | Text |
 | --- | --- |
@@ -292,7 +307,7 @@ The **key** column is what the player types after `/vq on` and what appears in t
 | `OFF_hideTrackerItemButtons` | `Tracker quest item buttons restored.` |
 | `LABEL_hideTrackerItemButtons` | `quest item buttons` |
 
-### bagQuestHighlight -> noBagItemHighlight
+### noBagItemHighlight
 
 | ID | Text |
 | --- | --- |
@@ -302,7 +317,7 @@ The **key** column is what the player types after `/vq on` and what appears in t
 | `OFF_noBagItemHighlight` | `Bag quest item highlight restored.` |
 | `LABEL_noBagItemHighlight` | `quest item highlight` |
 
-### trackerTurnInPopups  *(experimental)* -> noCompleteQuestPopup  *(experimental)*
+### noCompleteQuestPopup  *(experimental)*
 
 | ID | Text |
 | --- | --- |
@@ -312,12 +327,13 @@ The **key** column is what the player types after `/vq on` and what appears in t
 | `OFF_noCompleteQuestPopup` | `Complete quest popup restored.` |
 | `LABEL_noCompleteQuestPopup` | `complete quest popup` |
 
-### questObjectOutline  *(experimental)* -> outlineMode  *(experimental)*
+### outlineMode  *(experimental)*
 
 | ID | Text |
 | --- | --- |
 | `TITLE_outlineMode` | `Outline Mode` |
-| `DESC_outlineMode` | `Quest objects show either an outline or sparkles. If the outline fails to render, sparkles are shown automatically.` |
+| `DESC_outlineMode` | `Removes the loot sparkles on quest objects, showing an outline instead.` |
+| `LIMIT_outlineMode` | `Known limitation: either an outline or loot sparkles must be shown. If the outline fails to render, loot sparkles are shown automatically.` |
 | `ON_outlineMode` | `Rendering outlines on quest objects.` |
 | `OFF_outlineMode` | `Rendering sparkles on quest objects.` |
 | `LABEL_outlineMode` | `outline mode` |
@@ -357,7 +373,7 @@ These four are the AddOn's own, and have no Blizzard equivalent to inherit:
 | ID | Value | Used for |
 | --- | --- | --- |
 | `COLOR.BRAND` | `|cff66ccff` — light blue | The chat prefix, tooltip headers that are ours, `Managed by`. Chosen to stand clear of Blizzard's white body text and yellow highlights. |
-| `COLOR.EXPERIMENTAL` | `|cffff8019` — orange | The `Experimental` heading, the experimental note, and known-limitation lines. **This is now the only orange.** The second one (`ff8800`, in `/vq status`) is gone. |
+| `COLOR.EXPERIMENTAL` | `|cffff8019` — orange | The `Experimental` heading and its tooltip, the experimental note, and known-limitation lines. The AddOn's only orange. |
 | `COLOR.WARNING` | `|cffff9955` — pale orange | Warning messages in chat. |
 | `COLOR.ON` / `COLOR.OFF` | `|cff55ff55` / `|cffff5555` | The words `on` and `off` in `/vq status`. |
 

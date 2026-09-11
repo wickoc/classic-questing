@@ -30,6 +30,21 @@ local YELLOW = C.body
 local ORANGE = C.experimental
 local GREY   = C.muted
 
+-- Said once, in one place, and shown wherever an experimental option is.
+-- File-level locals go at the top of the file: one declared halfway down
+-- resolves as a nil global in everything above it, which has cost this
+-- project three separate silent failures inside pcalls.
+local EXPERIMENTAL_NOTE =
+	"Experimental: untested and potentially unstable. Use at your own discretion."
+
+-- The Vanilla preset deliberately leaves experimental options where the
+-- player put them. That used to be spelled out in the preset tooltip and in
+-- chat, where it was noise on every single use. It belongs on the Experimental
+-- heading instead: read once, by someone already looking at the thing it
+-- describes.
+local EXPERIMENTAL_HEADER_NOTE =
+	"These are not turned on by the Vanilla preset. Switch them on yourself."
+
 local panel
 local rows = {}
 local preset = {}
@@ -553,6 +568,20 @@ local function build()
 			local head = fs(panel, "GameFontNormalLarge", c[1], c[2], c[3])
 			head:SetPoint("TOPLEFT", 16, y)
 			head:SetText(m.group)
+
+			-- A FontString takes no scripts, so a hoverable heading needs an
+			-- invisible button sitting on top of it. Only the experimental
+			-- heading has anything worth saying.
+			if m.experimental then
+				local hit = CreateFrame("Button", nil, panel)
+				if hit then
+					hit:SetPoint("TOPLEFT", head, "TOPLEFT", 0, 0)
+					hit:SetSize(math.max(head:GetStringWidth() or 100, 40),
+						math.max(head:GetStringHeight() or 16, 14))
+					attachTooltip(hit, function() return m.group end,
+						function() return ORANGE .. EXPERIMENTAL_HEADER_NOTE .. C.close end)
+				end
+			end
 			y = y - 26
 		end
 
@@ -592,12 +621,17 @@ local function build()
 			cb:SetScript("OnClick", toggle)
 			row:SetScript("OnClick", toggle)
 
+			-- Same order as the native panel's tooltipFor: description, then
+			-- the known cost, then the experimental note. The limitation was
+			-- missing here, so the two panels disagreed about what an option
+			-- costs -- the one thing a player most needs before deciding.
 			local function body()
 				local text = m.desc or ""
+				if m.limitation then
+					text = text .. "\n\n" .. ORANGE .. m.limitation .. C.close
+				end
 				if m.experimental then
-					text = text .. "\n\n" .. ORANGE
-						.. "Experimental: untested and potentially unstable. Use at your own discretion."
-						.. C.close
+					text = text .. "\n\n" .. ORANGE .. EXPERIMENTAL_NOTE .. C.close
 				end
 				return text
 			end
@@ -707,8 +741,7 @@ local function tooltipFor(m)
 		tip = tip .. "|n|n" .. ORANGE .. m.limitation .. "|r"
 	end
 	if m.experimental then
-		tip = tip .. "|n|n" .. ORANGE ..
-			"Experimental: untested and potentially unstable. Use at your own discretion." .. C.close
+		tip = tip .. "|n|n" .. ORANGE .. EXPERIMENTAL_NOTE .. C.close
 	end
 	-- No slash handle. It was here, and was removed: on a Blizzard-styled
 	-- option row it read as clutter rather than help.
@@ -855,23 +888,37 @@ end
 -- A heading in the list, the way Interface > Display and Raid Frames have
 -- them. The initializer is a plain global on this client, and the layout to
 -- add it to is the SECOND value RegisterVerticalLayoutCategory returns.
-local function addSectionHeader(text, colour)
+local function addSectionHeader(text, colour, tooltip)
 	if not nativeLayout or type(nativeLayout.AddInitializer) ~= "function" then return false end
 	if type(CreateSettingsListSectionHeaderInitializer) ~= "function" then return false end
 	-- Colour escapes are honoured by font strings generally, so orange is
 	-- worth asking for; if this header draws its text some other way the
 	-- codes will simply not take and the heading is still there.
-	local ok, init = pcall(CreateSettingsListSectionHeaderInitializer, colour .. text .. "|r")
+	--
+	-- The second argument is the tooltip. [G17] established that a header
+	-- built from a name alone leaves data.tooltip nil and falls back to the
+	-- mixin's own hover text -- which is the behaviour every heading here has
+	-- had so far, and which a heading has no use for. Passing a real string
+	-- gives the hover something worth reading instead of removing it.
+	local ok, init
+	if tooltip then
+		ok, init = pcall(CreateSettingsListSectionHeaderInitializer,
+			colour .. text .. "|r", ORANGE .. tooltip .. "|r")
+	else
+		ok, init = pcall(CreateSettingsListSectionHeaderInitializer, colour .. text .. "|r")
+	end
 	if not ok or type(init) ~= "table" then return false end
 
-	-- The heading was showing a tooltip on hover, which a heading has no use
-	-- for. Only one argument is passed in, so the tooltip is being defaulted
-	-- from the name somewhere inside the initializer; clear both places it
-	-- could be sitting. Probe [G17] dumps the initializer to confirm which.
-	pcall(function()
-		if type(init.data) == "table" then init.data.tooltip = nil end
-		init.tooltip = nil
-	end)
+	-- Belt and braces: set the field directly as well. If this client's
+	-- initializer ignores a second argument, the mixin still reads the tooltip
+	-- from data, which is where [G17] found it looks.
+	if tooltip then
+		pcall(function()
+			if type(init.data) == "table" then
+				init.data.tooltip = ORANGE .. tooltip .. "|r"
+			end
+		end)
+	end
 
 	return pcall(nativeLayout.AddInitializer, nativeLayout, init)
 end
@@ -1038,7 +1085,8 @@ local function registerNative()
 		local m = ordered[i]
 		if m.group and m.group ~= lastGroup then
 			lastGroup = m.group
-			addSectionHeader(m.group, m.experimental and ORANGE or WHITE)
+			addSectionHeader(m.group, m.experimental and ORANGE or WHITE,
+				m.experimental and EXPERIMENTAL_HEADER_NOTE or nil)
 		end
 		if not addCheckbox(m) then return false end
 	end

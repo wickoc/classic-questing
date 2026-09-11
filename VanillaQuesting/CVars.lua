@@ -119,7 +119,8 @@ local RULES = {
 		group        = "Experimental",
 		order        = 110,
 		title        = "Outline Mode",
-		desc         = "Quest objects in the world are outlined instead of showing loot sparkles. If the outline fails to render, sparkles are shown automatically.",
+		desc         = "Removes the loot sparkles on quest objects, showing an outline instead.",
+		limitation   = "Known limitation: either an outline or loot sparkles must be shown. If the outline fails to render, loot sparkles are shown automatically.",
 	},
 }
 
@@ -181,6 +182,8 @@ local function makeModule(rule)
 	M.order = rule.order
 	M.desc = rule.desc
 	M.needsApply = rule.needsApply
+	-- A cost the player should read before choosing, not after.
+	M.limitation = rule.limitation
 	-- The label Blizzard shows for the same thing, where it shows one at all.
 	-- Used to annotate Blizzard's control and to decide who wins a conflict.
 	M.blizzOption = rule.blizzOption

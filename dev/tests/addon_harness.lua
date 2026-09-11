@@ -401,6 +401,14 @@ local function relayout()
     -- padding + text + the gaps BETWEEN lines + padding. The trailing gap
     -- does not exist, which is the detail a per-line estimate gets wrong.
     GameTooltip.__height = (n > 0) and (4 + n * 12 + (n - 1) * 2 + 4) or 0
+    -- A resize fires OnSizeChanged, in the same frame, before anything is
+    -- drawn. The harness had no such thing, so it could not tell a height
+    -- corrected inside the client's resize from one corrected a frame later
+    -- -- and a frame later is what the player sees as the box growing and
+    -- then shrinking.
+    for _, fn in ipairs(GameTooltip.scripts.OnSizeChanged or {}) do
+        fn(GameTooltip, 300, GameTooltip.__height)
+    end
 end
 _G.__tooltipRelayout = relayout
 -- The canvas panel uses SetText for a tooltip's first line, so it has to be
@@ -444,10 +452,14 @@ _G.__showTooltip = function()
     tipLines = pending                               -- now the lines arrive
     relayout()
     for _, fn in ipairs(GameTooltip.scripts.OnTooltipSetUnit or {}) do fn(GameTooltip) end
-    -- Show() re-lays out FIRST, then the post-hooks run. That ordering is the
-    -- whole reason a one-shot SetHeight never survived.
-    relayout()
     for _, fn in ipairs(hookedShow or {}) do fn(GameTooltip) end
+    -- And the client sizes the frame for its content LAST, after every hook
+    -- there is, ignoring any height set before it. The harness used to run
+    -- this resize before the Show hooks, which made a fit there look like it
+    -- survived. It does not -- which is why a tooltip coming up from hidden
+    -- stuttered exactly like a re-used one.
+    GameTooltip.__pinned = nil
+    relayout()
 end
 
 -- Moving from one creature straight to the next: the tooltip never hides, so
@@ -466,8 +478,9 @@ _G.__retargetTooltip = function()
     -- Blizzard's resize, after the script and with no Show() to follow it.
     GameTooltip.__pinned = nil
     relayout()
-    -- Then the frame ticks over.
-    _G.__nextFrame()
+    -- Deliberately NO frame tick. The frame ends here, and whatever height the
+    -- tooltip is carrying now is the height the player sees. A fix that needs
+    -- __nextFrame() to look right is a fix the player watches happen.
 end
 _G.__tooltipText = function()
     local out = {}

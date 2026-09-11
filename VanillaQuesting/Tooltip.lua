@@ -124,7 +124,14 @@ end
 -- line 1 is measured and reused as the padding below the last line, because a
 -- tooltip is symmetrical -- which is a fact about the frame in front of us
 -- rather than a number to be guessed.
+-- Setting a height fires OnSizeChanged, which is hooked below and fits the
+-- height -- so a fit can re-enter itself. It would terminate on its own (the
+-- second pass measures zero to correct and sets nothing), but a guard says so
+-- outright rather than relying on the arithmetic to stop it.
+local fitting = false
+
 local function fitHeight(tooltip, name, lines)
+	if fitting then return end
 	if type(tooltip.GetHeight) ~= "function" or type(tooltip.SetHeight) ~= "function" then
 		return
 	end
@@ -141,6 +148,10 @@ local function fitHeight(tooltip, name, lines)
 	local first = _G[name .. "TextLeft1"]
 	if not first or type(first.GetTop) ~= "function" then return end
 
+	-- Raised only around the part that can set a height. Every return above
+	-- this point leaves it down, which is the whole reason it is not raised
+	-- at the top of the function: a guard stuck on is a feature switched off.
+	fitting = true
 	local ok = pcall(function()
 		local frameTop, frameBottom = tooltip:GetTop(), tooltip:GetBottom()
 		local firstTop, keptBottom = first:GetTop(), lastKept:GetBottom()
@@ -167,15 +178,21 @@ local function fitHeight(tooltip, name, lines)
 			tooltip.__vqPinned = true
 		end
 	end)
+	fitting = false
 	if not ok then return end
 end
 
 
--- `afterLayout` says whether this pass is running AFTER the client has sized
--- the frame for its new content. Only the Show hook can promise that; see the
--- note above SCRIPTS. It decides whether the height can be fixed on the spot
--- or has to wait a frame, which is the difference between one resize and two.
-local function scrub(tooltip, afterLayout)
+-- The stamp identifying a tooltip's current contents. Line count alone was not
+-- enough: hover a two-line herb node, then a creature whose tooltip comes to
+-- the same count, and the marker from one carried into the other. Two tooltips
+-- are only "the same" if the first line matches as well.
+local function stampFor(name, lines)
+	local first = _G[name .. "TextLeft1"]
+	return lines .. "\1" .. tostring(first and first:GetText() or "")
+end
+
+local function scrub(tooltip)
 	if scanning then return end
 	if not ns.db or not ns.db.settings.hideTooltipsQuestProgress then return end
 	if type(tooltip) ~= "table" or type(tooltip.NumLines) ~= "function" then return end
@@ -232,14 +249,7 @@ local function scrub(tooltip, afterLayout)
 	-- Remember that THIS tooltip, at this line count, has had lines taken out
 	-- of it. A later pass over the same tooltip finds only empty strings and
 	-- would otherwise have no way to know they were ever anything.
-	--
-	-- Keyed on the line count AND the first line's text. The count alone was
-	-- not enough: hover a two-line herb node, then a creature whose tooltip
-	-- also comes to the same count, and the marker from one carried into the
-	-- other. Two different tooltips are only "the same" if their name matches
-	-- as well.
-	local stamp = lines .. "\1" .. tostring(_G[name .. "TextLeft1"]
-		and _G[name .. "TextLeft1"]:GetText() or "")
+	local stamp = stampFor(name, lines)
 	if blankedHere > 0 then
 		tooltip.__vqBlankedAt = stamp
 	elseif tooltip.__vqBlankedAt ~= stamp then
@@ -249,25 +259,16 @@ local function scrub(tooltip, afterLayout)
 
 	-- Fit when there is something to fit, and also whenever this frame is
 	-- already carrying a height of ours -- see __vqPinned above.
+	--
+	-- This is the earliest opportunity, not the decisive one. Whether it
+	-- sticks depends on whether the client has already sized the frame for
+	-- this content, which nothing here can know. The OnSizeChanged hook below
+	-- is what makes that not matter.
 	if tooltip.__vqBlankedAt == stamp or tooltip.__vqPinned then
-		-- Immediately, but ONLY on a pass that runs after the client has laid
-		-- the frame out. On a tooltip coming up from hidden that is the Show
-		-- hook, and fitting there means the very first frame the player sees
-		-- is already the right size.
-		--
-		-- Fitting on any earlier pass is worse than useless: the client's own
-		-- resize lands on top of it, and the deferred pass below then has to
-		-- correct it. That is two resizes a frame apart -- shrink, grow,
-		-- shrink -- which is exactly the stutter seen when the mouse moves
-		-- from one quest object straight to another.
-		if afterLayout then
-			fitHeight(tooltip, name, lines)
-		end
-		-- And next frame regardless, which is the only moment the client
-		-- cannot overrule. On a tooltip built into an already-visible frame
-		-- -- a retarget, where Show is never called again -- this is the only
-		-- pass there is. After a fit that already landed it measures, finds
-		-- nothing to correct, and resizes nothing.
+		fitHeight(tooltip, name, lines)
+		-- And once more next frame, after every moment the client has. By
+		-- then the height is normally already right and this measures zero to
+		-- correct; it exists for a client that resizes without telling us.
 		nextFrame(function()
 			-- IsShown is checked for existence first. A tooltip implementation
 			-- without it is not a reason to skip the fit -- and inside a pcall
@@ -285,6 +286,41 @@ local function scrub(tooltip, afterLayout)
 		end)
 	end
 	scanning = false
+end
+
+-- The moment that actually matters.
+--
+-- Everything before this corrected the height at some point in the frame and
+-- hoped the client was finished. It never reliably was: the client sizes the
+-- tooltip for its new content AFTER the content-set script, and on this client
+-- after the Show hook too. So the player saw the untrimmed height first and
+-- the trimmed one a frame later -- the box growing, then shrinking into place.
+-- That is the stutter, and it was there on a fresh tooltip and a re-used one
+-- alike, because both end the frame the same way.
+--
+-- OnSizeChanged fires DURING the client's own resize, in the same frame,
+-- before anything is drawn. Correcting here means the oversized height never
+-- reaches the screen: it is set and replaced between two draws. Nothing else
+-- in the frame has that property, which is why four attempts at picking a
+-- better hook could not have worked.
+--
+-- Cheap: it does nothing at all unless this frame is one we have taken lines
+-- out of, or one still carrying a height of ours.
+local function onSizeChanged(tooltip)
+	if fitting or scanning then return end
+	if not ns.db or not ns.db.settings.hideTooltipsQuestProgress then return end
+	if type(tooltip) ~= "table" or type(tooltip.NumLines) ~= "function" then return end
+
+	local name = tooltip:GetName()
+	if not name then return end
+
+	local okn, lines = pcall(tooltip.NumLines, tooltip)
+	if not okn or type(lines) ~= "number" or lines < 1 then return end
+
+	if tooltip.__vqBlankedAt ~= stampFor(name, lines) and not tooltip.__vqPinned then
+		return
+	end
+	fitHeight(tooltip, name, lines)
 end
 
 local hooked = false
@@ -315,25 +351,24 @@ local function ensureHook()
 	hooked = true
 
 	local any = false
-	-- These all run BEFORE the client sizes the frame, so they only mark the
-	-- lines and leave the height to the deferred pass.
-	local function scrubEarly(tooltip) return scrub(tooltip, false) end
 	for i = 1, #SCRIPTS do
-		if pcall(GameTooltip.HookScript, GameTooltip, SCRIPTS[i], scrubEarly) then
+		if pcall(GameTooltip.HookScript, GameTooltip, SCRIPTS[i], scrub) then
 			any = true
 		end
 	end
 
+	-- The height, as opposed to the text. This is the hook the feature turns
+	-- on: it runs inside the client's own resize, so the untrimmed height is
+	-- corrected before the frame is drawn rather than a frame afterwards.
+	-- Failing to get it is not fatal -- the deferred pass still lands, one
+	-- frame late and visibly -- so it does not count towards `any`.
+	pcall(GameTooltip.HookScript, GameTooltip, "OnSizeChanged", onSizeChanged)
+
 	-- Catch-all. Blizzard calls Show() after building a tooltip, whatever
 	-- built it, so this covers any route the scripts above miss. scrub never
 	-- calls Show itself, so there is nothing to recurse into.
-	--
-	-- It is also the one pass that runs after the layout -- Show() re-lays the
-	-- frame out and this post-hook runs once it returns -- so this is the only
-	-- hook allowed to set the height there and then.
-	local function scrubAfterLayout(tooltip) return scrub(tooltip, true) end
 	if type(hooksecurefunc) == "function" and type(GameTooltip.Show) == "function" then
-		if pcall(hooksecurefunc, GameTooltip, "Show", scrubAfterLayout) then any = true end
+		if pcall(hooksecurefunc, GameTooltip, "Show", scrub) then any = true end
 	end
 
 	if not any then
