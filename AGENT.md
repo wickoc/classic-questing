@@ -14,8 +14,12 @@ as the change itself.
 original game.
 
 **Everything it does is subtractive.** It hides or switches off Blizzard UI. It never adds quest
-data of its own, and it leaves no trace when disabled — every value it changes is remembered
-first and put back.
+data of its own, and every value it changes is remembered before it is touched and put back when
+the option is switched off — with one documented exception (`Minimap:Disable` restores Blizzard's
+default rather than the remembered value, deliberately, and says so in its own comment).
+
+That promise is made in public, in the readme and on CurseForge. **Any path that keeps a change
+is a bug against the AddOn's central claim**, not a rough edge.
 
 ---
 
@@ -76,6 +80,9 @@ dev/recon-log-*.txt     raw probe output. Every conclusion in SPEC.md is evidenc
                         Kept, never pruned: a later run switches settled sections off, so an
                         earlier log is often the only remaining record of an answer.
 dev/BLIP-TEXTURE-WORKFLOW.md   how the minimap blip atlas would be replaced
+dev/audits/             external reviews, kept verbatim. Each finding is verified
+                        against the code before it becomes an issue -- an audit is
+                        evidence, not a verdict.
 dev/tests/              the off-client suite. ./run.sh: static checks first
                         (lint_forward_refs.py, luac on every Lua file including
                         the probe, XML well-formedness), then twelve scenarios.
@@ -149,31 +156,34 @@ the **Releases → Draft a new release** page on GitHub, which creates the tag i
 4. **Re-entrancy through Blizzard's own callbacks.** Writing a setting can signal the panel, which
    refreshes, which writes. One boolean was not enough — it took a depth counter. That bug froze
    the client on *any* options panel opening, with 345 green checks.
-5. **`pcall` hides a missing method as easily as a failing one.** Existence-check first when the
+5. **A measurement on a parent frame is not a measurement on its children.** One probe result on
+   `WatchFrame` was written up as "safe to touch, in combat included" and then relied on for its
+   item buttons, which were never tested. A guess that cites a log is worse than an obvious guess.
+6. **`pcall` hides a missing method as easily as a failing one.** Existence-check first when the
    difference matters. It also hides a function that was never defined: a whole helper once went
    missing from `Options.lua` and the only symptom was the native panel quietly falling back.
-6. **An edit script that fails an assert part-way leaves the file untouched.** One did, I moved
+7. **An edit script that fails an assert part-way leaves the file untouched.** One did, I moved
    on, and half a feature was missing for two rounds of debugging. **One edit per script**, and
    re-read the file when an assert fires.
-7. **A test that reads back what was just written proves nothing about the screen.** Every CVar
+8. **A test that reads back what was just written proves nothing about the screen.** Every CVar
    check here read the variable back, and all of them passed while the UI sat stale. Count the
    redraw, not the value.
-8. **A conditional diagnostic fires exactly when you do not need it.** A probe's template census
+9. **A conditional diagnostic fires exactly when you do not need it.** A probe's template census
    was gated behind "found nothing", one false-positive match satisfied the gate, and the useful
    half never printed. Dumps are cheap; print them unconditionally.
-9. **An enumeration is only a negative for the thing it enumerates.** Listing the ways to *build*
+10. **An enumeration is only a negative for the thing it enumerates.** Listing the ways to *build*
    an element is not listing the elements that *exist*. Where the game visibly does something, "I
    found no API for it" is a statement about my search, not about the client. Go at it from the
    live UI instead — that is how `instantQuestText` was found, twice over.
-10. **The safety rules are not a checklist to reason around.** Safety rule 1 says never touch a
+11. **The safety rules are not a checklist to reason around.** Safety rule 1 says never touch a
    protected frame in combat; I decided the world map was an exception on an assumption I had not
    probed, and it threw in play — twice, because the second attempt only moved when it ran. When a
    rule and a guess disagree, the rule wins.
-11. **A cosmetic win is never worth a visible defect.** Where a nicety and a correctness
+12. **A cosmetic win is never worth a visible defect.** Where a nicety and a correctness
    requirement are drawn from the same thing, take the correct one and drop the nicety — do not
    ship both half-working. The AddOn takes the orange label only when it can also keep the tooltip
    title white.
-12. **A guard that cannot fail is not a guard.** Break the fix and watch the check go red before
+13. **A guard that cannot fail is not a guard.** Break the fix and watch the check go red before
    believing it. One tracker assertion passed whether or not the fix existed, because another
    code path was already calling the same function.
 
@@ -181,8 +191,10 @@ the **Releases → Draft a new release** page on GitHub, which creates the tag i
 
 ## Client facts worth not re-deriving
 
-- **`WatchFrame`**, not `ObjectiveTrackerFrame`. Unprotected. `WATCHFRAME_LINKBUTTONS`,
-  `WatchFrameItem<N>`, `WatchFrameAutoQuest_*`.
+- **`WatchFrame`**, not `ObjectiveTrackerFrame`. `WATCHFRAME_LINKBUTTONS`, `WatchFrameItem<N>`,
+  `WatchFrameAutoQuest_*`. **`WatchFrame` itself** is `IsProtected() == false`; its **children are
+  unprobed**, and `WatchFrameItem<N>` are item *use* buttons, so assume secure until measured
+  (issue #16).
 - **`QuestModelScene`** is the questgiver portrait frame. `QuestNPCModel` is only a region prefix.
 - **`Settings.RegisterVerticalLayoutCategory` returns `category, layout`** — two values.
 - **`CreateSettingsListSectionHeaderInitializer(name[, tooltip])`** is a plain global; the second

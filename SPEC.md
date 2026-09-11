@@ -89,6 +89,11 @@ rules.
 **[GitHub Issues](https://github.com/wickoc/vanilla-questing/issues).** A bug has a state and a
 conversation; this file gives it neither.
 
+**External audits** are kept verbatim in `dev/audits/`, and every finding is checked against the
+code before it becomes an issue. An audit is evidence, not a verdict — the 2026-09-11 review
+happened to be right on all seven counts, which is a reason to keep reading them and not a reason
+to stop checking.
+
 ### Known limitations
 
 Documented in `README.md` and to be repeated on the CurseForge page. These are things this
@@ -1552,8 +1557,16 @@ went astray.
 
 #### G14 — the tracker, resolved enough to plan against
 
-- **`WatchFrame:IsProtected()` → `false`, explicitly false.** Safety rule 1 is satisfied: it can
-  be touched, in combat included.
+- **`WatchFrame:IsProtected()` → `false`, explicitly false.** That is a measurement of
+  **`WatchFrame` itself and nothing else.** It says nothing about its children, and in particular
+  nothing about `WatchFrameItem1..N`, the quest-item **use** buttons — which are the likeliest
+  thing in the tracker to be secure, since using an item is a protected action. Their protection
+  has never been probed; the AddOn hides them anyway. See
+  [issue #16](https://github.com/wickoc/vanilla-questing/issues/16).
+
+  **A measurement on a parent is not a measurement on its children.** This line previously read
+  "it can be touched, in combat included", which generalised one frame's answer to a whole
+  hierarchy — a guess citing a log, which is worse than an obvious guess.
 - Three children: `WatchFrameHeader` (Button), `WatchFrameCollapseExpandButton` (Button),
   `WatchFrameLines` (Frame). **Zero regions** — all art lives in the children.
 - Driving globals present: `WatchFrame_Update`, `WatchFrame_Collapse`, `WatchFrame_Expand`,

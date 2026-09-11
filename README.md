@@ -11,8 +11,13 @@ Built and tested against **Mists of Pandaria Classic** (5.5.4). Support for othe
 is planned.
 
 **Everything it does is subtractive.** It hides or switches off parts of Blizzard's UI. It never
-adds quest data of its own, never tells you where anything is, and leaves no trace when turned
-off — every value it changes is remembered first and put back.
+adds quest data of its own, and never tells you where anything is.
+
+Every value it changes is remembered before it is touched and put back when you switch the option
+off. One deliberate exception: switching off **Hide Minimap Quest Helper** turns Blizzard's
+*Track Quest POIs* back on — its own default — rather than whatever you happened to have when you
+installed. Leaving that tracking off after you asked for the markers back would be the wrong kind
+of faithful.
 
 ## Install
 
@@ -170,6 +175,16 @@ This AddOn is free and stays free. Nothing is held back for anyone who chips in.
 
 If it is making your adventures better, you can support development with a coffee:
 **[☕ Ko-fi](https://ko-fi.com/wickoc)**
+
+## Uninstalling
+
+Run **`/vq off`** before you delete the folder.
+
+The AddOn puts every setting back when an option is switched off — but it can only do that while
+it is still loaded. Delete it with options still on and a few of Blizzard's console variables stay
+where the AddOn left them, with nothing left installed to explain why.
+
+`/vq off` then removing the folder leaves your interface exactly as you found it.
 
 ## Licence
 

@@ -2,24 +2,24 @@
 
 What changed in each version. Newest first.
 
-The long form — what a change cost to find, and why it was made that way — is the version history
-in [`SPEC.md`](SPEC.md).
+Entries say what shipped. They do not link issues: an issue can be reopened after a release, and
+then the changelog is claiming something the tracker contradicts. The long form — what a change
+cost to find, and why it was made that way — is the version history in [`SPEC.md`](SPEC.md).
 
 ## 1.0.0
 
 First release.
 
 - Quest progress removed from tooltips now resizes the tooltip in the same frame, so it no longer
-  grows and then shrinks. ([#2](https://github.com/wickoc/vanilla-questing/issues/2))
+  grows and then shrinks.
 - Outline Mode states its known limitation on the option itself.
 - The canvas fallback panel now shows an option's known limitation, which only the native panel
   did.
 - The note that the Vanilla preset leaves experimental options alone now sits under the
   Experimental heading as a line of description text, out of chat and the preset tooltip.
-  ([#12](https://github.com/wickoc/vanilla-questing/issues/12))
 - Changing the world map quest helper from chat now refreshes the on-screen quest helper, instead
   of leaving it stale until a reload. The map is taken through a close and an open and left
-  closed. ([#11](https://github.com/wickoc/vanilla-questing/issues/11))
+  closed. It does not happen in combat.
 - Restoring a setting no longer rewrites console variables that had not moved.
 
 ## 0.18.0
