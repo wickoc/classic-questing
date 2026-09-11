@@ -47,7 +47,7 @@ Every line is prefixed automatically. Do not repeat the name inside a message.
 | ID | Trigger | Text |
 | --- | --- | --- |
 | `CHAT.STATUS_TITLE` | `/vq status` | `<AddOn name> v<version> - Status and list of options` |
-| `CHAT.STATUS_ROW` | one per option | two spaces, then `on ` in `COLOR.ON` or `off ` in `COLOR.OFF`, two spaces, `<optionKey>` in `COLOR.HIGHLIGHT` — or in `COLOR.EXPERIMENTAL` where the option is experimental — then ` (experimental)` in `COLOR.EXPERIMENTAL` where it applies |
+| `CHAT.STATUS_ROW` | one per option | two spaces, then `on ` in `COLOR.ON` or `off ` in `COLOR.OFF`, two spaces, `<optionKey>` in `COLOR.HIGHLIGHT`, then ` (experimental)` in `COLOR.EXPERIMENTAL` where it applies. The option name is never recoloured — the note after it carries the mark. |
 | `CHAT.HELP_TITLE` | `/vq help` | `<AddOn name> v<version> - List of commands` |
 | `CHAT.HELP_ROW` | one per command | two spaces, `<command>` in `COLOR.HIGHLIGHT`, then `  -  `, then the description below |
 
@@ -118,7 +118,7 @@ only when this client lacks something the AddOn expected, so most players never 
 | `PANEL.CATEGORY` | Blizzard's AddOn list | `<AddOn name>` | Same variable as `ID.NAME`. |
 | `PANEL.VERSION` | Grey heading at the foot of the list | `v<version>` in `COLOR.MUTED` | Read from the `.toc`, never typed. |
 | `PANEL.SECTION_EXPERIMENTAL` | Heading above the experimental options | `Experimental` in `COLOR.EXPERIMENTAL` | |
-| `PANEL.OPTION_NAME` | Each checkbox label | `TITLE_*` from section 5. Orange (`COLOR.EXPERIMENTAL`) for an experimental option in the **canvas** panel only | The native panel draws the label and the tooltip title from one string and offers no way to separate them (`[G23b]`), so it is left uncoloured there — Blizzard's yellow label, white title. An orange tooltip title would be worse than a plain label. |
+| `PANEL.OPTION_NAME` | Each checkbox label | `TITLE_*` from section 5. Orange (`COLOR.EXPERIMENTAL`) for an experimental option in the **canvas** panel only | The native panel draws the label and the tooltip title from one string and offers no way to separate them (`[G23b]`), so it is left uncoloured there — Blizzard's yellow label, white title. An orange tooltip title would be worse than a plain label, and `/vq status` follows the panel rather than diverging from it. |
 | `PANEL.PRESET_LABEL` | The dropdown's own label | `Preset` | |
 
 ### Preset choices

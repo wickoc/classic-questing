@@ -69,7 +69,7 @@ STRINGS.md              every player-visible string, labelled. A RECORD of what 
 README.md               the public front page
 dev/README.md           what the probe is, why old logs are kept, how to run the tests
 dev/UnmarkedRecon/      the probe AddOn. Dev-only, never folded into Vanilla Questing.
-                        Sections G1..G24, switched on and off by the ACTIVE table.
+                        Sections G1..G25, switched on and off by the ACTIVE table.
 dev/recon-log-*.txt     raw probe output. Every conclusion in SPEC.md is evidence from one.
                         Kept, never pruned: a later run switches settled sections off, so an
                         earlier log is often the only remaining record of an answer.
@@ -145,11 +145,18 @@ the **Releases → Draft a new release** page on GitHub, which creates the tag i
 6. **A test that reads back what was just written proves nothing about the screen.** Every CVar
    check here read the variable back, and all of them passed while the UI sat stale. Count the
    redraw, not the value.
-7. **A cosmetic win is never worth a visible defect.** Where a nicety and a correctness
+7. **An enumeration is only a negative for the thing it enumerates.** Listing the ways to *build*
+   an element is not listing the elements that *exist*. Where the game visibly does something, "I
+   found no API for it" is a statement about my search, not about the client. Go at it from the
+   live UI instead — that is how `instantQuestText` was found, twice over.
+8. **The safety rules are not a checklist to reason around.** Safety rule 1 says never touch a
+   protected frame in combat; I decided the world map was an exception on an assumption I had not
+   probed, and it threw in play. When a rule and a guess disagree, the rule wins.
+9. **A cosmetic win is never worth a visible defect.** Where a nicety and a correctness
    requirement are drawn from the same thing, take the correct one and drop the nicety — do not
    ship both half-working. The AddOn takes the orange label only when it can also keep the tooltip
    title white.
-8. **A guard that cannot fail is not a guard.** Break the fix and watch the check go red before
+10. **A guard that cannot fail is not a guard.** Break the fix and watch the check go red before
    believing it. One tracker assertion passed whether or not the fix existed, because another
    code path was already calling the same function.
 
@@ -164,16 +171,19 @@ the **Releases → Draft a new release** page on GitHub, which creates the tag i
 - **`CreateSettingsListSectionHeaderInitializer(name[, tooltip])`** is a plain global; the second
   argument **does** land in `data.tooltip` (`[G23]`), and `GetTemplate()` is
   `SettingsListSectionHeaderTemplate`.
-- **There is no description element in this client's settings list.** `[G23]` enumerated all nine
-  `CreateSettings*` globals; eight are controls, one is a heading. Text that needs to sit under a
-  heading goes on the heading's tooltip. (`[G24]` checks the last candidate,
-  `CreateSettingsAddOnDisabledLabelInitializer`.)
+- **Description text: unresolved, and my first answer was wrong.** `[G23]` enumerated the nine
+  `CreateSettings*` constructor globals, found no description among them, and I called it settled.
+  Blizzard's own options visibly render paragraphs, so something draws them — `[G25]` walks
+  Blizzard's live layouts to find what. Until then the note rides on a heading's tooltip.
+  `Settings.CreateElementInitializer` exists, so a template name is all that is needed.
 - **A checkbox's label and its tooltip title both come from `data.name`, and there is no
   `SetTooltipFunc`** (`[G23b]`). One string, one colour — so an option's name cannot be coloured
   in the native panel without colouring its tooltip title too. Settled; do not retry.
 - **`HideUIPanel` / `ShowUIPanel` / `ToggleWorldMap` have never been probed.** Existence-check
-  them; `Frame:Hide`/`Show` are the certain fallback. The world map is **not** protected on this
-  client and is cycled in combat deliberately — that is the one considered exception.
+  them; `Frame:Hide`/`Show` are the certain fallback.
+- **The world map IS protected in combat.** Cycling it mid-fight throws "Interface action failed
+  because of an AddOn" and does nothing. Queue it for `PLAYER_REGEN_ENABLED`. I asserted the
+  opposite without probing and wrote it into SPEC.md as a considered exception; it was neither.
 - **`Outline` is not a boolean.** 1, 2 and 3 all mean on; only 0 is off. `2` is Blizzard's default.
 - **`C_Console.GetAllCommands` is absent**, so CVars cannot be enumerated. Blizzard's settings
   registry (`SettingsPanel.categoryLayouts` → `initializers` → `init:GetSetting()`) is the

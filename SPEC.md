@@ -227,15 +227,14 @@ description text under the Experimental heading, and nowhere else: it was in the
 and in chat, which repeated it at people who had not asked, and then on the heading's tooltip,
 where it was still hidden behind a hover.
 
-**An experimental option's name is orange, in the panel and in `/vq status`.** Never its tooltip
-title, which stays white. The thing that is experimental is the option, so the option is what
-carries the mark in the list you scan.
+**An experimental option's name is not coloured anywhere.** The `(experimental)` note after it in
+`/vq status` carries the mark, in orange, and the tooltip body says the same thing. The name
+itself stays the same yellow as every other option's.
 
-**In the native panel it is neither**, and `[G23b]` settles why: the checkbox label and the
-tooltip's first line are both drawn from `data.name`, and a checkbox initializer has no
-`SetTooltipFunc` to take the tooltip over with. Orange in both or neither, so neither — an orange
-title is a defect, a plain label is only a preference unmet. The name is registered plain and
-takes Blizzard's own yellow label and white title.
+`[G23b]` is why: in the native panel the checkbox label and the tooltip's first line are both
+drawn from `data.name`, and a checkbox initializer has no `SetTooltipFunc` to take the tooltip
+over with. Orange in both or neither, so neither — an orange title is a defect, a plain label is
+only a preference unmet. `/vq status` then followed the panel rather than diverging from it.
 
 **Shipped defaults are the Vanilla preset** — every non-experimental option on. That is what
 people install the AddOn for; neither "all off" nor a subset picked to the author's taste is a
@@ -1013,11 +1012,18 @@ A shut map is opened for an instant on purpose: half a round trip does not refre
 the frame's own `Hide`/`Show` as the fallback; they are preferred because they keep the panel
 manager's idea of what is open in step.
 
-**In combat too**, at the author's request, and it is the one place this AddOn touches a UI panel
-during combat. A considered exception rather than an oversight: the world map is not a protected
-frame on this client, so there is nothing for the client to block, and a stale quest helper in
-combat is exactly when it matters. Every call is wrapped and a failure says so once, which is how
-a future build that did protect it would show up.
+**In combat it waits.** v1.0.0 cycled the map during combat on my reading that the world map is
+not protected here. It is: play reported *"Interface action failed because of an AddOn"*, the
+cycle never happened, and the helper was left stale — the worst of both. Showing a UI panel from
+AddOn code in combat is exactly what **safety rule 1** forbids, and the rule was right.
+
+The cycle is queued and runs on `PLAYER_REGEN_ENABLED`. The player still gets the refresh without
+a reload; it lands when the fight ends. Silently — a chat line explaining a delay nobody has
+noticed is noise, and by the time anyone looks at the map it has already happened.
+
+**I asserted that frame was unprotected without probing it**, wrote it into this file as a
+considered exception, and it was neither considered nor correct. The safety rules are not a
+checklist to reason around.
 
 Turning that on exposed a real defect next door: `Disable` restored its variable on **every**
 `ApplyAll`, whether or not the value had moved. Harmless while it was only a redundant write —
@@ -1754,9 +1760,22 @@ and watching it name the exact line. `run.sh` also compiles the probe now, which
 the probe never loads in the harness, so a syntax error in it would have reached the client before
 it reached the suite.
 
-#### G23 — a description element for the settings list? — ANSWERED, negative
+#### G23 — a description element for the settings list? — ANSWERED, and the answer was wrong
 
-**There is no description element on this client.** The probe walked `_G` for every function whose
+**Superseded by `[G25]`. Recorded as it stood because the mistake is the useful part.**
+
+The conclusion below — "there is no description element" — was drawn from enumerating
+**constructor globals**, and that is not the same question. Blizzard's own options render plain
+paragraphs (*"For more information see our Privacy Policy"*, *"Try each colorblind filter to see
+which looks the best to you."*), so something draws them; the search was simply looking in the
+wrong place. A list of ways to *build* an element is not a list of elements that *exist*.
+
+The rule this earns: **an enumeration is only a negative for the thing it enumerates.** Where the
+game visibly does something, "I found no API for it" is a statement about the search.
+
+The findings themselves stand:
+
+**No description element among the nine constructor globals.** The probe walked `_G` for every function whose
 name starts `CreateSettings` or `SettingsList` and found nine. Eight are controls, one is a
 heading, and none of them draws a paragraph:
 
@@ -1772,12 +1791,8 @@ The mixins say the same: `SettingsListElementInitializer`, `SettingsListElementM
 `SettingsListMixin`, `SettingsListPanelInitializer`, `SettingsListSearchCategoryMixin`,
 `SettingsListSectionHeaderMixin`. No description, no label mixin.
 
-So **the Experimental note stays on the heading's tooltip** in the native panel. The canvas panel,
-which builds its own font strings, keeps the real description line.
-
-One candidate survives and is `[G24]`: `CreateSettingsAddOnDisabledLabelInitializer` is a *label*,
-not a heading or a control — Blizzard uses it to say an AddOn is switched off, so it draws a
-sentence. Whether it will draw an arbitrary one is the last question before this closes for good.
+So the Experimental note stays on the heading's tooltip in the native panel for v1.0.0. The canvas
+panel, which builds its own font strings, keeps the real description line.
 
 #### G23b — the orange option name is not reachable, and that is final
 
@@ -1811,13 +1826,33 @@ the negative above conclusive: the template is a heading, and there is no siblin
 
 ### v0.25 probe
 
-#### G24 — one candidate left for description text — OPEN
+#### G24 — the label element cannot be borrowed — ANSWERED, negative
 
-`CreateSettingsAddOnDisabledLabelInitializer` is the only one of the nine that is a **label**
-rather than a heading or a control. Blizzard uses it to say an AddOn is switched off, which means
-it draws a sentence. Whether it will draw an arbitrary one is the question.
+`CreateSettingsAddOnDisabledLabelInitializer` renders `SettingsAddOnDisabledLabelTemplate` and
+comes back with **an empty data table**, whether it is handed a string or nothing at all. The text
+did not land anywhere in `.data`. It draws its own fixed message and is not a general-purpose
+label.
 
-The probe calls it with a string and with nothing, dumps what comes back, reads `GetTemplate()`
-off it — the route that identified `SettingsListSectionHeaderTemplate` — and checks whether the
-string landed anywhere in `.data` at all. If it did not, the element draws its own text and cannot
-be borrowed, and the Experimental note stays a tooltip for good.
+`Settings.CreateElementInitializer` **does** exist here, which matters for `[G25]`: a template name
+is all that would be needed to build one.
+
+### v0.26 probe
+
+#### G25 — what draws Blizzard's own description paragraphs? — OPEN
+
+Play turned up the thing that makes `[G23]`'s negative untenable: Blizzard's own options contain
+plain paragraphs — *"For more information see our Privacy Policy"* and *"Try each colorblind
+filter to see which looks the best to you."* Those are not headings, not controls, and not
+tooltips. Something draws them.
+
+So this stops enumerating constructors and goes at it from the other end, which is the direction
+that has worked every time on this client — it is how `instantQuestText` was found. It walks
+**Blizzard's own registered layouts**, finds the initializers whose data carries those strings in
+any field, and reads `frameTemplate` and `GetTemplate()` straight off them.
+
+If nothing matches, it falls back to printing **every distinct `frameTemplate` Blizzard uses**,
+with a count. The one that is not a control is the one to try.
+
+Tracked as [issue #12](https://github.com/wickoc/vanilla-questing/issues/12). Not a v1.0.0
+blocker: the note is readable on the heading's tooltip, and the canvas panel already draws it
+properly.

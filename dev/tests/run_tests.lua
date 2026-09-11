@@ -487,18 +487,31 @@ if scenario == "normal" or scenario == "no_settings" or scenario == "settings_re
 		check("an unrelated option does not touch the map", ops() == "", ops())
 		check("and leaves it open", WorldMapFrame:IsShown())
 
-		-- In combat too, at the author's request. The world map is not a
-		-- protected frame on this client, and a stale quest helper in combat
-		-- is exactly when it matters.
+		-- IN COMBAT IT WAITS. v1.0.0 cycled the map during combat and the
+		-- client threw "Interface action failed because of an AddOn" -- the
+		-- world map IS protected here -- so the cycle never happened and the
+		-- helper stayed stale. It is queued and runs when the fight ends.
+		ns.db.state.questPOI = "1"
 		SetCVar("questPOI", "0")
 		_G.openWorldMap()
 		_G.__inCombat = true
 		_G.__clearMapOps()
 		pcall(SlashCmdList["VANILLAQUESTING"], "off hideMapQuestHelper")
-		check("the map is cycled in combat as well",
-			ops() == "hide,show,hide", ops())
-		check("and still ends closed", not WorldMapFrame:IsShown())
+		check("the map is left alone in combat", ops() == "", ops())
+		check("and is still open, not half-cycled", WorldMapFrame:IsShown())
+
+		-- And lands the moment combat drops.
 		_G.__inCombat = false
+		fire("PLAYER_REGEN_ENABLED")
+		check("the cycle runs on leaving combat", ops() == "hide,show,hide", ops())
+		check("and ends closed", not WorldMapFrame:IsShown())
+
+		-- Once, not on every fight thereafter.
+		_G.openWorldMap()
+		_G.__clearMapOps()
+		fire("PLAYER_REGEN_ENABLED")
+		check("and does not repeat on the next combat drop", ops() == "", ops())
+		_G.closeWorldMap()
 
 		ns:ResetDefaults(true)
 	end
@@ -510,8 +523,9 @@ if scenario == "normal" or scenario == "no_settings" or scenario == "settings_re
 	check("status is titled", statusText:find("- Status", 1, true) ~= nil, statusText)
 	check("status hides the live CVar readout",
 		statusText:find("questPOI", 1, true) == nil, statusText)
-	-- An experimental option's NAME is orange in the list, not only the
-	-- "(experimental)" note after it, and a normal one's is not.
+	-- The name is the same yellow either way; only the "(experimental)" note
+	-- after it is orange. The panel cannot colour its names ([G23b]), so
+	-- colouring them here would make the two surfaces disagree.
 	do
 		local expLine, normalLine
 		for i = before3 + 1, #chatlog do
@@ -519,11 +533,11 @@ if scenario == "normal" or scenario == "no_settings" or scenario == "settings_re
 			if t:find("outlineMode", 1, true) then expLine = t end
 			if t:find("hideMapQuestHelper", 1, true) then normalLine = t end
 		end
-		check("an experimental option's name is orange in /vq status",
-			expLine and expLine:find("|cffff8019outlineMode", 1, true) ~= nil, tostring(expLine))
-		check("and it still carries the (experimental) note",
-			expLine and expLine:find("(experimental)", 1, true) ~= nil, tostring(expLine))
-		check("a normal option's name is not orange",
+		check("every option name is the same yellow, experimental or not",
+			expLine and expLine:find("|cffffd100outlineMode", 1, true) ~= nil, tostring(expLine))
+		check("and the experimental one carries the (experimental) note in orange",
+			expLine and expLine:find("|cffff8019(experimental)", 1, true) ~= nil, tostring(expLine))
+		check("a normal option has no orange at all",
 			normalLine and normalLine:find("|cffff8019", 1, true) == nil, tostring(normalLine))
 	end
 	-- /vq status must list options in the same order the panel shows them

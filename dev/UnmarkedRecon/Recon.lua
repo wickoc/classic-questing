@@ -90,10 +90,15 @@ local ACTIVE = {
 	             --   SetTooltipFunc, and label and tooltip title share
 	             --   data.name
 
+	g24 = false, -- ANSWERED v0.25: CreateSettingsAddOnDisabledLabelInitializer
+	             --   renders SettingsAddOnDisabledLabelTemplate with an EMPTY
+	             --   data table and ignores anything passed to it
+
 	-- Still open.
-	g24 = true, -- one candidate left for description text:
-	            --   CreateSettingsAddOnDisabledLabelInitializer. What template
-	            --   does it render, and will it take arbitrary text?
+	g25 = true, -- Blizzard DOES render plain description text in its own
+	            --   options ("...see our Privacy Policy", "Try each colorblind
+	            --   filter..."). Find those initializers in the live panel and
+	            --   read the template off them.
 }
 
 
@@ -2171,6 +2176,96 @@ local function sectionDescriptionLabel()
 	end
 end
 
+-- [G25] [G23] concluded there is no description element, and [G23] was asking
+-- the wrong question. It enumerated CONSTRUCTOR globals -- nine of them, none
+-- a description -- and took that for the whole answer. But Blizzard's own
+-- options render plain paragraphs: "For more information see our Privacy
+-- Policy" sits in one panel and "Try each colorblind filter to see which looks
+-- the best to you." in another. Something draws those.
+--
+-- So stop enumerating constructors and go at it from the other end, which is
+-- the direction that has worked every time on this client -- it is how
+-- instantQuestText was found. Walk Blizzard's OWN registered layouts, find the
+-- initializers carrying those exact strings, and read the template and the
+-- data shape straight off them.
+--
+-- A hit names the template. Settings.CreateElementInitializer exists (v0.25
+-- confirmed), so a template name is all that is needed to build one.
+local function sectionDescriptionText()
+	head("[G25] What draws Blizzard's own description paragraphs?")
+
+	if type(SettingsPanel) ~= "table" or type(SettingsPanel.categoryLayouts) ~= "table" then
+		add("   SettingsPanel.categoryLayouts missing; cannot walk Blizzard's layouts.")
+		return
+	end
+
+	-- Fragments of the two strings seen in game. Matched case-insensitively on
+	-- a lowered copy so wording drift does not hide a hit.
+	local NEEDLES = { "privacy policy", "colorblind filter", "see which looks" }
+
+	local seen, hits = 0, 0
+	for _, layout in pairs(SettingsPanel.categoryLayouts) do
+		local inits = type(layout) == "table" and rawget(layout, "initializers")
+		if type(inits) == "table" then
+			for _, init in ipairs(inits) do
+				seen = seen + 1
+				local data = type(init) == "table" and rawget(init, "data")
+				-- Any string field, not just `name`: the field this text
+				-- lives in is exactly what is unknown.
+				local text
+				if type(data) == "table" then
+					for k, v in pairs(data) do
+						if type(v) == "string" and #v > 20 then
+							local low = v:lower()
+							for _, needle in ipairs(NEEDLES) do
+								if low:find(needle, 1, true) then
+									text = k .. " = " .. v:sub(1, 70)
+								end
+							end
+						end
+					end
+				end
+				if text then
+					hits = hits + 1
+					add("   HIT: " .. text)
+					add("      frameTemplate -> " .. tostring(rawget(init, "frameTemplate")))
+					if type(init.GetTemplate) == "function" then
+						local okt, tmpl = pcall(init.GetTemplate, init)
+						add("      GetTemplate()  -> " .. (okt and tostring(tmpl) or "error"))
+					end
+					if type(data) == "table" then dumpTable(data, "      .data", 20) end
+					dumpMethods(init, "      initializer", { "text", "name", "tooltip", "template" })
+				end
+			end
+		end
+	end
+
+	add("   walked " .. seen .. " initializers, " .. hits .. " hit(s).")
+
+	-- Failing a direct hit, the template names themselves are worth having:
+	-- every DISTINCT frameTemplate in Blizzard's layouts, with a count. The
+	-- one that is not a control is the one to try.
+	if hits == 0 then
+		local templates = {}
+		for _, layout in pairs(SettingsPanel.categoryLayouts) do
+			local inits = type(layout) == "table" and rawget(layout, "initializers")
+			if type(inits) == "table" then
+				for _, init in ipairs(inits) do
+					local t = type(init) == "table" and rawget(init, "frameTemplate")
+					if type(t) == "string" then templates[t] = (templates[t] or 0) + 1 end
+				end
+			end
+		end
+		local names = {}
+		for k in pairs(templates) do names[#names + 1] = k end
+		table.sort(names)
+		add("   every frameTemplate Blizzard uses:")
+		for i = 1, #names do
+			add("      " .. names[i] .. "  x" .. templates[names[i]])
+		end
+	end
+end
+
 local function sectionQuestFrameAndTooltip()
 	head("[G22] Questgiver portrait, and a switch for quest tooltips")
 
@@ -2379,6 +2474,7 @@ local function collect()
 	if ACTIVE.g22  then sectionQuestFrameAndTooltip() end
 	if ACTIVE.g23  then sectionListDescription()   end
 	if ACTIVE.g24  then sectionDescriptionLabel()  end
+	if ACTIVE.g25  then sectionDescriptionText()   end
 
 	-- Any full method dumps collected via "/unrecon methods <global>" get
 	-- folded in here so they travel inside the readable report rather than

@@ -180,8 +180,7 @@ end
 -- reachable any other way that has been found, so this does the thing that
 -- works rather than the thing that ought to.
 --
--- The map ends CLOSED either way, which is the shape the author asked for
--- after testing it:
+-- The map ends CLOSED either way:
 --
 --   already open  ->  close, open, close
 --   already shut  ->  open, close
@@ -193,14 +192,7 @@ end
 -- are existence-checked and the frame's own Hide and Show -- which every Frame
 -- has -- are the fallback. The panel functions are preferred because they keep
 -- the UI panel manager's idea of what is open in step with reality.
---
--- IN COMBAT TOO, at the author's request. This is the one place the AddOn
--- touches a UI panel during combat, and it is a considered exception rather
--- than an oversight: the world map is not a protected frame on this client, so
--- there is nothing here for the client to block. Every call is wrapped, and a
--- failure says so once instead of failing silently -- which is how this would
--- show up if a future build did protect it.
-local function cycleWorldMap()
+local function doCycleWorldMap()
 	if type(WorldMapFrame) ~= "table" then return false end
 
 	local hide = (type(HideUIPanel) == "function") and HideUIPanel or WorldMapFrame.Hide
@@ -216,14 +208,42 @@ local function cycleWorldMap()
 	if mapIsOpen() then step(hide) end
 	step(show)
 	step(hide)
-
-	if not ok then
-		ns:Warn("map:cycle",
-			"could not reopen the world map to refresh the quest helper; " ..
-			"open and close it yourself if it looks stale.")
-	end
 	return ok
 end
+
+-- IN COMBAT, IT WAITS.
+--
+-- v1.0.0 tried it during combat, on my reading that the world map is not a
+-- protected frame here. It is: play reported "Interface action failed because
+-- of an AddOn", and the helper was left stale because the cycle never
+-- happened. Showing a UI panel from AddOn code in combat is precisely what
+-- safety rule 1 forbids, and the rule was right.
+--
+-- So the cycle is queued and runs on PLAYER_REGEN_ENABLED instead. The player
+-- still gets the refresh without a reload; it just lands when the fight ends.
+-- Silently -- a chat line explaining a delay nobody has noticed yet is noise,
+-- and by the time they look at the map it has already happened.
+local cyclePending = false
+
+local function inCombat()
+	if type(InCombatLockdown) ~= "function" then return false end
+	local ok, yes = pcall(InCombatLockdown)
+	return ok and yes and true or false
+end
+
+local function cycleWorldMap()
+	if inCombat() then
+		cyclePending = true
+		return false
+	end
+	return doCycleWorldMap()
+end
+
+ns:RegisterEvent("PLAYER_REGEN_ENABLED", function()
+	if not cyclePending then return end
+	cyclePending = false
+	doCycleWorldMap()
+end)
 
 local function refreshQuestUI(rule)
 	if type(WatchFrame_Update) == "function" then
