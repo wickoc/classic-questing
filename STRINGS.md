@@ -122,11 +122,11 @@ only when this client lacks something the AddOn expected, so most players never 
 
 ### Preset choices
 
-| ID | Text | Notes |
-| --- | --- | |
-| `PRESET.VANILLA` | `Vanilla (Default)` | Changed from `PRESET.CLASSIC` |
-| `PRESET.CUSTOM` | `Custom` | |
-| `PRESET.DISABLED` | `Disabled` | |
+| ID | Text |
+| --- | --- |
+| `PRESET.VANILLA` | `Vanilla (Default)` |
+| `PRESET.CUSTOM` | `Custom` |
+| `PRESET.DISABLED` | `Disabled` |
 
 Listed in that order. `Custom` is shown but never chosen — it is what the control reports when
 the settings match neither of the others.
