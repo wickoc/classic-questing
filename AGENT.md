@@ -168,10 +168,6 @@ git tag -a v1.2.3 -m "v1.2.3" && git push origin v1.2.3
 The job **fails on purpose** if the tag and the `.toc` disagree about the version. That is the
 check, not an inconvenience.
 
-**I cannot do this part myself.** This session's GitHub token is refused for creating releases and
-for pushing tags, so the tag push is the author's to run. Everything up to it — the `.toc`, the
-changelog section, the workflow — is mine.
-
 ---
 
 ## Running the tests
