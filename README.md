@@ -1,3 +1,5 @@
+![Vanilla Questing banner image](.github/vanilla-questing-banner.png)
+
 # Vanilla Questing
 
 *Turn off the quest helper and experience questing as in the original game. Read the quest, explore, and immerse yourself in the World of Warcraft. You have full control, disable as much or as little as you like: no map/minimap markers, no progress in tooltips, instant quest text, vanilla quest tracker, and much more.*
