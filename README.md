@@ -143,8 +143,26 @@ Settings are **account-wide**. Whether that should be a choice is
 **[Open an issue](https://github.com/wickoc/vanilla-questing/issues)** — bug reports are genuinely
 welcome, and most of the fixes in v1.0.0 came from someone saying "that still looks wrong".
 
-Useful in a report: what you did, what you expected, what happened instead, and whether any other
-AddOns were running. A screenshot settles most things.
+### Check these first
+
+Cheapest answers first. Most reports are answered by one of the top three.
+
+1. Is `VanillaQuesting.toc` directly inside `Interface\AddOns\VanillaQuesting\`? A folder nested
+   one level too deep is the commonest install fault, and the symptom is "nothing happens".
+2. Is it ticked in the AddOn list on the character select screen?
+3. Does `/vq` open the options? If not, it is not loading at all and nothing else matters.
+4. Does it survive a `/reload`?
+5. Does it still happen with every other AddOn disabled?
+6. Does `/vq off` make it stop?
+
+### Then tell us
+
+- What you did, what you expected, and what happened instead.
+- The output of `/vq status`, which lists every option and its state.
+- Your AddOn version and client build.
+- Whether any other AddOns were running — and which, if you found a clash at step 5.
+
+A screenshot settles most things.
 
 ## Support the project
 
@@ -155,7 +173,7 @@ If it is making your adventures better, you can support development with a coffe
 
 ## Licence
 
-*To be decided — see the note in `dev/CURSEFORGE.md`.*
+All rights reserved.
 
 ## Create a release
 

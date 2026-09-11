@@ -369,13 +369,15 @@ to trace back to their cause.
 
 ## Release notes — CurseForge listing
 
-**Written — `dev/CURSEFORGE.md`.** The listing copy lives there so it stays in step with the
-AddOn rather than drifting once it is pasted into the dashboard. CurseForge is marketing and the
-readme is "how do I use it"; where they overlap they must agree.
+**Written and published.** The listing is maintained by hand in the CurseForge dashboard and is
+not kept in this repository — there is no API for page content, so a copy here would only drift.
+CurseForge is marketing; `README.md` is "how do I use it"; where they overlap they must agree.
 
 Three of CurseForge's own rules shaped it: donation links go **at the bottom**, civil in size, and
 must never advertise paywalled features; off-platform links go at the bottom too; and the summary
 says what the project does, not who made it.
+
+Licence: **All rights reserved**, CurseForge's default.
 
 Its **Known limitations** section must include, at minimum:
 

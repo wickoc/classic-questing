@@ -76,8 +76,6 @@ dev/recon-log-*.txt     raw probe output. Every conclusion in SPEC.md is evidenc
                         Kept, never pruned: a later run switches settled sections off, so an
                         earlier log is often the only remaining record of an answer.
 dev/BLIP-TEXTURE-WORKFLOW.md   how the minimap blip atlas would be replaced
-dev/CURSEFORGE.md       the listing copy, kept in step with the AddOn. CurseForge
-                        is marketing; README.md is "how do I use it".
 dev/tests/              the off-client suite. ./run.sh: static checks first
                         (lint_forward_refs.py, luac on every Lua file including
                         the probe, XML well-formedness), then twelve scenarios.
@@ -95,8 +93,8 @@ Change one of these and the others are part of the same change, not a follow-up.
 | **Any player-visible string** | `STRINGS.md`, in the same pass. Both panels if it appears in both. |
 | **An option's description or limitation** | `STRINGS.md`, `README.md` if it is user-facing behaviour, the native tooltip *and* the canvas fallback tooltip — they have drifted apart twice. |
 | **A module** | Give it a unique `order`; add it to the panel and to `/vq status` (all three are guarded by tests). Update `SPEC.md`'s work list. |
-| **Anything about what the AddOn can't do** | `README.md` Known limitations, `SPEC.md` Known limitations, and `dev/CURSEFORGE.md`. All three say the same thing or one of them is wrong. |
-| **A feature, or a command** | `dev/CURSEFORGE.md` too — the listing is a public promise and goes stale silently. |
+| **Anything about what the AddOn can't do** | `README.md` Known limitations and `SPEC.md` Known limitations. Both say the same thing or one of them is wrong. |
+| **A feature, or a command** | Flag it for the **CurseForge page**, which is edited by hand in the dashboard and is not in this repository. A listing is a public promise and goes stale silently, and nothing here can check it. |
 | **A rule I learn the hard way** | This file. |
 
 ### Backlog and bugs do **not** live in a file
@@ -108,7 +106,13 @@ elsewhere.
 **Every issue I open gets:** a label, the repository owner as assignee, and a body that says what
 the behaviour is, why it matters, and what has already been ruled out.
 
-**I cannot create releases or push tags** — this session's GitHub token is refused for both. What
+**The CurseForge page is not in this repository.** It is written and edited by hand in the
+CurseForge dashboard; there is no API for page content, and CurseForge is egress-blocked from this
+session anyway. When a change affects what the listing claims, say so in the reply — that is the
+only mechanism there is.
+
+**I cannot create releases or push tags** — this session's GitHub token is refused for both.
+Milestones, issues and comments do work. What
 I can do is get everything ready and say precisely what is left to run. The author tags, or uses
 the **Releases → Draft a new release** page on GitHub, which creates the tag itself.
 
