@@ -25,11 +25,6 @@ One line, already set from the readme. Kept here for the record:
 > or as little as you like: no map/minimap markers, no progress in tooltips, instant quest text,
 > vanilla quest tracker, and much more.
 
-If a shorter one is ever wanted, this is the same idea at a third the length:
-
-> Turns off Mists of Pandaria's quest helper so questing feels like the original game — read the
-> quest, go and look. Twelve options, all individually switchable.
-
 ---
 
 ## Categories
