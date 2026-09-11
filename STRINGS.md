@@ -136,11 +136,11 @@ the settings match neither of the others.
 Opens with a blank line. Each row is the preset name and a colon in `COLOR.TITLE`, then the body
 in `COLOR.BODY` on the same line. Rows separated by a blank line.
 
-| ID | Text | Notes |
-| --- | --- | |
-| `PRESET.TIP_VANILLA` | `Enable all vanilla options.` | Changed from `PRESET.TIP_CLASSIC` |
-| `PRESET.TIP_CUSTOM` | `Automatically selected when you change any option below.` | |
-| `PRESET.TIP_DISABLED` | `Disable all options.` | |
+| ID | Text |
+| --- | --- |
+| `PRESET.TIP_VANILLA` | `Enable all vanilla options.` |
+| `PRESET.TIP_CUSTOM` | `Automatically selected when you change any option below.` |
+| `PRESET.TIP_DISABLED` | `Disable all options.` |
 
 ### Option tooltips: the shape
 
