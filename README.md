@@ -142,11 +142,9 @@ If it is making your adventures better, you can support development with a coffe
 
 Run **`/vq off`** before you delete the folder.
 
-The AddOn puts every setting back when an option is switched off — but it can only do that while
-it is still loaded. Delete it with options still on and a few of Blizzard's console variables stay
-where the AddOn left them, with nothing left installed to explain why.
-
-`/vq off` then removing the folder leaves your interface exactly as you found it.
+Some of what this AddOn switches off are the game's own settings, not its own — and those stay
+switched off after the folder is gone, with nothing left installed to explain why. Switching the
+options off first hands them back while the AddOn is still loaded to do it.
 
 ## Licence
 

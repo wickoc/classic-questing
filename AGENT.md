@@ -13,13 +13,31 @@ as the change itself.
 69585), interface `50504`. It turns off MoP's quest-helper layer so questing feels like the
 original game.
 
-**Everything it does is subtractive.** It hides or switches off Blizzard UI. It never adds quest
-data of its own, and every value it changes is remembered before it is touched and put back when
-the option is switched off — with one documented exception (`Minimap:Disable` restores Blizzard's
-default rather than the remembered value, deliberately, and says so in its own comment).
+**Everything it does is subtractive.** It hides or switches off Blizzard UI, and never adds quest
+data of its own.
 
-That promise is made in public, in the readme and on CurseForge. **Any path that keeps a change
-is a bug against the AddOn's central claim**, not a rough edge.
+### Putting settings back is an internal design rule, not a claim
+
+The AddOn changes settings that belong to the **game**, not to itself — `questPOI`, `showBosses`,
+`autoQuestWatch`, `instantQuestText`, `Outline`, and the minimap's Track Quest POIs tracking.
+Those survive deleting the folder. So before touching one, the AddOn records what the player had,
+and switching the option off writes **their** value back.
+
+**Never advertise this.** No "leaves no trace" anywhere public. It is something that should
+simply always work, silently, and a player should never have to think about it — a promise on a
+page invites them to check, which is the opposite of the point.
+
+**It is not fully true today**, which is the other reason not to say it. Two paths keep a change
+([#18](https://github.com/wickoc/vanilla-questing/issues/18),
+[#19](https://github.com/wickoc/vanilla-questing/issues/19)) and one restores Blizzard's default
+instead of the player's value ([#27](https://github.com/wickoc/vanilla-questing/issues/27)).
+Treat all three as real bugs on their own merits — the design rule is the argument, not a public
+commitment.
+
+**Once all three are fixed**, and only then, the README's **Uninstalling** section may say it:
+that `/vq off` followed by deleting the folder leaves the game exactly as it was before the AddOn
+was installed. That is the one place it belongs, because that is the one moment a player needs to
+know it.
 
 ---
 

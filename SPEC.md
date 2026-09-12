@@ -138,6 +138,15 @@ row rather than forcing a global reload prompt.
 toggleable in the panel. Nothing the addon does may be all-or-nothing at the panel level, even
 where the underlying lever is (see the `questPOI` bundling note in G5).
 
+**Settings that belong to the game go back as the player left them.** The console variables and
+the minimap tracking this AddOn drives all survive deleting the folder, so each is recorded before
+it is touched and written back when the option is switched off. **This is an internal design rule
+and is never advertised** — no "leaves no trace" on any public page. Three paths currently break
+it: [#18](https://github.com/wickoc/vanilla-questing/issues/18),
+[#19](https://github.com/wickoc/vanilla-questing/issues/19),
+[#27](https://github.com/wickoc/vanilla-questing/issues/27). Once all three are closed, the
+README's Uninstalling section may say it, and nowhere else.
+
 **SavedVariables:** account-wide, not per character. Whether that should be the player's choice
 is [issue #10](https://github.com/wickoc/vanilla-questing/issues/10).
 
@@ -889,7 +898,14 @@ is asking for the minimap quest helper — being handed back an entry that happe
 look like the option had failed.
 
 This is the one place the AddOn restores a Blizzard **default** rather than the exact value it
-found, and it is a deliberate exception to leave-no-trace.
+found.
+
+**Reconsidered, and now [issue #27](https://github.com/wickoc/vanilla-questing/issues/27).** The
+reasoning above is about how the option *looks* when switched off, and it is a fair point — but
+the setting belongs to the game and survives deleting the AddOn, so a player who had that tracking
+off before installing never gets it back. The likely answer is to restore the remembered value and
+explain the rare case in one chat line, which fixes the appearance problem without keeping the
+change. The issue records both positions.
 
 #### The tooltip fit, fourth pass — and this time the harness found the gap first
 
