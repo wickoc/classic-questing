@@ -17,12 +17,14 @@ failed=0
 # `luac -p` accepts and every scenario passes right over.
 lintfail=0
 ( cd ../.. && python3 dev/tests/lint_forward_refs.py \
-    "VanillaQuesting/*.lua" "dev/UnmarkedRecon/*.lua" ) || lintfail=1
+    "VanillaQuesting/*.lua" "dev/UnmarkedRecon/*.lua" \
+    "dev/knowledge/*.lua" ) || lintfail=1
 
 # And the probe has to at least compile. It is not covered by any scenario --
 # it never loads here -- so a syntax error in it would otherwise reach the
 # client before it reached this suite.
-for f in ../../VanillaQuesting/*.lua ../../dev/UnmarkedRecon/*.lua; do
+for f in ../../VanillaQuesting/*.lua ../../dev/UnmarkedRecon/*.lua \
+         ../../dev/knowledge/*.lua; do
     luac5.1 -p "$f" || lintfail=1
 done
 

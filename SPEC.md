@@ -94,16 +94,29 @@ code before it becomes an issue. An audit is evidence, not a verdict — the 202
 happened to be right on all seven counts, which is a reason to keep reading them and not a reason
 to stop checking.
 
+**Reference material** lives in `dev/knowledge/`, including Blizzard's own interface source for
+build 5.5.4.69585 and an offline index of the API documentation the client ships. Every claim in
+this file that says "the client does X" can now be sourced two ways — a probe log, or a file and
+a line in Blizzard's code — and the first thing reading it turned up was an error in this file
+(known limitation 1, below).
+
 ### Known limitations
 
 Documented in `README.md` and to be repeated on the CurseForge page. These are things this
 client will not let an AddOn do cleanly, not things left undone.
 
 1. **Achievement tracker lines also stop being clickable** when `trackerPlainText` is on. The
-   tracker draws quest and achievement titles from one pool of buttons (`WATCHFRAME_LINKBUTTONS`)
-   and does not mark which is which. Accepted as a cost; stated in the option's own tooltip so
-   the player reads it where they decide. Worth another probe pass some day — if a button
-   carries a type field, they could be told apart — but not a priority.
+   tracker draws quest and achievement titles from one pool of buttons
+   (`WATCHFRAME_LINKBUTTONS`), and `trackerPlainText` calls `EnableMouse(false)` on all of them.
+   True of the shipped code, and stated in the option's own tooltip so the player reads it where
+   they decide.
+
+   **It is a defect, not a law, and the reason given here until now was wrong.** This entry used
+   to say the buttons "do not mark which is which". They do: Blizzard's own
+   `Wrath/WatchFrame.lua` sets `linkButton.type` to `"QUEST"` or `"ACHIEVEMENT"` and branches on
+   it in six places. The probe pass this entry asked for was answered by reading the client's
+   source instead — see `dev/knowledge/CLIENT-SOURCE.md`. Tracked as an issue; the limitation
+   stays documented until a fix has been played.
 2. **Quest objects show either an outline or loot sparkles — never neither.** The two are
    alternatives in the engine, so sparkles cannot simply be removed; the most an AddOn can do is
    ask for the outline instead, which is what `outlineMode` does. Where a client fails to render

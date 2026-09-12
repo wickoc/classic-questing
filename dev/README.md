@@ -29,6 +29,24 @@ first to use one.
 Then `/reload` to flush SavedVariables to disk and read
 `_classic_\WTF\Account\<ACCOUNT>\SavedVariables\UnmarkedRecon.lua`.
 
+## `knowledge/`
+
+Reference material, and the one part of `dev/` that is not about this AddOn: what the client
+exposes, how other people solved the same problems, and what a port to another client faces.
+
+The find that started it is **Blizzard's own interface source for this exact build**. The `classic`
+branch of `Gethe/wow-ui-source` reads `5.5.4.69585` in `version.txt` — this client, to the
+revision — and it ships the client's generated API documentation with it. `fetch_client_source.sh`
+clones it; `build_api_index.lua` turns the documentation into two committed index files so
+"does this exist on 5.5.4" is answerable with no network and no client.
+
+It does **not** replace `UnmarkedRecon/`. The source says what exists and what Blizzard's code does
+with it; only the game says whether a call is protected, whether a write takes, and whether the
+result looks right. Read the source first and probe what the source cannot answer — the one thing
+that stays banned is asserting behaviour from memory.
+
+Start at [`knowledge/CLIENT-SOURCE.md`](knowledge/CLIENT-SOURCE.md).
+
 ## `recon-log-*.txt`
 
 The raw output of past probe runs, kept because **every conclusion in `SPEC.md` is evidence from
@@ -51,7 +69,7 @@ cd dev/tests && ./run.sh
 Needs `lua5.1`, the client's own Lua version, so the same forward-reference and scoping rules
 apply here as in game — a trap this project has hit twice.
 
-Ten scenarios, including the ones that matter for a subtractive AddOn: a client with no Settings
+Twelve scenarios, including the ones that matter for a subtractive AddOn: a client with no Settings
 API, one that refuses a CVar write, one with no `C_Minimap`, and one where registration half
 succeeds and the panel must fall back rather than half-work.
 

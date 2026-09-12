@@ -47,6 +47,8 @@ or `/reload`, then type `/vq` to open the options.
 
 ## What it removes
 
+Twelve options, in the five groups the options panel uses.
+
 **Map and minimap**
 
 - Numbered quest pins, shaded objective areas, the Track Quest checkbox and the quest list
@@ -54,42 +56,45 @@ or `/reload`, then type `/vq` to open the options.
 - Quest markers on the minimap
 - Boss and creature portrait pins on zone maps, which Classic never had
 
-**Quest text and bags**
+**Quests**
 
-- The framed questgiver portrait beside quest text, in the offer window and the quest log
-- Quest progress appended to tooltips — mousing a creature no longer tells you which quest it
-  belongs to or how many you still need
 - Instant Quest Text, so quest text types out a line at a time as it did in Classic
-- The yellow highlight MoP puts on quest items in your bags, and the `!` on items that start a
-  quest — one option, since Blizzard draws both with the same texture
+- The framed questgiver portrait beside quest text, in the offer window and the quest log
 
 **Quest tracker**
 
 The tracker itself stays. Classic had one: you shift-click a quest in the log and it appears.
 What goes is everything MoP bolted onto it.
 
+- Automatic tracking of newly accepted quests
 - Clickable quest titles — no click-to-open-map, no right-click menu. Classic's tracker was text
   you read
 - Quest item use buttons beside tracked quests. Quest items are used from your bags
-- Automatic tracking of newly accepted quests
+
+**UI**
+
+- Quest progress appended to tooltips — mousing a creature no longer tells you which quest it
+  belongs to or how many you still need
+- The yellow highlight MoP puts on quest items in your bags, and the `!` on items that start a
+  quest — one option, since Blizzard draws both with the same texture
 
 **Experimental**
 
 These are never switched on by the **Vanilla (Default)** preset. Turn them on yourself.
 
-- Turn-in pop-up bubbles
 - Loot sparkles on quest objects, replaced with an outline — see Known limitations
+- Turn-in pop-up bubbles
 
 ## Known limitations
 
 ### Achievement tracker lines also stop being clickable
 
 Turning the quest tracker to plain text also stops achievement lines in the tracker
-responding to clicks. The tracker draws quest titles and achievement titles from a single pool of
-buttons and does not mark which is which, so there is no way to disable one without the other.
+responding to clicks. The tracker draws quest titles and achievement titles from a single shared
+pool of buttons, and this version switches the clicks off across the whole pool.
 
 If you track achievements and want them clickable, leave that one option off. Everything else
-still works.
+still works. This one is being looked at rather than accepted — see the issue tracker.
 
 ### Quest objects show either an outline or loot sparkles — never neither
 
@@ -140,11 +145,9 @@ If it is making your adventures better, you can support development with a coffe
 
 ## Uninstalling
 
-Run **`/vq off`** before you delete the folder.
-
-Some of what this AddOn switches off are the game's own settings, not its own — and those stay
-switched off after the folder is gone, with nothing left installed to explain why. Switching the
-options off first hands them back while the AddOn is still loaded to do it.
+1. Run **`/vq off`**. This hands the game's own settings back while the AddOn is still loaded to do
+   it.
+2. Delete the `VanillaQuesting` folder from `World of Warcraft\_classic_\Interface\AddOns\`.
 
 ## Licence
 
