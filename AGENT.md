@@ -100,8 +100,8 @@ Change one of these and the others are part of the same change, not a follow-up.
 | **Any player-visible string** | `STRINGS.md`, in the same pass. Both panels if it appears in both. |
 | **An option's description or limitation** | `STRINGS.md`, `README.md` if it is user-facing behaviour, the native tooltip *and* the canvas fallback tooltip — they have drifted apart twice. |
 | **A module** | Give it a unique `order`; add it to the panel and to `/vq status` (all three are guarded by tests). Update `SPEC.md`'s work list. |
-| **Anything about what the AddOn can't do** | `README.md` Known limitations and `SPEC.md` Known limitations. Both say the same thing or one of them is wrong. |
-| **A feature, or a command** | Flag it for the **CurseForge page**, which is edited by hand in the dashboard and is not in this repository. A listing is a public promise and goes stale silently, and nothing here can check it. |
+| **Anything about what the AddOn can't do** | All **three** Known limitations sections: `README.md`, `SPEC.md`, and the **CurseForge listing**. See below — they are written at different depths on purpose, but they must never disagree about the facts. |
+| **A feature, or a command** | The **CurseForge listing** too. It is a public promise and goes stale silently. |
 | **A rule I learn the hard way** | This file. |
 
 ### Backlog and bugs do **not** live in a file
@@ -113,10 +113,25 @@ elsewhere.
 **Every issue I open gets:** a label, the repository owner as assignee, and a body that says what
 the behaviour is, why it matters, and what has already been ruled out.
 
+### The three Known limitations sections
+
+They exist deliberately, at three depths, and all three are updated whenever any one of them is —
+or whenever a new limitation is found.
+
+| Where | Register |
+| --- | --- |
+| **CurseForge** | The cleanest. What it means for the player, with the technical reasoning left out. |
+| **`README.md`** | A little more detail, a little more technical. Names the CVar or the frame where that helps someone reading the code. |
+| **`SPEC.md`** | Fully technical. The measurement, the probe section, what was tried and rejected. |
+
+Different depth, never different facts. If the listing says a thing is impossible and the spec
+says it is merely unshipped, one of them is lying to somebody.
+
 **The CurseForge page is not in this repository.** It is written and edited by hand in the
 CurseForge dashboard; there is no API for page content, and CurseForge is egress-blocked from this
-session anyway. When a change affects what the listing claims, say so in the reply — that is the
-only mechanism there is.
+session anyway. **Nothing here can check it**, which is the argument for a stronger rule, not a
+weaker one: when a change touches anything the listing claims, say so in the reply, with the
+wording to paste. That is the only mechanism there is.
 
 **I cannot create releases or push tags** — this session's GitHub token is refused for both.
 Milestones, issues and comments do work. What
